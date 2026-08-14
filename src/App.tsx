@@ -20,6 +20,7 @@ import { getCharacterAsset } from './utils/characterAssets';
 import { buildShareHook, earnsBonusQuestion } from './utils/shareIncentive';
 import { FollowUpLoading, FormattedAnswer } from './components/FollowUpContent';
 import { BusinessFooter } from './components/BusinessFooter';
+import { ReportProse } from './components/ReportProse';
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from './utils/reportCopy';
 import { CHECKOUT_COPY, buildCheckoutPresentation, runCheckoutAction } from './utils/checkoutPresentation';
 
@@ -1448,6 +1449,8 @@ export default function App() {
             </span>
           </div>
 
+          <div className="result-primary">
+
           {/* 내 일간 크리처 — 결과를 열자마자 가장 먼저 보이는 "내 카드" */}
           {(() => {
             const character = getCharacterAsset(sajuResult.dayGan.char);
@@ -1538,12 +1541,14 @@ export default function App() {
             );
           })()}
 
-          {/* 사주 원국표 (무료) */}
-          <div className="glass-card evidence-card" style={{ padding: '20px 16px', marginBottom: 20 }}>
+          </div>
+
+          {/* 사주 원국표 (무료) — 판단과 행동 요약 다음에 근거로 제공 */}
+          <div className="glass-card evidence-card result-evidence">
             <div className="section-heading"><div><span className="eyebrow">{REPORT_HEADINGS.evidence}</span><h3>{REPORT_HEADINGS.chart}</h3></div><span>{sajuResult.dayGan.char}목 본원</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
               {/* 시주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>시주</span>
                 {sajuResult.pillars.hour.gan ? (
                   <>
@@ -1557,7 +1562,7 @@ export default function App() {
               </div>
 
               {/* 일주 */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid var(--border-neon)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid var(--border-neon)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>일주 (나)</span>
                 <h4 style={{ color: 'var(--accent-pink)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.day.ganHanja}{sajuResult.pillars.day.zhiHanja}</h4>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.day.gan}{sajuResult.pillars.day.zhi}</span>
@@ -1565,7 +1570,7 @@ export default function App() {
               </div>
 
               {/* 월주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>월주</span>
                 <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.month.ganHanja}{sajuResult.pillars.month.zhiHanja}</h4>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.month.gan}{sajuResult.pillars.month.zhi}</span>
@@ -1573,7 +1578,7 @@ export default function App() {
               </div>
 
               {/* 연주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>연주</span>
                 <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.year.ganHanja}{sajuResult.pillars.year.zhiHanja}</h4>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.year.gan}{sajuResult.pillars.year.zhi}</span>
@@ -1632,7 +1637,7 @@ export default function App() {
             )}
 
             {/* 2. Content Area (Blurred when locked) */}
-            <div className={!isUnlocked ? "blur-content" : ""}>
+            <div className={`report-details${!isUnlocked ? ' blur-content' : ''}`}>
               
               {/* Continuous premium report */}
               {aiReport && (
@@ -1711,7 +1716,7 @@ export default function App() {
                       <span className="report-number">01</span>
                       <span className="eyebrow">{REPORT_HEADINGS.personalAnswer}</span>
                       <h3>“{aiReport.personal_answer.question}”</h3>
-                      <p className="report-prose">{aiReport.personal_answer.content}</p>
+                      <ReportProse text={aiReport.personal_answer.content} />
                     </section>
                   )}
 
@@ -1720,7 +1725,7 @@ export default function App() {
                       <span className="report-number">02</span>
                       <span className="eyebrow">{REPORT_HEADINGS.situation}</span>
                       <h3>{aiReport.current_dilemma.title}</h3>
-                      <p className="report-prose">{aiReport.current_dilemma.content}</p>
+                      <ReportProse text={aiReport.current_dilemma.content} />
                     </section>
                   )}
 
@@ -1729,7 +1734,7 @@ export default function App() {
                       <span className="report-number">03</span>
                       <span className="eyebrow">{REPORT_HEADINGS.careerNature}</span>
                       <h3>{aiReport.career_nature.title}</h3>
-                      <p className="report-prose">{aiReport.career_nature.content}</p>
+                      <ReportProse text={aiReport.career_nature.content} />
                       <div className="trait-grid">
                         <div><strong>{REPORT_HEADINGS.strengths}</strong>{aiReport.career_nature.strengths.map((item: string) => <span key={item}>{item}</span>)}</div>
                         <div><strong>{REPORT_HEADINGS.cautions}</strong>{aiReport.career_nature.cautions.map((item: string) => <span key={item}>{item}</span>)}</div>
@@ -1758,7 +1763,7 @@ export default function App() {
                       <span className="report-number">05</span>
                       <span className="eyebrow">{REPORT_HEADINGS.environment}</span>
                       <h3>{aiReport.ideal_environment.title}</h3>
-                      <p className="report-prose">{aiReport.ideal_environment.content}</p>
+                      <ReportProse text={aiReport.ideal_environment.content} />
                       <div className="check-list">{aiReport.ideal_environment.checklist.map((item: string) => <span key={item}>{item}</span>)}</div>
                     </section>
                   )}
