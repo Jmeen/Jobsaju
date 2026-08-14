@@ -1,4 +1,5 @@
 import { parseGeminiError } from './geminiError.js';
+import { encodeSecurePayload } from './crypto.js';
 import { buildGeminiRequest } from './geminiTransport.js';
 import {
   assessFollowUpQuestion,
@@ -100,7 +101,8 @@ async function verifyUnlockToken(env, unlockToken) {
 async function sendReportNotificationEmail(env, { email, unlockToken, sajuData, origin }) {
   if (!email || !email.includes('@')) return;
   const baseUrl = origin || env.PUBLIC_SERVICE_URL || 'https://jobsaju.kr';
-  const reportUrl = `${baseUrl}/?token=${unlockToken}&email=${encodeURIComponent(email)}`;
+  const payloadStr = encodeSecurePayload({ token: unlockToken, email });
+  const reportUrl = `${baseUrl}/?p=${encodeURIComponent(payloadStr)}`;
   const title = sajuData?.ilgan ? `[직장인 이직사주] ${sajuData.ilgan} 일간 맞춤 커리어 리포트가 완성되었습니다` : `[직장인 이직사주] 요청하신 AI 사주 분석 리포트가 완성되었습니다`;
 
   // 1. Resend API 연동 (환경변수 RESEND_API_KEY 가 있을 때)
@@ -158,7 +160,8 @@ async function sendLookupEmail(env, { email, history, origin }) {
   if (!email || !history || history.length === 0) return;
   const baseUrl = origin || env.PUBLIC_SERVICE_URL || 'https://jobsaju.kr';
   const linksHtml = history.map(({ token, createdAt, label }) => {
-    const reportUrl = `${baseUrl}/?token=${token}&email=${encodeURIComponent(email)}`;
+    const payloadStr = encodeSecurePayload({ token, email });
+    const reportUrl = `${baseUrl}/?p=${encodeURIComponent(payloadStr)}`;
     const dateLabel = createdAt ? new Date(createdAt).toLocaleDateString('ko-KR') : '';
     return `<div style="margin-bottom:10px;"><a href="${reportUrl}" style="color:#7c3aed;font-weight:bold;text-decoration:none;">${label || 'AI 커리어 리포트'}${dateLabel ? ` (${dateLabel})` : ''} 열람하기 →</a></div>`;
   }).join('');
@@ -437,6 +440,13 @@ export default {
 
         const meta = metaText ? JSON.parse(metaText) : {};
 
+        // 저장된 추가 질문 내역 가져오기
+        let followups = [];
+        const followupsText = await env.SAJU_KV.get(`followups:${unlockToken}`);
+        if (followupsText) {
+          try { followups = JSON.parse(followupsText); } catch(e) {}
+        }
+
         // 이 리포트의 소유 이메일로 다른 구매 이력이 있으면 함께 내려줘서, 메일 속 링크 하나로 들어와도
         // 과거 리포트를 골라볼 수 있게 한다.
         let history = [];
@@ -456,6 +466,7 @@ export default {
           saju_data: meta.saju_data || null,
           unlockToken,
           history,
+          followups,
         }), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         });
@@ -795,6 +806,21 @@ ${q}
         // 성공한 뒤에만 사용 처리 (실패 시 기회를 태우지 않는다)
         if (env.SAJU_KV) {
           await env.SAJU_KV.put(usageKey, new Date().toISOString());
+
+          // 추가 질문 저장
+          const followupsKey = `followups:${unlock_token}`;
+          let followups = [];
+          const existingText = await env.SAJU_KV.get(followupsKey);
+          if (existingText) {
+            try { followups = JSON.parse(existingText); } catch (e) {}
+          }
+          followups.push({
+            question: q,
+            answer: parsedAnswer,
+            answeredAt: generatedAt,
+          });
+          const ttl = 60 * 60 * 24 * 90; // 90일
+          await env.SAJU_KV.put(followupsKey, JSON.stringify(followups), { expirationTtl: ttl });
         }
 
         return new Response(JSON.stringify(parsedAnswer), {

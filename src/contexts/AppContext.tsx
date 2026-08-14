@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { decodeSecurePayload } from '../utils/crypto';
 import { getSajuAnalysis } from '../utils/sajuCore';
 import type { SajuCoreResult } from '../utils/sajuCore';
 import { buildScoreBars, buildVerdictView } from '../utils/reportViewModel';
@@ -293,8 +294,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
-    const tokenParam = params.get('token');
-    const emailParam = params.get('email');
+    let tokenParam = params.get('token');
+    let emailParam = params.get('email');
+    const pParam = params.get('p');
+    if (pParam) {
+      const decoded = decodeSecurePayload(pParam);
+      if (decoded) {
+        tokenParam = decoded.token || tokenParam;
+        emailParam = decoded.email || emailParam;
+      }
+    }
 
     if (tokenParam) {
       setIsLookupLoading(true);
@@ -305,6 +314,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setIsUnlocked(true);
             setUnlockToken(tokenParam);
             setReportHistory(data.history || []);
+            if (data.followups && data.followups.length > 0) {
+              setFollowUps(data.followups);
+            }
             if (data.user_context) {
               setCareerContext(prev => ({ ...prev, ...data.user_context }));
             }
