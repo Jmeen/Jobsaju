@@ -13,7 +13,7 @@ test('각 리포트 문단을 안전한 시맨틱 마크업으로 렌더링한�
     root: projectRoot,
     configFile: false,
     cacheDir: join(tmpdir(), 'jobsaju-report-prose-test-cache'),
-    server: { middlewareMode: true },
+    server: { middlewareMode: true, hmr: { port: 24679 } },
     appType: 'custom',
   });
   t.after(() => vite.close());

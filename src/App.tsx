@@ -1522,6 +1522,50 @@ export default function App() {
 
           </div>
 
+          {/* 사주 원국표 (무료) — 판단과 행동 요약 다음에 근거로 제공 */}
+          <div className="glass-card evidence-card result-evidence">
+            <div className="section-heading"><div><span className="eyebrow">{REPORT_HEADINGS.evidence}</span><h3>{REPORT_HEADINGS.chart}</h3></div><span>{sajuResult.dayGan.char}목 본원</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+              {/* 시주 */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>시주</span>
+                {sajuResult.pillars.hour.gan ? (
+                  <>
+                    <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.hour.ganHanja}{sajuResult.pillars.hour.zhiHanja}</h4>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.hour.gan}{sajuResult.pillars.hour.zhi}</span>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.hour.shiShen}</div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>모름</div>
+                )}
+              </div>
+
+              {/* 일주 */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid var(--border-neon)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>일주 (나)</span>
+                <h4 style={{ color: 'var(--accent-pink)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.day.ganHanja}{sajuResult.pillars.day.zhiHanja}</h4>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.day.gan}{sajuResult.pillars.day.zhi}</span>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.day.shiShen}</div>
+              </div>
+
+              {/* 월주 */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>월주</span>
+                <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.month.ganHanja}{sajuResult.pillars.month.zhiHanja}</h4>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.month.gan}{sajuResult.pillars.month.zhi}</span>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.month.shiShen}</div>
+              </div>
+
+              {/* 연주 */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>연주</span>
+                <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.year.ganHanja}{sajuResult.pillars.year.zhiHanja}</h4>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.year.gan}{sajuResult.pillars.year.zhi}</span>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.year.shiShen}</div>
+              </div>
+            </div>
+          </div>
+
           {/* === LOCKED / UNLOCKED AREA === */}
           <div className="locked-area">
             
@@ -1824,50 +1868,6 @@ export default function App() {
                       {buildElementInsight(sajuResult.elementsCount)}
                     </p>
                   </div>
-              </div>
-            </div>
-
-            {/* 사주 원국표 (무료) — 판단과 행동 리포트 다음에 근거로 제공 */}
-            <div className="glass-card evidence-card result-evidence">
-              <div className="section-heading"><div><span className="eyebrow">{REPORT_HEADINGS.evidence}</span><h3>{REPORT_HEADINGS.chart}</h3></div><span>{sajuResult.dayGan.char}목 본원</span></div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                {/* 시주 */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>시주</span>
-                  {sajuResult.pillars.hour.gan ? (
-                    <>
-                      <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.hour.ganHanja}{sajuResult.pillars.hour.zhiHanja}</h4>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.hour.gan}{sajuResult.pillars.hour.zhi}</span>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.hour.shiShen}</div>
-                    </>
-                  ) : (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>모름</div>
-                  )}
-                </div>
-
-                {/* 일주 */}
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid var(--border-neon)' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>일주 (나)</span>
-                  <h4 style={{ color: 'var(--accent-pink)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.day.ganHanja}{sajuResult.pillars.day.zhiHanja}</h4>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.day.gan}{sajuResult.pillars.day.zhi}</span>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.day.shiShen}</div>
-                </div>
-
-                {/* 월주 */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>월주</span>
-                  <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.month.ganHanja}{sajuResult.pillars.month.zhiHanja}</h4>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.month.gan}{sajuResult.pillars.month.zhi}</span>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.month.shiShen}</div>
-                </div>
-
-                {/* 연주 */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>연주</span>
-                  <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.year.ganHanja}{sajuResult.pillars.year.zhiHanja}</h4>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.year.gan}{sajuResult.pillars.year.zhi}</span>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.year.shiShen}</div>
-                </div>
               </div>
             </div>
 
