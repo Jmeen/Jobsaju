@@ -1,0 +1,285 @@
+import React from 'react';
+import { useAppContext } from '../../contexts/AppContext';
+import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
+
+
+export function ManualPayModal() {
+  const {
+    step,
+    birthData,
+    careerContext,
+    sajuResult,
+    isUnlocked,
+    emailInput,
+    isAILoading,
+    unlockLoadingText,
+    unlockError,
+    aiReport,
+    showManualPayModal,
+    savedSession,
+    showLookupModal,
+    lookupEmailInput,
+    isLookupLoading,
+    lookupError,
+    lookupSentMessage,
+    reportHistory,
+    deepLinkError,
+    couponInput,
+    appliedCoupon,
+    couponMessage,
+    couponError,
+    isCouponChecking,
+    showSecretCoupon,
+    secretClickCount,
+    followUps,
+    shareBonusGranted,
+    followUpInput,
+    followUpError,
+    isFollowUpLoading,
+    isShareLoading,
+    isShareConfirming,
+    unlockToken,
+    setStep,
+    setBirthData,
+    setCareerContext,
+    setSajuResult,
+    setIsUnlocked,
+    setEmailInput,
+    setIsAILoading,
+    setUnlockLoadingText,
+    setUnlockError,
+    setAiReport,
+    setShowManualPayModal,
+    setSavedSession,
+    setShowLookupModal,
+    setLookupEmailInput,
+    setIsLookupLoading,
+    setLookupError,
+    setLookupSentMessage,
+    setReportHistory,
+    setDeepLinkError,
+    setCouponInput,
+    setAppliedCoupon,
+    setCouponMessage,
+    setCouponError,
+    setIsCouponChecking,
+    setShowSecretCoupon,
+    setSecretClickCount,
+    setFollowUps,
+    setShareBonusGranted,
+    setFollowUpInput,
+    setFollowUpError,
+    setIsFollowUpLoading,
+    setIsShareLoading,
+    setIsShareConfirming,
+    setUnlockToken,
+    restoreSavedSession,
+    handleUnlock,
+    handleEmailLookup,
+    handleSelectPastReport,
+    handleFollowUpSubmit,
+    handleDownloadCard,
+    handleShareResult,
+    handleApplyCoupon,
+    pollShareBonusStatus,
+    checkout,
+    price,
+    copy,
+    currentInputStep,
+    wheelDayCount,
+    wheelDays,
+    birthError,
+    loadingText,
+    viralCardCanvasRef,
+    summaryCardCanvasRef
+  } = useAppContext();
+
+  return (
+    <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 100, padding: 20
+        }}>
+          <div className="glass-card" style={{
+            width: '100%', maxWidth: 400, background: '#120d21', border: '1px solid var(--border-neon-bright)',
+            boxShadow: '0 0 30px rgba(168,85,247,0.3)', padding: 24
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <h3 
+                  style={{ 
+                    fontSize: 18, 
+                    color: '#fff', 
+                    margin: 0, 
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="🔮"
+                  onClick={() => {
+                    const nextCount = secretClickCount + 1;
+                    setSecretClickCount(nextCount);
+                    if (nextCount >= 3) {
+                      setShowSecretCoupon(true);
+                      setSecretClickCount(0);
+                    }
+                  }}
+                >
+                  {CHECKOUT_COPY.title} {appliedCoupon ? <span style={{ color: '#4ade80', fontSize: 15 }}>(0원 무료 적용)</span> : `(${price.label})`}
+                  {!showSecretCoupon && !appliedCoupon && secretClickCount > 0 && (
+                    <span style={{ fontSize: 11, color: 'var(--accent-purple)', opacity: 0.8 }}>
+                      {secretClickCount}/3
+                    </span>
+                  )}
+                </h3>
+              </div>
+              <button 
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 18, cursor: 'pointer' }}
+                onClick={() => {
+                  setShowManualPayModal(false);
+                  setSecretClickCount(0);
+                }}
+              >✕</button>
+            </div>
+
+            {isAILoading ? (
+              // 리포트 생성이 수십 초 걸릴 수 있어, 진행 중임을 계속 보여주고 창을 닫아도 완료 시 알려준다
+              <div className="unlock-loading">
+                <div className="unlock-loading-spinner" />
+                <p>{unlockLoadingText}</p>
+                <div className="loading-track"><span /></div>
+                <small style={{ lineHeight: 1.5, display: 'block', marginTop: 10 }}>
+                  💡 이 창을 닫으셔도 AI 분석은 백그라운드에서 계속 진행되며,<br />
+                  완료 시 입력하신 <strong>{emailInput || '이메일'}</strong>로 안전하게 보관 및 열람 링크가 전달됩니다.
+                </small>
+              </div>
+            ) : (
+              <>
+                {/* Email Input (결제 유실 복구 및 알림용) */}
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label className="form-label">이메일 주소 <span style={{ color: 'var(--accent-purple)', fontSize: 12 }}>(완성 알림 및 분실 복구용)</span></label>
+                  <input
+                    type="email" className="input-text" placeholder="yourname@gmail.com"
+                    value={emailInput} onChange={e => setEmailInput(e.target.value)}
+                  />
+                </div>
+
+                {/* 숨겨진 쿠폰 코드 입력 섹션 (3회 탭 또는 적용 시 노출) */}
+                {(showSecretCoupon || appliedCoupon) && (
+                  <div style={{ 
+                    background: 'rgba(168, 85, 247, 0.08)', 
+                    padding: 14, 
+                    borderRadius: 12, 
+                    border: '1px dashed var(--accent-purple)', 
+                    marginBottom: 16,
+                    animation: 'fadeIn 0.25s ease-out'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <label className="form-label" style={{ fontSize: 12, marginBottom: 0, color: 'var(--accent-purple)', fontWeight: 600 }}>
+                        🎟️ 시크릿 프로모션 쿠폰
+                      </label>
+                      <button
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer' }}
+                        onClick={() => setShowSecretCoupon(false)}
+                      >
+                        숨기기
+                      </button>
+                    </div>
+                    <div className="coupon-code-row">
+                      <input
+                        type="text"
+                        className="input-text coupon-code-input"
+                        placeholder="발급받은 쿠폰 코드를 입력하세요"
+                        value={couponInput}
+                        disabled={isCouponChecking}
+                        onChange={e => {
+                          setCouponInput(e.target.value);
+                          setCouponError(null);
+                        }}
+                        onKeyDown={e => { if (e.key === 'Enter') void handleApplyCoupon(); }}
+                        style={{ fontSize: 13, textTransform: 'uppercase' }}
+                        autoFocus
+                      />
+                      <button
+                        className="btn-secondary coupon-apply-button"
+                        onClick={() => void handleApplyCoupon()}
+                        disabled={isCouponChecking}
+                      >
+                        {isCouponChecking ? '확인 중...' : '적용'}
+                      </button>
+                    </div>
+
+                    {couponMessage && (
+                      <p style={{ color: '#4ade80', fontSize: 12, marginTop: 8, marginBottom: 0, fontWeight: 500 }}>
+                        {couponMessage}
+                      </p>
+                    )}
+                    {couponError && (
+                      <p style={{ color: '#f87171', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+                        {couponError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 결제 / 해금 버튼 */}
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: 14, borderRadius: 12, border: '1px solid rgba(255,255,255,0.04)', marginBottom: 10, textAlign: 'left' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>최종 결제 금액</span>
+                    <span style={{ fontSize: 16, fontWeight: 'bold', color: appliedCoupon ? '#4ade80' : '#fff' }}>
+                      {checkout.originalLabel && (
+                        <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontSize: 12, marginRight: 6 }}>
+                          {checkout.originalLabel}
+                        </span>
+                      )}
+                      {checkout.finalLabel}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button
+                      className="btn-primary"
+                      style={appliedCoupon
+                        ? { padding: 13, fontSize: 14, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', boxShadow: '0 0 15px rgba(16,185,129,0.4)' }
+                        : { padding: 12, fontSize: 13, boxShadow: 'none' }}
+                      onClick={() => runCheckoutAction(checkout.action, () => { void handleUnlock(emailInput); })}
+                    >
+                      {checkout.buttonLabel}
+                    </button>
+
+                    {unlockError && (
+                      <div role="alert" className="unlock-error">
+                        <strong>전체 리포트를 불러오지 못했어요.</strong>
+                        <span>{unlockError}</span>
+                        <small>입력 내용은 그대로 유지됩니다. 서버 설정을 확인한 뒤 다시 눌러주세요.</small>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 4, textAlign: 'center' }}>
+                      {appliedCoupon ? (
+                        '무료 프로모션 쿠폰이 적용된 상태입니다.'
+                      ) : (
+                        <span>
+                          안전하고 간편한 결제가 지원됩니다.
+                          {!showSecretCoupon && (
+                            <button
+                              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', fontSize: 10, cursor: 'pointer', marginLeft: 6, textDecoration: 'underline' }}
+                              onClick={() => setShowSecretCoupon(true)}
+                              title="시크릿 코드 입력"
+                            >
+                              코드입력
+                            </button>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+  );
+}
