@@ -289,7 +289,7 @@ async function callGemini(env, { systemInstruction, prompt }) {
 }
 
 export default {
-  async fetch(request, env, _ctx) {
+  async fetch(request, env, ctx) {
     // 1. CORS Preflight 처리
     if (request.method === "OPTIONS") {
       return new Response(null, {
@@ -1052,15 +1052,19 @@ ${q}
           }
         }
 
-        // 이메일 알림 전송 (비동기 트리거)
+        // 이메일 알림 전송 (비동기 트리거) — Response를 반환한 뒤에도 완료될 수 있도록
+        // ctx.waitUntil로 등록한다. waitUntil 없이 fire-and-forget하면 Workers 런타임이
+        // 응답 반환 직후 나머지 실행을 중단시켜 메일이 발송되지 않을 수 있다.
         if (rawEmail && rawEmail.includes('@')) {
           const origin = request.headers.get("origin") || request.headers.get("referer") ? new URL(request.headers.get("origin") || request.headers.get("referer")).origin : undefined;
-          sendReportNotificationEmail(env, {
-            email: rawEmail,
-            unlockToken: unlock_token,
-            sajuData: saju_data,
-            origin,
-          }).catch(e => console.error('Email send error:', e));
+          ctx.waitUntil(
+            sendReportNotificationEmail(env, {
+              email: rawEmail,
+              unlockToken: unlock_token,
+              sajuData: saju_data,
+              origin,
+            }).catch(e => console.error('Email send error:', e))
+          );
         }
 
         return new Response(validatedReportText, {

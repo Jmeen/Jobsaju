@@ -239,6 +239,8 @@ export default function App() {
   const [lookupSentMessage, setLookupSentMessage] = useState<string | null>(null);
   // 이메일로 조회했을 때 해당 이메일로 구매한 전체 리포트 이력(최신순) — 과거 리포트 선택 UI에 사용
   const [reportHistory, setReportHistory] = useState<ReportHistoryEntry[]>([]);
+  // 이메일 딥링크(?token=...) 복구가 실패했을 때 빈 화면 대신 안내할 메시지
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
 
   // === 쿠폰 시스템 상태 ===
   const [couponInput, setCouponInput] = useState('');
@@ -296,11 +298,22 @@ export default function App() {
             if (data.user_context) {
               setCareerContext(prev => ({ ...prev, ...data.user_context }));
             }
-            setStep('result');
+            // 저장된 birth_data가 있으면 사주를 다시 계산해 결과 화면을 정상적으로 채운다
+            // ('loading' 스텝이 sajuResult를 만들고 나서 'result'로 넘어간다).
+            // 옛 토큰처럼 birth_data가 없는 경우엔 리포트 텍스트만이라도 볼 수 있게 알려준다.
+            if (data.user_context?.birth_data) {
+              setBirthData((prev: typeof birthData) => ({ ...prev, ...data.user_context.birth_data }));
+              setStep('loading');
+            } else {
+              setDeepLinkError('이 링크는 사주 원본 데이터가 없어 리포트를 온전히 복구할 수 없습니다. "이메일로 리포트 다시 찾기"를 이용해 주세요.');
+            }
+          } else {
+            setDeepLinkError('리포트를 찾지 못했습니다. 링크가 만료되었을 수 있습니다.');
           }
         })
         .catch(err => {
           console.warn('토큰 기반 리포트 복구 실패:', err);
+          setDeepLinkError('리포트를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
         })
         .finally(() => {
           setIsLookupLoading(false);
@@ -784,7 +797,9 @@ export default function App() {
               : careerContext.main_concern,
             current_job: careerContext.current_job,
             career_goal: careerContext.career_goal,
-            desired_answer: careerContext.desired_answer
+            desired_answer: careerContext.desired_answer,
+            // 이메일 딥링크로 재접속했을 때 사주를 다시 계산할 수 있도록 원본 출생정보를 함께 보관해 둔다.
+            birth_data: birthData
           },
           saju_data: {
             pillars: {
@@ -1084,8 +1099,15 @@ export default function App() {
         </header>
       )}
 
+      {deepLinkError && (
+        <div className="intro-screen" style={{ textAlign: 'center', padding: '48px 20px' }}>
+          <p style={{ marginBottom: 20 }}>{deepLinkError}</p>
+          <button className="btn-primary" onClick={() => { setDeepLinkError(null); setStep('intro'); }}>처음으로 돌아가기</button>
+        </div>
+      )}
+
       {/* === Screen 1. Intro === */}
-      {step === 'intro' && (
+      {!deepLinkError && step === 'intro' && (
         <div className="intro-screen">
           <div className="intro-brand"><span>커리어 사주</span></div>
           <div className="intro-content">
@@ -1105,13 +1127,13 @@ export default function App() {
           <div className="intro-cta">
             <button className="btn-primary" onClick={() => setStep('birth')}>{copy.cta} <span>→</span></button>
             {savedSession && (
-              <button className="btn-secondary" style={{ width: '100%', marginTop: 10 }} onClick={restoreSavedSession}>
+              <button className="btn-secondary" style={{ width: '100%' }} onClick={restoreSavedSession}>
                 지난 결과 다시 보기{savedSession.isUnlocked ? CHECKOUT_COPY.savedResultSuffix : ''}
               </button>
             )}
             <button 
               className="btn-secondary" 
-              style={{ width: '100%', marginTop: 8, borderColor: 'var(--border-neon)' }} 
+              style={{ width: '100%', borderColor: 'var(--border-neon)' }} 
               onClick={() => { setShowLookupModal(true); setLookupError(null); }}
             >
               이메일로 내 리포트 찾기 🔍
@@ -1123,13 +1145,13 @@ export default function App() {
 
       {/* === Screen 2. Birth Info === */}
       {step === 'birth' && (
-        <div style={{ flex: 1 }}>
-          <div style={{ marginBottom: 24 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: 28 }}>
             <h2>출생 정보 입력</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>정통 만세력 계산을 위해 태어난 일시를 입력해 주세요.</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>정통 만세력 계산을 위해 태어난 일시를 입력해 주세요.</p>
           </div>
 
-          <div className="glass-card" style={{ padding: '18px 16px' }}>
+          <div className="glass-card" style={{ padding: '20px 16px', marginBottom: 20 }}>
             {/* 성별 및 양음력 선택 (가로 2단 나란히 배치로 공간 극대화) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1194,7 +1216,7 @@ export default function App() {
             </div>
 
             {/* 출생시간 유무 */}
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <label className="form-label" style={{ marginBottom: 0 }}>태어난 시간</label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}>
@@ -1228,18 +1250,20 @@ export default function App() {
           </div>
 
           {birthError && (
-            <p style={{ color: '#e08a7a', fontSize: 13, marginBottom: 10, textAlign: 'center' }}>{birthError}</p>
+            <p style={{ color: '#e08a7a', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{birthError}</p>
           )}
-          <button className="btn-primary" disabled={!!birthError} onClick={() => setStep('q_status')}>다음 단계</button>
+          <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+            <button className="btn-primary" disabled={!!birthError} onClick={() => setStep('q_status')}>다음 단계</button>
+          </div>
         </div>
       )}
 
       {/* === Screen 3. Q&A Current Status === */}
       {step === 'q_status' && (
-        <div style={{ flex: 1 }}>
-          <div style={{ marginBottom: 24 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: 28 }}>
             <h2>현재 커리어 상황은 어떤가요?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>현재 상황과 가장 가까운 항목을 선택해 주세요.</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>현재 상황과 가장 가까운 항목을 선택해 주세요.</p>
           </div>
 
           <div className="option-grid" style={{ marginBottom: 30 }}>
@@ -1260,7 +1284,7 @@ export default function App() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 'auto', paddingTop: 8 }}>
             <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setStep('birth')}>이전</button>
             <button 
               className="btn-primary" style={{ flex: 2 }} 
@@ -1273,10 +1297,10 @@ export default function App() {
 
       {/* === Screen 4. Q&A Main Concern (Multi-select) === */}
       {step === 'q_concern' && (
-        <div style={{ flex: 1 }}>
-          <div style={{ marginBottom: 24 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: 28 }}>
             <h2>현 직장에서 가장 큰 고민은 무엇인가요?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>여러 항목을 선택할 수 있으며, 선택한 내용은 종합 분석에 반영됩니다.</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>여러 항목을 선택할 수 있으며, 선택한 내용은 종합 분석에 반영됩니다.</p>
           </div>
 
           <div className="option-grid" style={{ marginBottom: 30 }}>
@@ -1313,7 +1337,7 @@ export default function App() {
             })}
           </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 'auto', paddingTop: 8 }}>
             <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setStep('q_status')}>이전</button>
             <button 
               className="btn-primary" style={{ flex: 2 }} 
@@ -1326,18 +1350,18 @@ export default function App() {
 
       {/* === Screen 5. Q&A Career Profile & Desired Answer (Free Text Input Form) === */}
       {step === 'q_desired' && (
-        <div style={{ flex: 1 }}>
-          <div style={{ marginBottom: 24 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: 28 }}>
             <h2>나의 커리어 프로필과 상세 고민</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>
               구체적으로 적어주실수록 입력한 상황과 운의 흐름을 함께 반영해 더 세밀하게 분석합니다. (선택사항)
             </p>
           </div>
 
-          <div className="glass-card" style={{ padding: 20 }}>
+          <div className="glass-card" style={{ padding: '22px 18px', marginBottom: 20 }}>
             {/* 현재 하고 계신 일 */}
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ marginBottom: 6 }}>현재 하시는 일 (직무 및 연차)</label>
+            <div className="form-group" style={{ marginBottom: 18 }}>
+              <label className="form-label" style={{ marginBottom: 8 }}>현재 하시는 일 (직무 및 연차)</label>
               <input
                 type="text"
                 className="input-text"
@@ -1348,8 +1372,8 @@ export default function App() {
             </div>
 
             {/* 최종 커리어의 골 */}
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ marginBottom: 6 }}>최종 커리어 목표 (도달하고 싶은 지향점)</label>
+            <div className="form-group" style={{ marginBottom: 18 }}>
+              <label className="form-label" style={{ marginBottom: 8 }}>최종 커리어 목표 (도달하고 싶은 지향점)</label>
               <input
                 type="text"
                 className="input-text"
@@ -1357,41 +1381,38 @@ export default function App() {
                 value={careerContext.career_goal}
                 onChange={e => setCareerContext({ ...careerContext, career_goal: e.target.value })}
               />
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.4 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.45 }}>
                 지금의 목표를 구체적으로 적을수록 그 목표에 맞춰 더 자세하고 맞춤화된 분석을 받을 수 있어요.
               </p>
             </div>
 
             {/* 상세 고민 */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ marginBottom: 6 }}>현재 상황이나 구체적인 고민 정황</label>
+              <label className="form-label" style={{ marginBottom: 8 }}>현재 상황이나 구체적인 고민 정황</label>
               <textarea
                 className="input-text"
                 rows={4}
                 style={{
                   width: '100%',
                   resize: 'vertical',
-                  minHeight: 90,
+                  minHeight: 96,
                   fontFamily: 'inherit',
-                  padding: 10,
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  borderRadius: 10,
+                  padding: '12px 14px',
+                  fontSize: 13.5,
+                  lineHeight: 1.6,
                   color: '#fff'
                 }}
                 placeholder="예: 이번에 이직 제안을 한 곳이 있는데 연봉 조율을 세게 해도 괜찮은 운세인지 궁금해요. 혹은 지금 상사와의 갈등 때문에 충동적으로 퇴사하고 싶은데 버티는 게 답일까요?"
                 value={careerContext.desired_answer}
                 onChange={e => setCareerContext({ ...careerContext, desired_answer: e.target.value })}
               />
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.4 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.45 }}>
                 지금 처한 상황을 구체적으로 적을수록 그 상황에 맞춰 더 자세하고 맞춤화된 분석을 받을 수 있어요.
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 'auto', paddingTop: 8 }}>
             <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setStep('q_concern')}>이전</button>
             <button 
               className="btn-primary" style={{ flex: 2 }} 
@@ -1518,11 +1539,11 @@ export default function App() {
           })()}
 
           {/* 사주 원국표 (무료) */}
-          <div className="glass-card evidence-card" style={{ padding: 18 }}>
+          <div className="glass-card evidence-card" style={{ padding: '20px 16px', marginBottom: 20 }}>
             <div className="section-heading"><div><span className="eyebrow">{REPORT_HEADINGS.evidence}</span><h3>{REPORT_HEADINGS.chart}</h3></div><span>{sajuResult.dayGan.char}목 본원</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {/* 시주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>시주</span>
                 {sajuResult.pillars.hour.gan ? (
                   <>
@@ -1536,7 +1557,7 @@ export default function App() {
               </div>
 
               {/* 일주 */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid var(--border-neon)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid var(--border-neon)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>일주 (나)</span>
                 <h4 style={{ color: 'var(--accent-pink)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.day.ganHanja}{sajuResult.pillars.day.zhiHanja}</h4>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.day.gan}{sajuResult.pillars.day.zhi}</span>
@@ -1544,7 +1565,7 @@ export default function App() {
               </div>
 
               {/* 월주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>월주</span>
                 <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.month.ganHanja}{sajuResult.pillars.month.zhiHanja}</h4>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.month.gan}{sajuResult.pillars.month.zhi}</span>
@@ -1552,7 +1573,7 @@ export default function App() {
               </div>
 
               {/* 연주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 4px', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>연주</span>
                 <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.year.ganHanja}{sajuResult.pillars.year.zhiHanja}</h4>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.year.gan}{sajuResult.pillars.year.zhi}</span>
@@ -1936,14 +1957,15 @@ export default function App() {
               background: 'linear-gradient(135deg, rgba(168,85,247,0.18) 0%, rgba(236,72,153,0.18) 100%)',
               border: '1px solid var(--border-neon-bright)',
               textAlign: 'center',
-              padding: 20,
-              marginTop: 20
+              padding: '24px 20px',
+              marginTop: 24,
+              marginBottom: 20
             }}>
               <span className="eyebrow" style={{ color: 'var(--accent-pink)' }}>{REPORT_HEADINGS.shareCard}</span>
-              <h3 style={{ fontSize: 17, color: '#fff', margin: '6px 0 4px' }}>
+              <h3 style={{ fontSize: 17, color: '#fff', margin: '8px 0 6px' }}>
                 커리어 성향 공유 카드
               </h3>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.4 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>
                 카카오톡이나 SNS에 공유하여 동기나 지인들의 이직운 점수와 비교해 보세요.
               </p>
 
@@ -1960,7 +1982,7 @@ export default function App() {
                   height: 'auto', 
                   borderRadius: 16, 
                   border: '1px solid var(--border-neon-bright)', 
-                  margin: '12px auto 16px', 
+                  margin: '12px auto 18px', 
                   display: 'block', 
                   boxShadow: '0 0 20px rgba(168,85,247,0.25)' 
                 }} 
@@ -1969,19 +1991,18 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <button
                   className="btn-primary"
-                  style={{ padding: 12, fontSize: 0 }}
+                  style={{ padding: '13px 8px', fontSize: 13 }}
                   onClick={handleShareResult}
                   disabled={isShareLoading || isShareConfirming}
                 >
-                  <span style={{ fontSize: 13 }}>{isShareConfirming ? '카카오톡 전송 확인 중...' : isShareLoading ? '공유 카드 준비 중...' : '카카오톡으로 공유'}</span>
-                  💬 카톡 / 링크 공유하기
+                  {isShareConfirming ? '전송 확인 중...' : isShareLoading ? '준비 중...' : '💬 카톡 공유'}
                 </button>
                 <button 
                   className="btn-secondary" 
-                  style={{ padding: 12, fontSize: 13, borderColor: 'var(--accent-purple)' }}
+                  style={{ padding: '13px 8px', fontSize: 13, borderColor: 'var(--accent-purple)' }}
                   onClick={() => void handleDownloadCard(viralCardCanvasRef.current, '이직사주_캐릭터카드.png')}
                 >
-                  🖼️ 이미지 카드 저장
+                  🖼️ 이미지 저장
                 </button>
               </div>
             </section>
@@ -1989,7 +2010,7 @@ export default function App() {
 
           {/* 다시 입력하기는 잠금 여부와 무관하게 항상 눌릴 수 있어야 한다 */}
           <button
-            className="btn-secondary" style={{ width: '100%', margin: '20px 0 24px' }}
+            className="btn-secondary" style={{ width: '100%', margin: '24px 0 16px' }}
             onClick={() => {
               try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
               setSavedSession(null);
@@ -2007,7 +2028,7 @@ export default function App() {
             처음부터 다시 입력하기
           </button>
 
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5, margin: '4px 0 30px' }}>
+          <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, margin: '4px 0 8px' }}>
             본 결과는 명리학을 바탕으로 한 참고 자료이며, 오락과 자기 성찰 목적으로 제공됩니다.<br />
             이직·퇴사 등 중요한 결정은 반드시 현실 조건을 함께 검토해 주세요.
           </p>
