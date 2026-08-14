@@ -1,7 +1,8 @@
-import React from 'react';
+
 import { useAppContext } from '../../contexts/AppContext';
-import { WheelColumn } from '../../contexts/AppContext'; // Wait, WheelColumn is not exported, we'll fix this
-import { CHECKOUT_COPY } from '../../utils/checkoutPresentation';
+import { WheelColumn, STORAGE_KEY } from '../../contexts/AppContext';
+import type { MonthTone } from '../../contexts/AppContext';
+
 import { getCharacterAsset } from '../../utils/characterAssets';
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
@@ -315,7 +316,7 @@ export function ResultScreen() {
                         이 이메일로 구매한 리포트가 {reportHistory.length}건 있어요. 보고 싶은 리포트를 선택하세요.
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {reportHistory.map((entry, idx) => {
+                        {reportHistory.map((entry: any, idx: any) => {
                           const isActive = entry.unlock_token === unlockToken;
                           return (
                             <button
@@ -570,7 +571,7 @@ export function ResultScreen() {
                   <span>{isFollowUpLoading ? '답변 생성 중' : `${followUps.length}/${shareBonusGranted ? 2 : 1} 사용`}</span>
                 </div>
 
-                {followUps.map((record, index) => (
+                {followUps.map((record: any, index: any) => (
                   <div className="followup-thread" key={record.answeredAt}>
                     <p className="followup-q">Q{index + 1}. {record.question}</p>
                     <div className="followup-a"><FormattedAnswer answer={record.answer} /></div>

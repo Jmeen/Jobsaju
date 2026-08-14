@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useAppContext } from '../../contexts/AppContext';
 import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
 

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { AppProvider, useAppContext } from './contexts/AppContext';
 import { BusinessFooter } from './components/BusinessFooter';
 import { IntroScreen } from './components/screens/IntroScreen';

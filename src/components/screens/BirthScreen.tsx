@@ -1,16 +1,16 @@
-import React from 'react';
+
 import { useAppContext } from '../../contexts/AppContext';
-import { WheelColumn, WHEEL_YEARS, WHEEL_MONTHS, WHEEL_HOURS, WHEEL_MINUTES, daysInMonth } from '../../contexts/AppContext';
-import { CHECKOUT_COPY } from '../../utils/checkoutPresentation';
-import { getCharacterAsset } from '../../utils/characterAssets';
+import { WheelColumn, CURRENT_YEAR, WHEEL_YEARS, WHEEL_MONTHS, WHEEL_HOURS, WHEEL_MINUTES, daysInMonth } from '../../contexts/AppContext';
+
+
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
 import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
-import { buildMonthlyFlow } from '../../utils/monthlyFlow';
+
 import { buildElementInsight, buildCharacterName } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
-import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUp';
-import { ReportProse } from '../ReportProse';
+
+
 
 
 export function BirthScreen() {
@@ -154,21 +154,21 @@ export function BirthScreen() {
                 <WheelColumn
                   values={WHEEL_YEARS}
                   value={parseInt(birthData.year) || CURRENT_YEAR}
-                  onChange={v => setBirthData(prev => ({ ...prev, year: String(v) }))}
+                  onChange={v => setBirthData((prev: any) => ({ ...prev, year: String(v) }))}
                   formatValue={v => `${v}년`}
                   ariaLabel="출생 연도"
                 />
                 <WheelColumn
                   values={WHEEL_MONTHS}
                   value={parseInt(birthData.month) || 1}
-                  onChange={v => setBirthData(prev => ({ ...prev, month: String(v) }))}
+                  onChange={v => setBirthData((prev: any) => ({ ...prev, month: String(v) }))}
                   formatValue={v => `${v}월`}
                   ariaLabel="출생 월"
                 />
                 <WheelColumn
                   values={wheelDays}
                   value={Math.min(parseInt(birthData.day) || 1, wheelDayCount)}
-                  onChange={v => setBirthData(prev => ({ ...prev, day: String(v) }))}
+                  onChange={v => setBirthData((prev: any) => ({ ...prev, day: String(v) }))}
                   formatValue={v => `${v}일`}
                   ariaLabel="출생 일"
                 />
@@ -193,14 +193,14 @@ export function BirthScreen() {
                   <WheelColumn
                     values={WHEEL_HOURS}
                     value={parseInt(birthData.hour) || 0}
-                    onChange={v => setBirthData(prev => ({ ...prev, hour: String(v) }))}
+                    onChange={v => setBirthData((prev: any) => ({ ...prev, hour: String(v) }))}
                     formatValue={v => `${v}시`}
                     ariaLabel="출생 시"
                   />
                   <WheelColumn
                     values={WHEEL_MINUTES}
                     value={parseInt(birthData.minute) || 0}
-                    onChange={v => setBirthData(prev => ({ ...prev, minute: String(v) }))}
+                    onChange={v => setBirthData((prev: any) => ({ ...prev, minute: String(v) }))}
                     formatValue={v => `${v}분`}
                     ariaLabel="출생 분"
                   />

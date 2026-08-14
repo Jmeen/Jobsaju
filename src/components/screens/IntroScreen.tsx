@@ -1,16 +1,16 @@
-import React from 'react';
+
 import { useAppContext } from '../../contexts/AppContext';
 import { WheelColumn } from '../../contexts/AppContext'; // Wait, WheelColumn is not exported, we'll fix this
 import { CHECKOUT_COPY } from '../../utils/checkoutPresentation';
-import { getCharacterAsset } from '../../utils/characterAssets';
+
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
 import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
-import { buildMonthlyFlow } from '../../utils/monthlyFlow';
+
 import { buildElementInsight, buildCharacterName } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
-import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUp';
-import { ReportProse } from '../ReportProse';
+
+
 
 
 export function IntroScreen() {
@@ -109,14 +109,14 @@ export function IntroScreen() {
           <div className="intro-brand"><span>커리어 사주</span></div>
           <div className="intro-content">
             <span className="eyebrow">{copy.eyebrow}</span>
-            <h1>{copy.headline.map((line, i) => (
+            <h1>{copy.headline.map((line: any, i: any) => (
               <span key={line}>{i > 0 && <br />}{line}</span>
             ))}</h1>
-            <p>{copy.subcopy.map((line, i) => (
+            <p>{copy.subcopy.map((line: any, i: any) => (
               <span key={line}>{i > 0 && <br />}{line}</span>
             ))}</p>
             <div className="intro-proof">
-              {copy.proof.map(item => (
+              {copy.proof.map((item: any) => (
                 <div key={item.label}><strong>{item.value}</strong><span>{item.label}</span></div>
               ))}
             </div>

@@ -5,7 +5,7 @@ import type { SajuCoreResult } from '../utils/sajuCore';
 import { buildScoreBars, buildVerdictView } from '../utils/reportViewModel';
 import { buildPremiumExpansion } from '../utils/premiumReport';
 import { buildMonthlyFlow } from '../utils/monthlyFlow';
-import type { MonthTone } from '../utils/monthlyFlow';
+export type { MonthTone } from '../utils/monthlyFlow';
 import { buildElementInsight, buildCharacterName } from '../utils/reportInsights';
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../utils/scorePresentation';
 import { resolveCopyVariant, getCopy } from '../utils/copy';
@@ -72,7 +72,7 @@ const MOCK_AI_REPORT: Record<string, any> = {
   }
 };
 
-const STORAGE_KEY = 'saju_session_v1';
+export const STORAGE_KEY = 'saju_session_v1';
 
 /** 공유 카드에 찍히는 유입 경로. */
 const SERVICE_URL = 'jobsaju.kr';
@@ -109,7 +109,7 @@ const WHEEL_VISIBLE_ROWS = 3;
 const WHEEL_HEIGHT = WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ROWS;
 const WHEEL_PADDING = (WHEEL_HEIGHT - WHEEL_ITEM_HEIGHT) / 2;
 
-const CURRENT_YEAR = new Date().getFullYear();
+export const CURRENT_YEAR = new Date().getFullYear();
 export const WHEEL_YEARS = Array.from({ length: CURRENT_YEAR - 1920 + 1 }, (_, i) => 1920 + i);
 export const WHEEL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 export const WHEEL_HOURS = Array.from({ length: 24 }, (_, i) => i);
