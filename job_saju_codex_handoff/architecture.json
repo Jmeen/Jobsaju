@@ -1,0 +1,67 @@
+{
+  "project": "직장인 이직사주",
+  "target": [
+    "Web (Mobile Responsive)",
+    "iOS (Future/Capacitor)",
+    "Android (Future/Capacitor)"
+  ],
+  "frontend": {
+    "framework": "React",
+    "language": "TypeScript",
+    "bundler": "Vite",
+    "styling": "Vanilla CSS / CSS Modules",
+    "payment_integration": "PortOne SDK (Web)"
+  },
+  "backend": {
+    "framework": "Serverless Functions",
+    "runtime": "Cloudflare Workers / Supabase Edge Functions",
+    "purpose": "AI API Key proxying & secure calculation forwarding"
+  },
+  "layers": [
+    {
+      "name": "BirthInput",
+      "responsibility": "출생정보 입력/검증"
+    },
+    {
+      "name": "CareerContext",
+      "responsibility": "현재 커리어 상황 및 핵심 고민 수집"
+    },
+    {
+      "name": "SajuCore",
+      "responsibility": "deterministic 사주 계산 (클라이언트 실행)"
+    },
+    {
+      "name": "CareerScoring",
+      "responsibility": "이직/잔류/협상 등 커리어 점수 산출"
+    },
+    {
+      "name": "PaymentUnlock",
+      "responsibility": "웹 PG사 SDK 연동 및 결제 UUID 토큰 확인/해금"
+    },
+    {
+      "name": "ServerlessProxy",
+      "responsibility": "보안 통신용 API Gateway (AI API Key 은폐 및 해금 토큰 검증)"
+    },
+    {
+      "name": "Interpretation",
+      "responsibility": "해금 유저 대상 점수 및 사주 feature를 직장인 언어로 AI 해석"
+    },
+    {
+      "name": "ResultUI",
+      "responsibility": "3대 지수 게이지 차트, 오행 레이더 차트, 이직 로드맵 캘린더 렌더링"
+    },
+    {
+      "name": "ShareCard",
+      "responsibility": "개인정보를 제외한 글래스모피즘 결과 공유 이미지 생성 (Canvas)"
+    }
+  ],
+  "mvp_excludes": [
+    "회원가입",
+    "커뮤니티",
+    "DM",
+    "종합 사주",
+    "실시간 상담",
+    "구독",
+    "친구/연애 궁합"
+  ]
+}

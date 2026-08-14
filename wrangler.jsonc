@@ -1,0 +1,28 @@
+{
+	"name": "job-saju",
+	"compatibility_date": "2026-08-13",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"pages_build_output_dir": "./dist",
+	"vars": {
+		"GEMINI_MODEL": "gemini-3.5-flash"
+	},
+	"r2_buckets": [
+		{
+			"binding": "SHARE_CARDS",
+			"bucket_name": "job-saju-share-cards"
+		},
+		{
+			"bucket_name": "job-saju-share-cards",
+			"binding": "job_saju_share_cards",
+			"remote": true
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "SAJU_KV",
+			"id": "7c0710b502cc4c06aac1ed9e5b16a9a1"
+		}
+	]
+}

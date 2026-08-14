@@ -1,0 +1,33 @@
+{
+  "name": "job-saju",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint src workers",
+    "test": "node --test src/**/*.test.ts workers/*.test.js",
+    "check": "npm run test && npm run lint && npm run build",
+    "eval:personalization": "node --test src/evals/personalizationCases.test.ts src/evals/personalizationScorer.test.ts && node src/evals/runPersonalizationEval.ts",
+    "eval:personalization:heldout": "node src/evals/runPersonalizationEval.ts held-out",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fullstackfamily/manseryeok": "latest",
+    "@portone/browser-sdk": "latest",
+    "lunar-javascript": "latest",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "wrangler": "^4.123.0"
+  }
+}
