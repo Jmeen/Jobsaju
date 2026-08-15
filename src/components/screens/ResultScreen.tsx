@@ -8,6 +8,7 @@ import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scoreP
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
 import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
 import { buildMonthlyFlow } from '../../utils/monthlyFlow';
+import FREE_CHARACTERS from '../../../free_engine_characters.js';
 import { buildElementInsight, buildCharacterName, ELEMENT_INFO } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUp';
@@ -104,93 +105,130 @@ export function ResultScreen() {
     viralCardCanvasRef,
     summaryCardCanvasRef
   } = useAppContext();
+  const handleReset = () => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
+    setSavedSession(null);
+    setStep('intro');
+    setIsUnlocked(false);
+    setAiReport(null);
+    setFollowUps([]);
+    setShareBonusGranted(false);
+    setFollowUpInput('');
+    setFollowUpError(null);
+    setReportHistory([]);
+    setCareerContext({ current_status: '', main_concern: [], current_job: '', career_goal: '', desired_answer: '', email: '' });
+  };
 
   return (
     <div className="result-screen">
           
-          {/* Top Header info */}
-          <div className="result-header">
-            <div className="intro-brand"><span>커리어 리포트</span></div>
-            <span className="result-date">
-              {birthData.isSolar ? '양력' : '음력'} {birthData.year}.{birthData.month}.{birthData.day} {birthData.hasTime ? `${birthData.hour}:${birthData.minute}` : '(시간 모름)'}
-              {!birthData.isSolar && ` · 양력 ${sajuResult.solarDate.year}.${sajuResult.solarDate.month}.${sajuResult.solarDate.day} 기준 계산`}
-            </span>
-          </div>
 
-          <div className="result-primary">
+
+          <div className="result-primary" style={{ padding: '0 20px', paddingBottom: 40 }}>
           {(() => {
-            const character = getCharacterAsset(sajuResult.dayGan.char);
+            const dayPillar = sajuResult.pillars.day.ganHanja + sajuResult.pillars.day.zhiHanja;
+            const myChar = FREE_CHARACTERS.find((c: any) => c.id === dayPillar) || FREE_CHARACTERS[0];
             const top = buildTopScore(sajuResult.scores);
-            const verdict = buildVerdictView(sajuResult.scores);
-            const ELEMENT_MAP: Record<string, keyof typeof ELEMENT_INFO> = { '목': 'wood', '화': 'fire', '토': 'earth', '금': 'metal', '수': 'water' };
-            const myElementInfo = ELEMENT_INFO[ELEMENT_MAP[sajuResult.dayGan.element] || 'wood'];
+            
+            let verdictHeadline = "";
+            if (top.axis === 'job_change') {
+              verdictHeadline = "그냥 버티기보다, 조건을 바꿀 가능성을 확인할 때입니다.";
+            } else if (top.axis === 'negotiation') {
+              verdictHeadline = "무작정 떠나기보다, 현재 위치에서 가치를 협상할 때입니다.";
+            } else {
+              verdictHeadline = "지금은 무리하게 움직이기보다 현재 자리에서 내실을 다질 때입니다.";
+            }
 
             return (
               <>
-                {/* 1. 최상단 캐릭터 & 한 줄 요약 */}
-                <section className="creature-hero" aria-label={character.title}>
-                  <div className={`creature-hero-stage tone-${top.tone}`}>
-                    <img
-                      src={character.imageUrl}
-                      alt=""
-                      aria-hidden="true"
-                      className="creature-hero-img"
-                      width={640}
-                      height={640}
-                      loading="eager"
-                    />
-                  </div>
-                  <span className="creature-hero-type">{sajuResult.dayGan.char}{sajuResult.dayGan.element} 본원</span>
-                  <strong className="creature-hero-title">{character.title}</strong>
-                  <div className="creature-verdict-highlight" style={{ marginTop: 16, background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 16, fontWeight: 600, color: '#fff', margin: 0 }}>"{verdict.title}"</p>
+                {/* [SECTION 1] Character Hero */}
+                <section className="creature-hero" style={{ marginTop: 24, marginBottom: 40, textAlign: 'center' }}>
+                  <div style={{ fontSize: 72, marginBottom: 16 }}>{myChar.emoji}</div>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>{sajuResult.dayGan.char}{sajuResult.dayGan.element} · {myChar.name}</span>
+                  <strong style={{ fontSize: 28, color: '#fff', display: 'block', marginBottom: 16, lineHeight: 1.3 }}>{myChar.core_type}</strong>
+                  <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.6, wordBreak: 'keep-all', margin: '0 auto', maxWidth: 280 }}>
+                    "{myChar.identity}"
+                  </p>
+                  <div style={{ marginTop: 24, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {myChar.keywords.map((kw: string) => (
+                      <span key={kw} style={{ background: 'rgba(255,255,255,0.08)', padding: '6px 12px', borderRadius: 20, fontSize: 13, color: '#e5e7eb' }}>
+                        {kw}
+                      </span>
+                    ))}
                   </div>
                 </section>
 
-                {/* 공유 CTA 1 (요약 직후) */}
-                <div style={{ padding: '0 20px', marginBottom: 32 }}>
-                  <button className="btn-secondary share-btn" onClick={handleShareResult} disabled={isShareLoading} style={{ width: '100%' }}>
-                    {isShareLoading ? '공유 준비 중...' : '친구에게 내 캐릭터 공유하기'}
-                  </button>
-                </div>
+                {/* [SECTION 2] Current Career Verdict */}
+                <section style={{ marginBottom: 40, background: 'rgba(255,255,255,0.05)', padding: '24px 20px', borderRadius: 16, textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 600, display: 'block', marginBottom: 8 }}>지금의 커리어 흐름</span>
+                  <p style={{ fontSize: 16, color: '#fff', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all' }}>
+                    "{verdictHeadline}"
+                  </p>
+                </section>
 
-                {/* 3축 점수 시각화 */}
-                <section className="glass-card score-report">
-                  <div className="section-heading"><div><span className="eyebrow">현재 나의 흐름</span><h3>이직 vs 잔류 vs 협상</h3></div><span>100점 기준</span></div>
-                  <div className="score-bars">
-                    {buildScoreBars(sajuResult.scores).map(score => {
-                      const scoreView = buildAllScoreViews(sajuResult.scores).find(view => view.axis === score.key);
+                {/* [SECTION 3] Three-Axis Decision Score */}
+                <section style={{ marginBottom: 40 }}>
+                  <h3 style={{ fontSize: 18, color: '#fff', marginBottom: 20, textAlign: 'center' }}>지금 당신에게 더 맞는 선택은?</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {[
+                      { key: 'job_change', label: '이직', desc: '외부 기회를 확인하면서 현재 조건과 비교해볼 시기입니다.' },
+                      { key: 'negotiation', label: '협상', desc: '연봉·역할·근무 조건을 먼저 요구해볼 가치가 있습니다.' },
+                      { key: 'stay', label: '잔류', desc: '현재 조건을 유지하며 때를 기다리는 것이 좋습니다.' }
+                    ].map(axis => {
+                      const scoreVal = sajuResult.scores[axis.key as keyof typeof sajuResult.scores];
+                      const isTop = top.axis === axis.key;
                       return (
-                        <div className="score-row" key={score.key}>
-                          <div className="score-meta">
-                            <span>{score.label}{scoreView && <em className="score-rank">{scoreView.level}</em>}</span>
-                            <strong>{score.value}</strong>
+                        <div key={axis.key} style={{ background: isTop ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)', border: isTop ? '1px solid rgba(168,85,247,0.5)' : '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: 16 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
+                            <strong style={{ fontSize: 16, color: isTop ? 'var(--accent-purple)' : '#e5e7eb' }}>{axis.label}</strong>
+                            <div style={{ textAlign: 'right' }}>
+                              <strong style={{ fontSize: 24, color: '#fff', marginRight: 8 }}>{scoreVal}</strong>
+                              <span style={{ fontSize: 13, color: isTop ? 'var(--accent-pink)' : 'var(--text-muted)' }}>{isTop ? '가장 우세' : (scoreVal > 50 ? '탐색해볼 만함' : '우선순위 낮음')}</span>
+                            </div>
                           </div>
-                          <div className="score-track"><span className={`score-fill ${score.tone}`} style={{ width: `${score.width}%` }} /></div>
+                          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>{axis.desc}</p>
                         </div>
                       );
                     })}
                   </div>
+                  <div style={{ marginTop: 16, textAlign: 'center', padding: '16px', borderRadius: 8, background: 'rgba(255,255,255,0.02)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>결론</span>
+                    <strong style={{ fontSize: 14, color: '#e5e7eb', lineHeight: 1.5 }}>"{verdictHeadline}"</strong>
+                  </div>
                 </section>
 
-                {/* 성향 요약 3 카드 */}
-                <section className="insight-cards" style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '40px' }}>
-                  <div className="section-heading"><div><span className="eyebrow">업무 성향 요약</span><h3>나의 커리어 DNA</h3></div></div>
-                  
-                  <div className="glass-card insight-item" style={{ padding: '16px' }}>
-                    <span className="insight-label" style={{ color: 'var(--accent-purple)', fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>💪 Strength (강점)</span>
-                    <p style={{ fontSize: '14px', lineHeight: 1.5, margin: 0, color: 'var(--text-secondary)' }}>{myElementInfo.strong}</p>
+                {/* [SECTION 4] Career DNA */}
+                <section style={{ marginBottom: 40 }}>
+                  <h3 style={{ fontSize: 18, color: '#fff', marginBottom: 20, textAlign: 'center' }}>당신이 일할 때 강한 방식</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12 }}>
+                      <span style={{ fontSize: 13, color: 'var(--accent-purple)', fontWeight: 600, display: 'block', marginBottom: 6 }}>💪 강점</span>
+                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.strength.substring(0, 70)}...</p>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12 }}>
+                      <span style={{ fontSize: 13, color: 'var(--accent-pink)', fontWeight: 600, display: 'block', marginBottom: 6 }}>⚠️ Blind Spot</span>
+                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.blind_spot.substring(0, 70)}...</p>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12 }}>
+                      <span style={{ fontSize: 13, color: 'var(--border-neon)', fontWeight: 600, display: 'block', marginBottom: 6 }}>🏢 잘 맞는 환경</span>
+                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.best_environment.substring(0, 70)}...</p>
+                    </div>
                   </div>
-                  
-                  <div className="glass-card insight-item" style={{ padding: '16px' }}>
-                    <span className="insight-label" style={{ color: 'var(--accent-pink)', fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>⚠️ Blind Spot (주의할 점)</span>
-                    <p style={{ fontSize: '14px', lineHeight: 1.5, margin: 0, color: 'var(--text-secondary)' }}>{myElementInfo.weak}</p>
+                </section>
+
+                {/* [SECTION 5] Share Card CTA */}
+                <section style={{ marginBottom: 40, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
+                  <h3 style={{ fontSize: 16, color: '#fff', marginBottom: 16 }}>친구는 어떤 타입일까요?</h3>
+                  <div style={{ background: '#1a1a2e', borderRadius: 12, padding: 20, border: '1px solid rgba(255,255,255,0.1)', marginBottom: 16, boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>{myChar.emoji}</div>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>{myChar.title}</span>
+                    <strong style={{ fontSize: 18, color: '#fff', display: 'block', marginBottom: 12 }}>{myChar.core_type}</strong>
+                    <p style={{ fontSize: 13, color: 'var(--accent-purple)', margin: 0 }}>"{myChar.summary_og}"</p>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 16, textAlign: 'right' }}>잡사주</div>
                   </div>
-                  
-                  <div className="glass-card insight-item" style={{ padding: '16px' }}>
-                    <span className="insight-label" style={{ color: 'var(--border-neon)', fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>🏢 Best Environment (맞는 환경)</span>
-                    <p style={{ fontSize: '14px', lineHeight: 1.5, margin: 0, color: 'var(--text-secondary)' }}>{myElementInfo.env}</p>
-                  </div>
+                  <button className="btn-secondary share-btn" onClick={handleShareResult} disabled={isShareLoading} style={{ width: '100%' }}>
+                    {isShareLoading ? '공유 준비 중...' : '내 캐릭터 카드 공유하기 ↗'}
+                  </button>
                 </section>
               </>
             );
@@ -202,45 +240,107 @@ export function ResultScreen() {
             
             {/* 1. Locked Overlay (Only shown when not unlocked) */}
             {!isUnlocked && (
-              <div className="unlock-overlay">
-                <div className="unlock-card paywall-teaser">
-                  <div className="teaser-header" style={{ textAlign: 'center', marginBottom: 24 }}>
-                    <h3 style={{ fontSize: 18, color: '#fff', marginBottom: 8, lineHeight: 1.4 }}>성향은 알았습니다.<br/>이제 중요한 건 타이밍입니다.</h3>
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      지금 움직여야 할지, 기다려야 할지<br/>12개월 흐름을 확인하세요.
+              <div className="unlock-overlay" style={{ position: 'relative', background: 'transparent' }}>
+                <div className="unlock-card paywall-teaser" style={{ padding: '0 20px', background: 'transparent', border: 'none' }}>
+                  
+                  {/* [SECTION 6] Timing Paywall Transition */}
+                  <div className="teaser-header" style={{ textAlign: 'center', marginBottom: 32 }}>
+                    <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 600, display: 'block', marginBottom: 8 }}>여기까지는 무료</span>
+                    <h3 style={{ fontSize: 24, color: '#fff', marginBottom: 16, lineHeight: 1.4 }}>"떠날지 말지보다<br/>언제 움직일지가 더 중요합니다."</h3>
+                    <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, wordBreak: 'keep-all' }}>
+                      같은 이직운이라도<br/>지원하기 좋은 달, 협상하기 좋은 달,<br/>조심해야 하는 달은 다릅니다.
                     </p>
                   </div>
 
-                  <div className="locked-preview-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>🔥 올해 가장 강한 이직 시기</span>
-                      <span className="blur-text" style={{ fontSize: 14, color: 'var(--accent-purple)', fontWeight: 600, filter: 'blur(4px)' }}>9월~10월</span>
+                  {/* [SECTION 7] Locked Timing Preview */}
+                  <div className="locked-preview-list" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>🔥 가장 강한 이직 시기</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>202·년 ·월</span>
+                        <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 600 }}>🔒 결제 후 공개</span>
+                      </div>
                     </div>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>💰 연봉 이야기하기 좋은 시기</span>
-                      <span className="blur-text" style={{ fontSize: 14, color: 'var(--accent-pink)', fontWeight: 600, filter: 'blur(4px)' }}>11월</span>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>💰 연봉·조건 협상 시기</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>202·년 ·월</span>
+                        <span style={{ fontSize: 12, color: 'var(--accent-pink)', fontWeight: 600 }}>🔒 결제 후 공개</span>
+                      </div>
                     </div>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>⚠️ 조심해야 하는 구간</span>
-                      <span className="blur-text" style={{ fontSize: 14, color: '#f87171', fontWeight: 600, filter: 'blur(4px)' }}>4월~5월</span>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>⚠️ 조심해야 하는 구간</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>202·년 ·월</span>
+                        <span style={{ fontSize: 12, color: '#f87171', fontWeight: 600 }}>🔒 결제 후 공개</span>
+                      </div>
                     </div>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>🗓 12개월 커리어 캘린더</span>
-                      <span className="blur-text" style={{ fontSize: 14, color: 'var(--border-neon)', fontWeight: 600, filter: 'blur(4px)' }}>전체 열람</span>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>📅 앞으로 12개월 커리어 흐름</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>12개월 전체 타임라인</span>
+                        <span style={{ fontSize: 12, color: 'var(--border-neon)', fontWeight: 600 }}>🔒 잠김</span>
+                      </div>
                     </div>
                   </div>
 
-                  <p style={{ fontSize: 12, color: 'var(--accent-purple)', margin: '16px 0 20px', textAlign: 'center' }}>
-                    ✓ 궁금증 1가지를 추가로 질문할 수 있습니다.
-                  </p>
-                  
-                  <button className="btn-primary" onClick={() => setShowManualPayModal(true)} style={{ width: '100%', marginBottom: 12 }}>
-                    내 커리어 타이밍 확인하기 · 8,900원
-                  </button>
+                  {/* [SECTION 8] Paid Benefits */}
+                  <div style={{ marginBottom: 32, padding: 20, background: 'linear-gradient(135deg, rgba(168,85,247,0.1), rgba(236,72,153,0.05))', borderRadius: 16, border: '1px solid rgba(168,85,247,0.2)' }}>
+                    <h4 style={{ fontSize: 16, color: '#fff', marginBottom: 16, textAlign: 'center' }}>8,900원으로 확인하는 것</h4>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 가장 움직이기 좋은 달</li>
+                      <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 연봉·직급·역할 협상 타이밍</li>
+                      <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 앞으로 12개월 이직 / 협상 / 잔류 흐름</li>
+                      <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 현재 고민에 맞춘 행동 전략</li>
+                      <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 조심해야 할 시기와 확인할 조건</li>
+                    </ul>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 16, textAlign: 'center', lineHeight: 1.5, wordBreak: 'keep-all' }}>
+                      "생년월일만으로 만든 일반 운세가 아니라<br/>현재 직무와 고민까지 함께 반영해 해석합니다."
+                    </p>
+                  </div>
 
-                  <button className="btn-text-only" onClick={handleShareResult} disabled={isShareLoading} style={{ width: '100%' }}>
-                    {isShareLoading ? '공유 준비 중...' : '결과 공유하고 할인받기'}
-                  </button>
+                  {/* [SECTION 9] Main Purchase CTA */}
+                  <div style={{ marginBottom: 24 }}>
+                    <button className="btn-primary" onClick={() => setShowManualPayModal(true)} style={{ width: '100%', padding: '16px', fontSize: 16, fontWeight: 600, marginBottom: 8, boxShadow: '0 4px 20px rgba(168,85,247,0.4)' }}>
+                      내 이직 타이밍 확인하기 · 8,900원
+                    </button>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', margin: 0 }}>
+                      결제 후 바로 확인 · 12개월 전체 리포트
+                    </p>
+                  </div>
+
+                  {/* [SECTION 10] Trust / Friction Reduction */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 40 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>🔓</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>로그인 없이<br/>확인</span>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>⚡</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>결제 후<br/>즉시 생성</span>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>🔄</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>언제든 다시<br/>열람 가능</span>
+                    </div>
+                  </div>
+
+                  {/* [SECTION 11] Secondary Share */}
+                  <div style={{ marginBottom: 40, textAlign: 'center', padding: '24px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: 16 }}>
+                    <p style={{ fontSize: 14, color: '#e5e7eb', marginBottom: 8 }}>아직 결제할지는 모르겠다면?</p>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>내 캐릭터만 친구에게 보내보세요.</p>
+                    <button className="btn-secondary share-btn" onClick={handleShareResult} disabled={isShareLoading} style={{ width: '100%', fontSize: 14, padding: '12px' }}>
+                      {isShareLoading ? '준비 중...' : '결과 공유하고 할인받기'}
+                    </button>
+                  </div>
+
+                  {/* [SECTION 12] Restart */}
+                  <div style={{ textAlign: 'center', marginBottom: 40 }}>
+                    <button className="btn-text-only" onClick={handleReset} style={{ fontSize: 14, color: 'var(--text-muted)', textDecoration: 'underline', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                      다른 생년월일로 다시 보기
+                    </button>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -608,25 +708,12 @@ export function ResultScreen() {
             </section>
           </div>
 
-          {/* 다시 입력하기는 잠금 여부와 무관하게 항상 눌릴 수 있어야 한다 */}
-          <button
-            className="btn-secondary" style={{ width: '100%', margin: '24px 0 16px' }}
-            onClick={() => {
-              try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
-              setSavedSession(null);
-              setStep('intro');
-              setIsUnlocked(false);
-              setAiReport(null);
-              setFollowUps([]);
-              setShareBonusGranted(false);
-              setFollowUpInput('');
-              setFollowUpError(null);
-              setReportHistory([]);
-              setCareerContext({ current_status: '', main_concern: [], current_job: '', career_goal: '', desired_answer: '', email: '' });
-            }}
-          >
-            처음부터 다시 입력하기
-          </button>
+          {/* 다시 보기 링크 */}
+          <div style={{ textAlign: 'center', marginTop: 24, marginBottom: 16 }}>
+            <button className="btn-text-only" onClick={handleReset} style={{ fontSize: 14, color: 'var(--text-muted)', textDecoration: 'underline', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              다른 생년월일로 다시 보기
+            </button>
+          </div>
 
           <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, margin: '4px 0 8px' }}>
             본 결과는 명리학을 바탕으로 한 참고 자료이며, 오락과 자기 성찰 목적으로 제공됩니다.<br />
