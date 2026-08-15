@@ -18,6 +18,7 @@ import type { ReportHistoryEntry } from '../utils/premiumApi';
 import { renderAllResultCards } from '../utils/resultCardTargets';
 import { buildShareCardModel, canvasToPngBlob, drawShareCard } from '../utils/shareCard';
 import { createSharePage, SHARE_BENEFIT_COPY, shareCareerResult, upload as uploadShareCardImage } from '../utils/kakaoShare';
+import { preloadKakaoSdk } from '../utils/kakaoSdk';
 import { getCharacterAsset } from '../utils/characterAssets';
 import { buildShareHook, earnsBonusQuestion } from '../utils/shareIncentive';
 import { FollowUpLoading, FormattedAnswer } from '../components/FollowUpContent';
@@ -573,6 +574,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // === SNS 공유 카드 이미지 생성 (Canvas API) ===
   useEffect(() => {
     if (step === 'result' && sajuResult) {
+      // 공유 버튼은 이 화면에만 있다. 클릭 시점에 받기 시작하면 iOS에서 제스처 컨텍스트가
+      // 끊기므로, 화면에 도달한 지금 미리 받아둔다.
+      preloadKakaoSdk();
+
       const renderCanvas = (canvas: HTMLCanvasElement) => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;

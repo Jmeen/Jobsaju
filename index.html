@@ -23,9 +23,15 @@
     <meta name="twitter:description" content="내 사주와 실제 고민을 분석하고, 궁금한 점까지 직접 질문해보세요." />
     <meta name="twitter:image" content="https://jobsaju.kr/og-share.png" />
 
-    <!-- 포트원 V2 결제 SDK CDN 로드 -->
-    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
-    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.8.2/kakao.min.js" integrity="sha384-zt/G7/KfaRQ9dT/QIkS0ujMtzouJqzuSJcXVQu50x0rl/+mD1dc70AeOejVbMD9E" crossorigin="anonymous"></script>
+    <!--
+      결제(포트원)·공유(카카오) SDK는 여기서 동기로 받지 않는다.
+      <head>의 동기 <script>는 첫 렌더를 막는데, 두 SDK 모두 결과 화면 이후에나 쓰인다.
+      - 포트원: 결제 클릭 시점에 로드 (src/utils/portone.ts)
+      - 카카오: 결과 화면 진입 시 미리 로드 (src/utils/kakaoSdk.ts)
+      두 CDN에 미리 연결만 열어두어 실제 로드 시 핸드셰이크 비용을 없앤다.
+    -->
+    <link rel="preconnect" href="https://cdn.portone.io" crossorigin />
+    <link rel="preconnect" href="https://t1.kakaocdn.net" crossorigin />
   </head>
   <body>
     <div id="root"></div>

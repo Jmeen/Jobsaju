@@ -1,3 +1,4 @@
+import { loadKakaoSdk } from './kakaoSdk.ts';
 export type ShareCareerInput = {
   blob: Blob;
   serviceUrl: string;
@@ -77,6 +78,8 @@ export function buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlock
 }
 
 async function kakaoShare({ imageUrl, serviceUrl, kakaoKey, shareHook, unlockToken, description }: { imageUrl: string; serviceUrl: string; kakaoKey: string; shareHook: string; unlockToken?: string; description?: string }): Promise<void> {
+  // 결과 화면 진입 시 preload 해두므로 보통은 이미 로드돼 있어 즉시 resolve 된다.
+  await loadKakaoSdk();
   if (!window.Kakao) throw new Error('Kakao SDK가 준비되지 않았습니다.');
   if (!window.Kakao.isInitialized()) window.Kakao.init(kakaoKey);
   window.Kakao.Share.sendDefault(buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, description }));
