@@ -1,5 +1,6 @@
 
-import { AppProvider, useAppContext } from './contexts/AppContext';
+import { AppProvider, useAppContext, STORAGE_KEY } from './contexts/AppContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { BusinessFooter } from './components/BusinessFooter';
 import { IntroScreen } from './components/screens/IntroScreen';
 import { BirthScreen } from './components/screens/BirthScreen';
@@ -39,7 +40,15 @@ function AppRouter() {
       {step === 'q_concern' && <ConcernScreen />}
       {step === 'q_desired' && <DesiredScreen />}
       {step === 'loading' && <LoadingScreen />}
-      {step === 'result' && sajuResult && <ResultScreen />}
+      {step === 'result' && sajuResult && (
+        <ErrorBoundary
+          title="결과를 표시하는 중 문제가 생겼어요"
+          description="진단 결과는 저장돼 있습니다. 다시 시도하면 같은 결과를 그대로 불러옵니다."
+          storageKey={STORAGE_KEY}
+        >
+          <ResultScreen />
+        </ErrorBoundary>
+      )}
 
       {showManualPayModal && <ManualPayModal />}
       {showLookupModal && <LookupModal />}
@@ -50,9 +59,13 @@ function AppRouter() {
 }
 
 export default function App() {
+  // 바깥 경계는 AppProvider까지 감싼다 — 컨텍스트 초기화(저장 세션 복원 등)에서
+  // 터지는 경우까지 잡아야 흰 화면이 나오지 않는다.
   return (
-    <AppProvider>
-      <AppRouter />
-    </AppProvider>
+    <ErrorBoundary storageKey={STORAGE_KEY}>
+      <AppProvider>
+        <AppRouter />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
