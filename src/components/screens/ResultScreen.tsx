@@ -8,6 +8,7 @@ import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scoreP
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
 import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
 import { buildMonthlyFlow } from '../../utils/monthlyFlow';
+// @ts-ignore
 import FREE_CHARACTERS from '../../../free_engine_characters.js';
 import { buildElementInsight, buildCharacterName, ELEMENT_INFO } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
@@ -131,7 +132,7 @@ export function ResultScreen() {
             const top = buildTopScore(sajuResult.scores);
             
             let verdictHeadline = "";
-            if (top.axis === 'job_change') {
+            if (top.axis === 'jobChange') {
               verdictHeadline = "그냥 버티기보다, 조건을 바꿀 가능성을 확인할 때입니다.";
             } else if (top.axis === 'negotiation') {
               verdictHeadline = "무작정 떠나기보다, 현재 위치에서 가치를 협상할 때입니다.";
@@ -171,7 +172,7 @@ export function ResultScreen() {
                   <h3 style={{ fontSize: 18, color: '#fff', marginBottom: 20, textAlign: 'center' }}>지금 당신에게 더 맞는 선택은?</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {[
-                      { key: 'job_change', label: '이직', desc: '외부 기회를 확인하면서 현재 조건과 비교해볼 시기입니다.' },
+                      { key: 'jobChange', label: '이직', desc: '외부 기회를 확인하면서 현재 조건과 비교해볼 시기입니다.' },
                       { key: 'negotiation', label: '협상', desc: '연봉·역할·근무 조건을 먼저 요구해볼 가치가 있습니다.' },
                       { key: 'stay', label: '잔류', desc: '현재 조건을 유지하며 때를 기다리는 것이 좋습니다.' }
                     ].map(axis => {
