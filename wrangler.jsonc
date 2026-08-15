@@ -12,11 +12,6 @@
 		{
 			"binding": "SHARE_CARDS",
 			"bucket_name": "job-saju-share-cards"
-		},
-		{
-			"bucket_name": "job-saju-share-cards",
-			"binding": "job_saju_share_cards",
-			"remote": true
 		}
 	],
 	"kv_namespaces": [

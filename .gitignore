@@ -25,3 +25,6 @@ coverage/
 # Local scratch exports
 Codex 이미지*.png
 
+# scripts/generate-qa-reports가 만들어내는 산출물 (커밋 대상 아님)
+QA_Reports.json
+
