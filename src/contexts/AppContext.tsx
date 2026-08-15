@@ -1,10 +1,13 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { decodeSecurePayload } from '../utils/crypto';
+import { STORAGE_KEY, loadSavedSession } from '../utils/session';
+import { daysInMonth, CURRENT_YEAR } from '../utils/birthWheel';
+import type { SavedSession } from '../utils/session';
 import type { SajuCoreResult } from '../utils/sajuCore';
-import { buildScoreBars, buildVerdictView } from '../utils/reportViewModel';
+import { buildVerdictView } from '../utils/reportViewModel';
 export type { MonthTone } from '../utils/monthlyFlow';
-import { buildElementInsight, buildCharacterName } from '../utils/reportInsights';
+import { buildCharacterName } from '../utils/reportInsights';
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../utils/scorePresentation';
 import { resolveCopyVariant, getCopy } from '../utils/copy';
 import { resolvePriceVariant } from '../utils/pricing';
@@ -18,136 +21,15 @@ import { createSharePage, SHARE_BENEFIT_COPY, shareCareerResult, upload as uploa
 import { preloadKakaoSdk } from '../utils/kakaoSdk';
 import { getCharacterAsset } from '../utils/characterAssets';
 import { buildShareHook, earnsBonusQuestion } from '../utils/shareIncentive';
-import { FollowUpLoading, FormattedAnswer } from '../components/FollowUpContent';
-import { BusinessFooter } from '../components/BusinessFooter';
-import { ReportProse } from '../components/ReportProse';
-import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../utils/reportCopy';
-import { CHECKOUT_COPY, buildCheckoutPresentation, runCheckoutAction } from '../utils/checkoutPresentation';
+import { buildCheckoutPresentation } from '../utils/checkoutPresentation';
 
 
-export const STORAGE_KEY = 'saju_session_v1';
+export { STORAGE_KEY } from '../utils/session';
 
 /** 공유 카드에 찍히는 유입 경로. */
 const SERVICE_URL = 'jobsaju.kr';
 
 // 리포트 가격은 utils/pricing.ts 의 A/B 변형이 결정한다 (?p=6900 / ?p=8900)
-
-type SavedSession = {
-  birthData: any;
-  careerContext: any;
-  aiReport: any | null;
-  isUnlocked: boolean;
-  followUp?: FollowUpRecord | null;
-  followUps?: FollowUpRecord[];
-  shareBonusGranted?: boolean;
-  unlockToken?: string;
-  savedAt: string;
-};
-
-function loadSavedSession(): SavedSession | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.birthData?.year) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-// === 출생 정보용 스크롤 휠 피커 (공간 절약형 3줄 컴팩트 모드) ===
-const WHEEL_ITEM_HEIGHT = 36;
-const WHEEL_VISIBLE_ROWS = 3;
-const WHEEL_HEIGHT = WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ROWS;
-const WHEEL_PADDING = (WHEEL_HEIGHT - WHEEL_ITEM_HEIGHT) / 2;
-
-export const CURRENT_YEAR = new Date().getFullYear();
-export const WHEEL_YEARS = Array.from({ length: CURRENT_YEAR - 1920 + 1 }, (_, i) => 1920 + i);
-export const WHEEL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-export const WHEEL_HOURS = Array.from({ length: 24 }, (_, i) => i);
-export const WHEEL_MINUTES = Array.from({ length: 60 }, (_, i) => i);
-
-export function daysInMonth(year: number, month: number, isSolar: boolean): number {
-  if (!isSolar) return 30; // 음력은 만세력 변환 전이라 30일 상한으로 넉넉히 받아둔다
-  if (!year || !month) return 31;
-  return new Date(year, month, 0).getDate();
-}
-
-/** 값이 바뀌면 해당 항목이 가운데로 오도록 스크롤을 맞추는 iOS 스타일 휠 피커 */
-export function WheelColumn({
-  values,
-  value,
-  onChange,
-  formatValue = (v: number) => String(v),
-  ariaLabel,
-}: {
-  values: number[];
-  value: number;
-  onChange: (v: number) => void;
-  formatValue?: (v: number) => string;
-  ariaLabel: string;
-}) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const scrollTimeoutRef = useRef<number | null>(null);
-
-  // 값이 외부에서 바뀌었을 때(초기 로드, 다른 휠의 파생 변경 등) 스크롤 위치를 맞춘다
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const idx = values.indexOf(value);
-    if (idx === -1) return;
-    const target = idx * WHEEL_ITEM_HEIGHT;
-    if (Math.abs(el.scrollTop - target) > 1) {
-      el.scrollTo({ top: target, behavior: 'auto' });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, values.length]);
-
-  const handleScroll = () => {
-    if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current);
-    // 스크롤이 멈춘 뒤에만 값을 확정한다 (스크롤 중 계속 갱신하면 매 프레임 리렌더가 생긴다)
-    scrollTimeoutRef.current = window.setTimeout(() => {
-      const el = scrollRef.current;
-      if (!el) return;
-      const idx = Math.max(0, Math.min(values.length - 1, Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT)));
-      const target = idx * WHEEL_ITEM_HEIGHT;
-      if (Math.abs(el.scrollTop - target) > 1) {
-        el.scrollTo({ top: target, behavior: 'smooth' });
-      }
-      const next = values[idx];
-      if (next !== undefined && next !== value) onChange(next);
-    }, 110);
-  };
-
-  return (
-    <div className="wheel-col" role="listbox" aria-label={ariaLabel}>
-      <div className="wheel-highlight" style={{ height: WHEEL_ITEM_HEIGHT, top: WHEEL_PADDING }} />
-      <div
-        ref={scrollRef}
-        className="wheel-scroll"
-        style={{ height: WHEEL_HEIGHT }}
-        onScroll={handleScroll}
-      >
-        <div style={{ height: WHEEL_PADDING }} aria-hidden="true" />
-        {values.map(v => (
-          <div
-            key={v}
-            role="option"
-            aria-selected={v === value}
-            className={`wheel-item${v === value ? ' active' : ''}`}
-            style={{ height: WHEEL_ITEM_HEIGHT }}
-            onClick={() => onChange(v)}
-          >
-            {formatValue(v)}
-          </div>
-        ))}
-        <div style={{ height: WHEEL_PADDING }} aria-hidden="true" />
-      </div>
-    </div>
-  );
-}
-
 
 const AppContext = createContext<any>(null);
 

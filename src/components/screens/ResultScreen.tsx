@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useAppContext } from '../../contexts/AppContext';
-import { WheelColumn, STORAGE_KEY } from '../../contexts/AppContext';
+import { STORAGE_KEY } from '../../utils/session';
 
 import { getCharacterAsset } from '../../utils/characterAssets';
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
@@ -77,29 +77,12 @@ export function ResultScreen() {
   // 입력 중인 질문은 로컬 state로 둔다 — 컨텍스트에 두면 한 글자마다 이 화면 전체가 다시 그려진다.
   const [followUpInput, setFollowUpInput] = useState('');
   const {
-    step,
-    birthData,
-    careerContext,
     sajuResult,
     isUnlocked,
-    isAILoading,
-    unlockLoadingText,
-    unlockError,
     aiReport,
-    showManualPayModal,
-    savedSession,
-    showLookupModal,
     isLookupLoading,
     lookupError,
-    lookupSentMessage,
     reportHistory,
-    deepLinkError,
-    appliedCoupon,
-    couponMessage,
-    couponError,
-    isCouponChecking,
-    showSecretCoupon,
-    secretClickCount,
     followUps,
     shareBonusGranted,
     followUpError,
@@ -108,54 +91,20 @@ export function ResultScreen() {
     isShareConfirming,
     unlockToken,
     setStep,
-    setBirthData,
     setCareerContext,
-    setSajuResult,
     setIsUnlocked,
-    setIsAILoading,
-    setUnlockLoadingText,
-    setUnlockError,
     setAiReport,
     setShowManualPayModal,
     setSavedSession,
-    setShowLookupModal,
-    setIsLookupLoading,
-    setLookupError,
-    setLookupSentMessage,
     setReportHistory,
-    setDeepLinkError,
-    setAppliedCoupon,
-    setCouponMessage,
-    setCouponError,
-    setIsCouponChecking,
-    setShowSecretCoupon,
-    setSecretClickCount,
     setFollowUps,
     setShareBonusGranted,
     setFollowUpError,
-    setIsFollowUpLoading,
-    setIsShareLoading,
-    setIsShareConfirming,
-    setUnlockToken,
-    restoreSavedSession,
-    handleUnlock,
-    handleEmailLookup,
     handleSelectPastReport,
     handleFollowUpSubmit,
     handleDownloadCard,
     handleShareResult,
-    handleApplyCoupon,
-    pollShareBonusStatus,
-    checkout,
-    price,
-    copy,
-    currentInputStep,
-    wheelDayCount,
-    wheelDays,
-    birthError,
-    loadingText,
     viralCardCanvasRef,
-    summaryCardCanvasRef
   } = useAppContext();
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const handleReset = () => {
