@@ -24,17 +24,16 @@ test('출생 시간을 모르면 시주를 만들지 않는다 (삼주 분석)',
   // 연·월·일 삼주의 간지 6글자만 오행에 반영되어야 한다
   const total = Object.values(noTime.elementsCount).reduce((a, b) => a + b, 0);
   assert.equal(total, 6);
-  // 대운은 시간과 무관하게 계산되어야 한다
-  assert.ok(noTime.daewun.list.length > 0);
+  // 대운 입력값은 시간을 몰라도 정오 근사값으로 채워져야 한다
+  assert.equal(noTime.daewunInput.hour, 12);
 });
 
-test('세운과 현재 대운은 오늘 기준으로 결정된다', () => {
+test('세운은 오늘 기준으로 결정된다', () => {
   const result = getSajuAnalysis(1993, 8, 12, 13, 30, 1, { isSolar: true, hasTime: true });
   const thisYear = new Date().getFullYear();
 
   assert.equal(result.seewun.year, thisYear);
   assert.equal(result.seewun.ganZhi.length, 2);
-  assert.ok(result.daewun.current, '현재 대운이 지정되어야 한다');
 });
 
 test('월별 로드맵은 요청한 개월 수만큼 서로 다른 월건으로 만들어진다', () => {

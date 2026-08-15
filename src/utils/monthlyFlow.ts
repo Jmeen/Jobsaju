@@ -1,5 +1,4 @@
-// @ts-ignore
-import { Solar } from 'lunar-javascript';
+import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { calculateShiShen, normalizeGanZhi, ZHI_CHUNG, ZHI_HAP } from './sajuCore.ts';
 
 export type MonthTone = 'move' | 'nego' | 'press' | 'doc' | 'peer' | 'calm';
@@ -121,11 +120,8 @@ export function buildMonthlyFlow(
     const m = d.getMonth() + 1;
 
     // 매월 15일 정오 기준 월건 (절기 경계에서 안전한 지점)
-    const solar = Solar.fromYmdHms(y, m, 15, 12, 0, 0);
-    const lunar = solar.getLunar();
-    const rawGanZhi: string = typeof lunar.getMonthInGanZhiExact === 'function'
-      ? lunar.getMonthInGanZhiExact()
-      : lunar.getMonthInGanZhi();
+    // 만세력(manseryeok)의 월주는 절기 기준이라 lunar-javascript의 getMonthInGanZhiExact와 동일하다.
+    const rawGanZhi: string = calculateSaju(y, m, 15, 12, 0, { applyTimeCorrection: false }).monthPillarHanja;
     // 충/합·십성 비교를 위해 원국과 같은 한글 표기로 정규화
     const ganZhi = normalizeGanZhi(rawGanZhi);
 

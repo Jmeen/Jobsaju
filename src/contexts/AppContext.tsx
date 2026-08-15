@@ -948,6 +948,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsFollowUpLoading(true);
     const question = followUpInput.trim();
 
+    // 대운은 이 프롬프트에서만 쓰이므로 lunar-javascript(gzip 약 113KB)를 여기서만 내려받는다.
+    // 실패해도 추가 질문 자체는 진행한다 (프롬프트에서 대운 한 줄이 비는 정도의 영향).
+    let daewunGanZhi = '';
+    try {
+      const { computeDaewun } = await import('../utils/daewun');
+      daewunGanZhi = computeDaewun(sajuResult.daewunInput).current?.ganZhi || '';
+    } catch {
+      daewunGanZhi = '';
+    }
+
     try {
       const res = await fetch('/api/followup', {
         method: 'POST',
@@ -962,7 +972,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             score_levels: buildAllScoreViews(sajuResult.scores).map(view => `${view.axisLabel} ${view.score}점 · ${view.level}`),
             body_strength: sajuResult.bodyStrength > 0.2 ? '신강' : sajuResult.bodyStrength < -0.2 ? '신약' : '중화',
             seewun: `${sajuResult.seewun.year}년 ${sajuResult.seewun.ganZhi}`,
-            daewun: sajuResult.daewun.current?.ganZhi || '',
+            daewun: daewunGanZhi,
             prior_conclusion: aiReport?.one_line_conclusion || '',
           },
           user_context: {

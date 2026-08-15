@@ -1,6 +1,5 @@
 import { calculateSaju, lunarToSolar } from '@fullstackfamily/manseryeok';
-// @ts-ignore
-import { Solar } from 'lunar-javascript';
+import type { DaewunInput } from './daewun.ts';
 
 // === TypeScript Interfaces ===
 
@@ -43,18 +42,12 @@ export interface SajuCoreResult {
   scores: CareerScores;
   /** 신강(+1) ~ 신약(-1). 해석 톤을 가르는 축 */
   bodyStrength: number;
-  daewun: {
-    startAge: number;
-    list: Array<{
-      startAge: number;
-      endAge: number;
-      startYear: number;
-      endYear: number;
-      ganZhi: string;
-    }>;
-    /** 현재 나이가 속한 대운 (없으면 첫 대운) */
-    current: { startAge: number; endAge: number; ganZhi: string } | null;
-  };
+  /**
+   * 대운 계산에 필요한 입력값. 대운 자체는 결제 후 추가 질문에서만 쓰이므로
+   * 여기서 계산하지 않고, 필요한 쪽에서 computeDaewun(daewunInput)으로 구한다.
+   * (lunar-javascript를 초기 번들에서 빼기 위한 분리 — src/utils/daewun.ts 참고)
+   */
+  daewunInput: DaewunInput;
   seewun: {
     year: number;
     ganZhi: string; // 한글 (예: 병오)
@@ -402,32 +395,13 @@ export function getSajuAnalysis(
   const daewunHour = hasTime ? (kasiSaju.correctedTime ? kasiSaju.correctedTime.hour : hour) : 12;
   const daewunMinute = hasTime ? (kasiSaju.correctedTime ? kasiSaju.correctedTime.minute : minute) : 0;
 
-  const solarObj = Solar.fromYmdHms(sYear, sMonth, sDay, daewunHour, daewunMinute, 0);
-  const lunarObj = solarObj.getLunar();
-  const eightCharObj = lunarObj.getEightChar();
-  const yunObj = eightCharObj.getYun(gender);
-
-  const daewunStartAge = yunObj.getStartYear();
-  const daewunList = yunObj.getDaYun().map((dy: any) => ({
-    startAge: dy.getStartAge(),
-    endAge: dy.getEndAge(),
-    startYear: dy.getStartYear(),
-    endYear: dy.getEndYear(),
-    ganZhi: dy.getGanZhi()
-  })).filter((dy: any) => dy.ganZhi !== '');
-
   const now = new Date();
   const targetYear = now.getFullYear();
-  const currentDaewun = daewunList.find(
-    (dy: any) => dy.startYear <= targetYear && targetYear <= dy.endYear
-  ) || daewunList[0] || null;
 
-  // 세운은 입춘 기준 연간지를 사용한다
-  const solarNow = Solar.fromYmdHms(targetYear, now.getMonth() + 1, now.getDate(), 12, 0, 0);
-  const lunarNow = solarNow.getLunar();
-  const seewunGanZhiHanja = typeof lunarNow.getYearInGanZhiByLiChun === 'function'
-    ? lunarNow.getYearInGanZhiByLiChun()
-    : lunarNow.getYearInGanZhi();
+  // 세운은 입춘 기준 연간지를 사용한다 (만세력의 연주가 이미 입춘 기준이다)
+  const seewunGanZhiHanja = calculateSaju(
+    targetYear, now.getMonth() + 1, now.getDate(), 12, 0, { applyTimeCorrection: false }
+  ).yearPillarHanja;
 
   const seewun = {
     year: targetYear,
@@ -458,12 +432,13 @@ export function getSajuAnalysis(
     elementsCount,
     scores,
     bodyStrength,
-    daewun: {
-      startAge: daewunStartAge,
-      list: daewunList,
-      current: currentDaewun
-        ? { startAge: currentDaewun.startAge, endAge: currentDaewun.endAge, ganZhi: currentDaewun.ganZhi }
-        : null
+    daewunInput: {
+      solarYear: sYear,
+      solarMonth: sMonth,
+      solarDay: sDay,
+      hour: daewunHour,
+      minute: daewunMinute,
+      gender
     },
     seewun,
     solarDate: { year: sYear, month: sMonth, day: sDay },
