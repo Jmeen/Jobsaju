@@ -8,7 +8,7 @@ import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scoreP
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
 import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
 import { buildMonthlyFlow } from '../../utils/monthlyFlow';
-import { buildElementInsight, buildCharacterName } from '../../utils/reportInsights';
+import { buildElementInsight, buildCharacterName, ELEMENT_INFO } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUp';
 import { ReportProse } from '../ReportProse';
@@ -118,187 +118,128 @@ export function ResultScreen() {
           </div>
 
           <div className="result-primary">
-
-          {/* 내 일간 크리처 — 결과를 열자마자 가장 먼저 보이는 "내 카드" */}
           {(() => {
             const character = getCharacterAsset(sajuResult.dayGan.char);
             const top = buildTopScore(sajuResult.scores);
+            const verdict = buildVerdictView(sajuResult.scores);
+            const ELEMENT_MAP: Record<string, keyof typeof ELEMENT_INFO> = { '목': 'wood', '화': 'fire', '토': 'earth', '금': 'metal', '수': 'water' };
+            const myElementInfo = ELEMENT_INFO[ELEMENT_MAP[sajuResult.dayGan.element] || 'wood'];
+
             return (
-              <section className="creature-hero" aria-label={`${character.title}, ${top.axisLabel} 우세`}>
-                <div className={`creature-hero-stage tone-${top.tone}`}>
-                  <img
-                    src={character.imageUrl}
-                    alt=""
-                    aria-hidden="true"
-                    className="creature-hero-img"
-                    width={640}
-                    height={640}
-                    loading="eager"
-                  />
-                  <div className="creature-hero-no">No. {String(character.collectionNo).padStart(2, '0')} / {character.collectionTotal}</div>
-                  <div className="creature-hero-badge">{AXIS_ICON[top.axis]} {top.axisLabel} 우세</div>
-                </div>
-                <strong className="creature-hero-title">{character.title}</strong>
-                <span className="creature-hero-type">{buildCharacterTypeLabel(character.elementLabel, character.title, top.axisLabel)}</span>
-              </section>
-            );
-          })()}
-
-          <section className="verdict-card">
-            <span className="eyebrow">{buildVerdictView(sajuResult.scores).isClose ? `${REPORT_HEADINGS.verdict} · 점수 근접` : REPORT_HEADINGS.verdict}</span>
-            <h1>{buildVerdictView(sajuResult.scores).title}</h1>
-            <p>{buildVerdictView(sajuResult.scores).subtitle}</p>
-          </section>
-
-          {/* 현재 가장 높은 선택 지표 */}
-          {(() => {
-            const top = buildTopScore(sajuResult.scores);
-            return (
-              <section className={`rank-card rank-${top.tone}`}>
-                <span className="eyebrow">{REPORT_HEADINGS.strongestFlow}</span>
-                <strong>{top.headline}</strong>
-                <p>{top.detail}</p>
-              </section>
-            );
-          })()}
-
-          <section className="glass-card score-report">
-            <div className="section-heading"><div><span className="eyebrow">{REPORT_HEADINGS.scoreComparison}</span><h3>{REPORT_HEADINGS.scoreComparisonTitle}</h3></div><span>100점 기준</span></div>
-            <div className="score-bars">
-              {buildScoreBars(sajuResult.scores).map(score => {
-                const scoreView = buildAllScoreViews(sajuResult.scores).find(view => view.axis === score.key);
-                return (
-                  <div className="score-row" key={score.key}>
-                    <div className="score-meta">
-                      <span>{score.label}{scoreView && <em className="score-rank">{scoreView.level}</em>}</span>
-                      <strong>{score.value}</strong>
-                    </div>
-                    <div className="score-track"><span className={`score-fill ${score.tone}`} style={{ width: `${score.width}%` }} /></div>
+              <>
+                {/* 1. 최상단 캐릭터 & 한 줄 요약 */}
+                <section className="creature-hero" aria-label={character.title}>
+                  <div className={`creature-hero-stage tone-${top.tone}`}>
+                    <img
+                      src={character.imageUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="creature-hero-img"
+                      width={640}
+                      height={640}
+                      loading="eager"
+                    />
                   </div>
-                );
-              })}
-            </div>
-          </section>
+                  <span className="creature-hero-type">{sajuResult.dayGan.char}{sajuResult.dayGan.element} 본원</span>
+                  <strong className="creature-hero-title">{character.title}</strong>
+                  <div className="creature-verdict-highlight" style={{ marginTop: 16, background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 16, fontWeight: 600, color: '#fff', margin: 0 }}>"{verdict.title}"</p>
+                  </div>
+                </section>
 
-          <section className="next-action-card">
-            <span className="action-index">01</span>
-            <div><span className="eyebrow">{REPORT_HEADINGS.nextAction}</span><h3>{buildVerdictView(sajuResult.scores).action.title}</h3><p>{buildVerdictView(sajuResult.scores).action.desc}</p></div>
-          </section>
-
-          {/* 이번 달 브리핑 — 매달 바뀌므로 다시 찾아올 이유가 된다 (무료) */}
-          {(() => {
-            const natalZhis = [
-              sajuResult.pillars.year.zhi,
-              sajuResult.pillars.month.zhi,
-              sajuResult.pillars.day.zhi,
-              ...(sajuResult.pillars.hour.zhi ? [sajuResult.pillars.hour.zhi] : []),
-            ];
-            const thisMonth = buildMonthlyFlow(sajuResult.dayGan.char, natalZhis, 1)[0];
-            if (!thisMonth) return null;
-
-            return (
-              <section className="month-brief-card">
-                <div className="month-brief-head">
-                  <span className="eyebrow">{thisMonth.year}년 {thisMonth.month}월의 흐름</span>
-                  <span className="month-brief-ganzhi">{thisMonth.ganZhi}월</span>
+                {/* 공유 CTA 1 (요약 직후) */}
+                <div style={{ padding: '0 20px', marginBottom: 32 }}>
+                  <button className="btn-secondary share-btn" onClick={handleShareResult} disabled={isShareLoading} style={{ width: '100%' }}>
+                    {isShareLoading ? '공유 준비 중...' : '친구에게 내 캐릭터 공유하기'}
+                  </button>
                 </div>
-                <h3>{thisMonth.label.replace(/^\d+월 \[|\]$/g, '')}</h3>
-                <p>{thisMonth.description}</p>
-                <small>달이 바뀌면 이 조언도 함께 바뀝니다.</small>
-              </section>
+
+                {/* 3축 점수 시각화 */}
+                <section className="glass-card score-report">
+                  <div className="section-heading"><div><span className="eyebrow">현재 나의 흐름</span><h3>이직 vs 잔류 vs 협상</h3></div><span>100점 기준</span></div>
+                  <div className="score-bars">
+                    {buildScoreBars(sajuResult.scores).map(score => {
+                      const scoreView = buildAllScoreViews(sajuResult.scores).find(view => view.axis === score.key);
+                      return (
+                        <div className="score-row" key={score.key}>
+                          <div className="score-meta">
+                            <span>{score.label}{scoreView && <em className="score-rank">{scoreView.level}</em>}</span>
+                            <strong>{score.value}</strong>
+                          </div>
+                          <div className="score-track"><span className={`score-fill ${score.tone}`} style={{ width: `${score.width}%` }} /></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {/* 성향 요약 3 카드 */}
+                <section className="insight-cards" style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '40px' }}>
+                  <div className="section-heading"><div><span className="eyebrow">업무 성향 요약</span><h3>나의 커리어 DNA</h3></div></div>
+                  
+                  <div className="glass-card insight-item" style={{ padding: '16px' }}>
+                    <span className="insight-label" style={{ color: 'var(--accent-purple)', fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>💪 Strength (강점)</span>
+                    <p style={{ fontSize: '14px', lineHeight: 1.5, margin: 0, color: 'var(--text-secondary)' }}>{myElementInfo.strong}</p>
+                  </div>
+                  
+                  <div className="glass-card insight-item" style={{ padding: '16px' }}>
+                    <span className="insight-label" style={{ color: 'var(--accent-pink)', fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>⚠️ Blind Spot (주의할 점)</span>
+                    <p style={{ fontSize: '14px', lineHeight: 1.5, margin: 0, color: 'var(--text-secondary)' }}>{myElementInfo.weak}</p>
+                  </div>
+                  
+                  <div className="glass-card insight-item" style={{ padding: '16px' }}>
+                    <span className="insight-label" style={{ color: 'var(--border-neon)', fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>🏢 Best Environment (맞는 환경)</span>
+                    <p style={{ fontSize: '14px', lineHeight: 1.5, margin: 0, color: 'var(--text-secondary)' }}>{myElementInfo.env}</p>
+                  </div>
+                </section>
+              </>
             );
           })()}
+        </div>
 
-          </div>
-
-          {/* 사주 원국표 (무료) — 판단과 행동 요약 다음에 근거로 제공 */}
-          <div className="glass-card evidence-card result-evidence">
-            <div className="section-heading"><div><span className="eyebrow">{REPORT_HEADINGS.evidence}</span><h3>{REPORT_HEADINGS.chart}</h3></div><span>{sajuResult.dayGan.char}목 본원</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-              {/* 시주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>시주</span>
-                {sajuResult.pillars.hour.gan ? (
-                  <>
-                    <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.hour.ganHanja}{sajuResult.pillars.hour.zhiHanja}</h4>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.hour.gan}{sajuResult.pillars.hour.zhi}</span>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.hour.shiShen}</div>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>모름</div>
-                )}
-              </div>
-
-              {/* 일주 */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid var(--border-neon)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>일주 (나)</span>
-                <h4 style={{ color: 'var(--accent-pink)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.day.ganHanja}{sajuResult.pillars.day.zhiHanja}</h4>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.day.gan}{sajuResult.pillars.day.zhi}</span>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.day.shiShen}</div>
-              </div>
-
-              {/* 월주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>월주</span>
-                <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.month.ganHanja}{sajuResult.pillars.month.zhiHanja}</h4>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.month.gan}{sajuResult.pillars.month.zhi}</span>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.month.shiShen}</div>
-              </div>
-
-              {/* 연주 */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>연주</span>
-                <h4 style={{ color: 'var(--accent-purple)', fontSize: 18, marginTop: 4 }}>{sajuResult.pillars.year.ganHanja}{sajuResult.pillars.year.zhiHanja}</h4>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sajuResult.pillars.year.gan}{sajuResult.pillars.year.zhi}</span>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sajuResult.pillars.year.shiShen}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* === LOCKED / UNLOCKED AREA === */}
+        {/* === LOCKED / UNLOCKED AREA === */}
           <div className="locked-area">
             
             {/* 1. Locked Overlay (Only shown when not unlocked) */}
             {!isUnlocked && (
               <div className="unlock-overlay">
-                <div className="unlock-card">
-                  <h3 style={{ fontSize: 18, color: '#fff', marginBottom: 8 }}>{copy.unlockTitle}</h3>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
-                    {copy.unlockBody}
-                  </p>
+                <div className="unlock-card paywall-teaser">
+                  <div className="teaser-header" style={{ textAlign: 'center', marginBottom: 24 }}>
+                    <h3 style={{ fontSize: 18, color: '#fff', marginBottom: 8, lineHeight: 1.4 }}>성향은 알았습니다.<br/>이제 중요한 건 타이밍입니다.</h3>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      지금 움직여야 할지, 기다려야 할지<br/>12개월 흐름을 확인하세요.
+                    </p>
+                  </div>
 
-                  {/* 6개월 로드맵 미리보기 — 가장 반응이 좋은 기능이므로 결제 전에 실물을 보여준다 */}
-                  {(() => {
-                    const natalZhis = [
-                      sajuResult.pillars.year.zhi,
-                      sajuResult.pillars.month.zhi,
-                      sajuResult.pillars.day.zhi,
-                      ...(sajuResult.pillars.hour.zhi ? [sajuResult.pillars.hour.zhi] : []),
-                    ];
-                    const preview = buildMonthlyFlow(sajuResult.dayGan.char, natalZhis, 6);
-                    return (
-                      <div className="roadmap-teaser">
-                        <span className="roadmap-teaser-title">내 6개월 이직 로드맵</span>
-                        <ul>
-                          {preview.map((m, i) => (
-                            <li key={`${m.year}-${m.month}`} className={i < 2 ? 'open' : 'locked'}>
-                              <strong>{m.month}월</strong>
-                              <span>{i < 2 ? m.label.replace(/^\d+월 \[|\]$/g, '') : '••••••'}</span>
-                              {m.isPeak && i < 2 && <em>가장 강한 달</em>}
-                              {i >= 2 && <i>🔒</i>}
-                            </li>
-                          ))}
-                        </ul>
-                        <small>달마다 무엇을 해야 하는지, 왜 그런지까지 전부 열립니다.</small>
-                      </div>
-                    );
-                  })()}
+                  <div className="locked-preview-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>🔥 올해 가장 강한 이직 시기</span>
+                      <span className="blur-text" style={{ fontSize: 14, color: 'var(--accent-purple)', fontWeight: 600, filter: 'blur(4px)' }}>9월~10월</span>
+                    </div>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>💰 연봉 이야기하기 좋은 시기</span>
+                      <span className="blur-text" style={{ fontSize: 14, color: 'var(--accent-pink)', fontWeight: 600, filter: 'blur(4px)' }}>11월</span>
+                    </div>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>⚠️ 조심해야 하는 구간</span>
+                      <span className="blur-text" style={{ fontSize: 14, color: '#f87171', fontWeight: 600, filter: 'blur(4px)' }}>4월~5월</span>
+                    </div>
+                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 14, color: '#e5e7eb' }}>🗓 12개월 커리어 캘린더</span>
+                      <span className="blur-text" style={{ fontSize: 14, color: 'var(--border-neon)', fontWeight: 600, filter: 'blur(4px)' }}>전체 열람</span>
+                    </div>
+                  </div>
 
-                  <p style={{ fontSize: 12, color: 'var(--accent-purple)', margin: '16px 0 20px' }}>
+                  <p style={{ fontSize: 12, color: 'var(--accent-purple)', margin: '16px 0 20px', textAlign: 'center' }}>
                     ✓ 궁금증 1가지를 추가로 질문할 수 있습니다.
                   </p>
-                  <button className="btn-primary" onClick={() => setShowManualPayModal(true)}>
-                    {copy.unlockCta(price.label)}
+                  
+                  <button className="btn-primary" onClick={() => setShowManualPayModal(true)} style={{ width: '100%', marginBottom: 12 }}>
+                    내 커리어 타이밍 확인하기 · 8,900원
+                  </button>
+
+                  <button className="btn-text-only" onClick={handleShareResult} disabled={isShareLoading} style={{ width: '100%' }}>
+                    {isShareLoading ? '공유 준비 중...' : '결과 공유하고 할인받기'}
                   </button>
                 </div>
               </div>
@@ -352,102 +293,88 @@ export function ResultScreen() {
                       규칙 기반 간이 리포트입니다 — AI 상담 서버가 연결되면 입력한 고민을 더 깊게 반영한 해석이 제공됩니다.
                     </p>
                   )}
-                  {aiReport.intent_summary && (
-                    <section className="intent-card">
-                      <span className="eyebrow">{REPORT_HEADINGS.intent}</span>
-                      <h3>{aiReport.intent_summary.primary_question}</h3>
-                      <p>{aiReport.intent_summary.role_interpretation}</p>
-                      <div className="assumption-list">
-                        {aiReport.intent_summary.assumptions.map((item: string) => <span key={item}>{item}</span>)}
-                      </div>
-                      {aiReport.intent_summary.needs_clarification && <small>직함의 정확한 의미는 실제 업무 범위를 확인한 뒤 판단해야 합니다.</small>}
+                  {aiReport.report?.report_summary && (
+                    <section className="glass-card" style={{ textAlign: 'left', marginBottom: 24 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-purple)', display: 'block', marginBottom: 6 }}>리포트 요약</span>
+                      <h3 style={{ fontSize: 18, lineHeight: 1.5, color: '#f3f4f6', marginBottom: 12 }}>{aiReport.report.report_summary.headline}</h3>
+                      <strong style={{ color: 'var(--accent-pink)', fontSize: 14 }}>💡 {aiReport.report.report_summary.one_line_action}</strong>
                     </section>
                   )}
-                  {aiReport.decision_factors && (
-                    <section className="decision-factor-card">
-                      <span className="eyebrow">{REPORT_HEADINGS.decisionFactors}</span>
-                      <p>{aiReport.decision_factors.summary}</p>
-                      <strong>{aiReport.decision_factors.recommendation}</strong>
-                      <div className="decision-checks">
-                        {aiReport.decision_factors.checks?.map((item: string) => <span key={item}>{item}</span>)}
-                      </div>
-                    </section>
-                  )}
-                  {/* One line conclusion */}
-                  <div className="glass-card" style={{ textAlign: 'left' }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-purple)', display: 'block', marginBottom: 6 }}>총평</span>
-                    <p style={{ fontSize: 15, lineHeight: 1.5, color: '#f3f4f6' }}>{aiReport.one_line_conclusion}</p>
-                  </div>
 
-                  {aiReport.personal_answer && (
-                    <section className="glass-card premium-section personal-answer">
+                  {aiReport.report?.personalized_advice && (
+                    <section className="glass-card premium-section">
                       <span className="report-number">01</span>
-                      <span className="eyebrow">{REPORT_HEADINGS.personalAnswer}</span>
-                      <h3>“{aiReport.personal_answer.question}”</h3>
-                      <ReportProse text={aiReport.personal_answer.content} />
+                      <span className="eyebrow">맞춤 진단</span>
+                      <h3 style={{ fontSize: 18, marginBottom: 16 }}>고민에 대한 명리학적 솔루션</h3>
+                      <div style={{ marginBottom: 16, padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}><strong>Q.</strong> {aiReport.report.personalized_advice.question_summary}</p>
+                      </div>
+                      <p style={{ marginBottom: 16, lineHeight: 1.6 }}><strong>진단:</strong> {aiReport.report.personalized_advice.diagnosis}</p>
+                      <p style={{ marginBottom: 16, lineHeight: 1.6 }}><strong>기질 분석:</strong> {aiReport.report.personalized_advice.character_connection}</p>
+                      <p style={{ marginBottom: 24, lineHeight: 1.6, color: 'var(--accent-purple)' }}><strong>전략 제안:</strong> {aiReport.report.personalized_advice.recommendation}</p>
+                      
+                      <div className="action-columns">
+                        <div>
+                          <strong>지금 해야 할 일</strong>
+                          {aiReport.report.personalized_advice.action_steps.map((item: string) => <span key={item}>{item}</span>)}
+                        </div>
+                        <div>
+                          <strong>주의해야 할 일</strong>
+                          {aiReport.report.personalized_advice.watch_out.map((item: string) => <span key={item}>{item}</span>)}
+                        </div>
+                      </div>
                     </section>
                   )}
 
-                  {aiReport.current_dilemma && (
+                  {aiReport.report?.timing_highlights && (
                     <section className="glass-card premium-section">
                       <span className="report-number">02</span>
-                      <span className="eyebrow">{REPORT_HEADINGS.situation}</span>
-                      <h3>{aiReport.current_dilemma.title}</h3>
-                      <ReportProse text={aiReport.current_dilemma.content} />
-                    </section>
-                  )}
-
-                  {aiReport.career_nature && (
-                    <section className="glass-card premium-section">
-                      <span className="report-number">03</span>
-                      <span className="eyebrow">{REPORT_HEADINGS.careerNature}</span>
-                      <h3>{aiReport.career_nature.title}</h3>
-                      <ReportProse text={aiReport.career_nature.content} />
-                      <div className="trait-grid">
-                        <div><strong>{REPORT_HEADINGS.strengths}</strong>{aiReport.career_nature.strengths.map((item: string) => <span key={item}>{item}</span>)}</div>
-                        <div><strong>{REPORT_HEADINGS.cautions}</strong>{aiReport.career_nature.cautions.map((item: string) => <span key={item}>{item}</span>)}</div>
+                      <span className="eyebrow">타이밍 하이라이트</span>
+                      <h3 style={{ fontSize: 18, marginBottom: 16 }}>행동하기 가장 좋은 시기</h3>
+                      <div className="path-list">
+                        <article>
+                          <div><h4 style={{ color: 'var(--accent-pink)' }}>이직·이동 최적기</h4><strong>{aiReport.report.timing_highlights.best_job_change.year_month}</strong></div>
+                          <p>{aiReport.report.timing_highlights.best_job_change.reason}</p>
+                          <span style={{ fontSize: 12, marginTop: 8, display: 'block', color: 'var(--text-muted)' }}>👉 {aiReport.report.timing_highlights.best_job_change.action}</span>
+                        </article>
+                        <article>
+                          <div><h4 style={{ color: 'var(--accent-purple)' }}>협상·제안 최적기</h4><strong>{aiReport.report.timing_highlights.best_negotiation.year_month}</strong></div>
+                          <p>{aiReport.report.timing_highlights.best_negotiation.reason}</p>
+                          <span style={{ fontSize: 12, marginTop: 8, display: 'block', color: 'var(--text-muted)' }}>👉 {aiReport.report.timing_highlights.best_negotiation.action}</span>
+                        </article>
+                        <article>
+                          <div><h4 style={{ color: '#ef4444' }}>주의 및 리스크 구간</h4><strong>{aiReport.report.timing_highlights.caution_month.year_month}</strong></div>
+                          <p>{aiReport.report.timing_highlights.caution_month.reason}</p>
+                          <span style={{ fontSize: 12, marginTop: 8, display: 'block', color: 'var(--text-muted)' }}>👉 {aiReport.report.timing_highlights.caution_month.action}</span>
+                        </article>
                       </div>
                     </section>
                   )}
 
-                  {aiReport.three_paths && (
+                  {aiReport.report?.timeline && (
                     <section className="glass-card premium-section">
-                      <span className="report-number">04</span>
-                      <span className="eyebrow">{REPORT_HEADINGS.paths}</span>
-                      <h3>선택에 따라 무엇이 달라지는지</h3>
-                      <div className="path-list">
-                        {aiReport.three_paths.map((path: any) => (
-                          <article key={path.key}>
-                            <div><h4>{path.title}</h4><strong>{path.score}</strong></div>
-                            <p>{path.content}</p>
-                          </article>
+                      <span className="report-number">03</span>
+                      <span className="eyebrow">월별 상세 흐름</span>
+                      <h3 style={{ fontSize: 18, marginBottom: 16 }}>앞으로 12개월의 기운</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {aiReport.report.timeline.map((item: any) => (
+                          <div key={item.year_month} style={{ padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                              <strong style={{ fontSize: 16, color: '#f3f4f6' }}>{item.year_month}</strong>
+                              <span style={{ fontSize: 12, padding: '4px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.1)' }}>{item.keyword}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 12, fontSize: 11, color: 'var(--text-muted)' }}>
+                              <span>이직운 {item.scores?.job_change ?? 0}</span> | 
+                              <span>협상운 {item.scores?.negotiation ?? 0}</span> | 
+                              <span>잔류운 {item.scores?.stay ?? 0}</span>
+                            </div>
+                            <p style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 8, color: '#d1d5db' }}>{item.summary}</p>
+                            <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>✅ {item.action}</p>
+                          </div>
                         ))}
                       </div>
                     </section>
                   )}
-
-                  {aiReport.ideal_environment && (
-                    <section className="glass-card premium-section">
-                      <span className="report-number">05</span>
-                      <span className="eyebrow">{REPORT_HEADINGS.environment}</span>
-                      <h3>{aiReport.ideal_environment.title}</h3>
-                      <ReportProse text={aiReport.ideal_environment.content} />
-                      <div className="check-list">{aiReport.ideal_environment.checklist.map((item: string) => <span key={item}>{item}</span>)}</div>
-                    </section>
-                  )}
-
-                  {aiReport.action_plan && (
-                    <section className="glass-card premium-section">
-                      <span className="report-number">06</span>
-                      <span className="eyebrow">{REPORT_HEADINGS.actionPlan}</span>
-                      <h3>이번 주에 할 일과 미룰 일</h3>
-                      <div className="action-columns">
-                        <div><strong>{REPORT_HEADINGS.actionDo}</strong>{aiReport.action_plan.do.map((item: string) => <span key={item}>{item}</span>)}</div>
-                        <div><strong>{REPORT_HEADINGS.actionAvoid}</strong>{aiReport.action_plan.avoid.map((item: string) => <span key={item}>{item}</span>)}</div>
-                      </div>
-                    </section>
-                  )}
-
                   {aiReport.closing_advice && (
                     <section className="closing-card">
                       <span className="eyebrow">{REPORT_HEADINGS.closing}</span>

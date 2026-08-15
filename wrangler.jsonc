@@ -24,5 +24,13 @@
 			"binding": "SAJU_KV",
 			"id": "7c0710b502cc4c06aac1ed9e5b16a9a1"
 		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "paid_reports_db",
+			"database_id": "f01b8131-035f-430e-be12-4d8be52c98b2"
+		}
 	]
+
 }

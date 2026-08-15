@@ -791,96 +791,96 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 리포트 생성이 오래 걸리므로, 완료 시 알림을 보낼 수 있도록 지금(클릭 시점=사용자 제스처) 권한을 요청해 둔다
     try {
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         Notification.requestPermission();
       }
     } catch { /* 알림 미지원 환경은 조용히 무시 */ }
 
-    setIsAILoading(true);
     setUnlockError(null);
 
-    // 쿠폰이 없으면 paymentId를 비워 서버로 보낸다 — 실제 PG 연동 전까지는 쿠폰 없이는 해금되지 않는다.
-    // (예전엔 여기서 임의로 "sandbox-" 문자열을 만들어 보냈는데, 서버가 그 접두사만 보고 무조건
-    // 통과시켜서 쿠폰 유무와 무관하게 전원 무료로 열리는 상태였다.)
-    const paymentId = appliedCoupon ? `coupon-${appliedCoupon}` : '';
+    // If using a coupon, bypass PortOne
+    let finalPaymentId = appliedCoupon ? `coupon-${appliedCoupon}` : '';
+
+    if (!finalPaymentId) {
+      try {
+        const { requestPortOnePayment } = await import('../utils/portone');
+        const paymentRes = await requestPortOnePayment({
+          paymentId: `pid-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          orderName: '잡사주 유료 리포트',
+          totalAmount: price.amount,
+          currency: 'KRW',
+          payMethod: 'CARD'
+        });
+        
+        if (paymentRes.code != null) {
+          // PortOne V2 returns code on failure
+          setUnlockError(`결제 실패: ${paymentRes.message}`);
+          return;
+        }
+        
+        finalPaymentId = paymentRes.paymentId;
+      } catch (err: any) {
+        setUnlockError(`결제 초기화 실패: ${err.message}`);
+        return;
+      }
+    }
+
+    setIsAILoading(true);
 
     try {
-      // 1. 서버리스 클라우드플레어 Workers API 경로 호출 시도
-      // (만약 로컬 실행이고 백엔드 서버가 켜져 있지 않은 상태면 에러 캐치 후 고품질 Mock 데이터로 스위칭)
-      const data = await requestPremiumReport({
-          user_context: {
-            email: email.trim(),
-            gender: birthData.gender === 1 ? "남성" : "여성",
-            current_status: careerContext.current_status,
-            main_concern: Array.isArray(careerContext.main_concern)
-              ? careerContext.main_concern.join(', ')
-              : careerContext.main_concern,
-            current_job: careerContext.current_job,
-            career_goal: careerContext.career_goal,
-            desired_answer: careerContext.desired_answer,
-            // 이메일 딥링크로 재접속했을 때 사주를 다시 계산할 수 있도록 원본 출생정보를 함께 보관해 둔다.
-            birth_data: birthData
-          },
-          saju_data: {
-            pillars: {
-              year: `${sajuResult?.pillars.year.ganHanja}${sajuResult?.pillars.year.zhiHanja} (${sajuResult?.pillars.year.gan}${sajuResult?.pillars.year.zhi})`,
-              month: `${sajuResult?.pillars.month.ganHanja}${sajuResult?.pillars.month.zhiHanja} (${sajuResult?.pillars.month.gan}${sajuResult?.pillars.month.zhi})`,
-              day: `${sajuResult?.pillars.day.ganHanja}${sajuResult?.pillars.day.zhiHanja} (${sajuResult?.pillars.day.gan}${sajuResult?.pillars.day.zhi})`,
-              hour: sajuResult?.pillars.hour.gan 
-                ? `${sajuResult?.pillars.hour.ganHanja}${sajuResult?.pillars.hour.zhiHanja} (${sajuResult?.pillars.hour.gan}${sajuResult?.pillars.hour.zhi})`
-                : "모름"
-            },
-            day_gan: `${sajuResult?.dayGan.hanja} (${sajuResult?.dayGan.char}${sajuResult?.dayGan.element})`,
-            elements: {
-              wood: sajuResult?.elementsCount.wood,
-              fire: sajuResult?.elementsCount.fire,
-              earth: sajuResult?.elementsCount.earth,
-              metal: sajuResult?.elementsCount.metal,
-              water: sajuResult?.elementsCount.water
-            },
-            scores: {
-              job_change: sajuResult?.scores.jobChange,
-              stay: sajuResult?.scores.stay,
-              negotiation: sajuResult?.scores.negotiation
-            },
-            body_strength: sajuResult
-              ? (sajuResult.bodyStrength > 0.2 ? '신강' : sajuResult.bodyStrength < -0.2 ? '신약' : '중화')
-              : undefined,
-            daewun: sajuResult?.daewun.current
-              ? `${sajuResult.daewun.current.ganZhi} 대운 (${sajuResult.daewun.current.startAge}~${sajuResult.daewun.current.endAge}세)`
-              : '대운 정보 없음',
-            seewun_year: sajuResult?.seewun.year,
-            seewun_ganzhi: sajuResult?.seewun.ganZhi
-          }
-      }, fetch, paymentId, appliedCoupon || undefined);
+      // Create request payload
+      const payload = {
+        payment_id: finalPaymentId,
+        birth: birthData,
+        career_context: {
+          email: email.trim(),
+          worry_text: careerContext.current_status,
+          job_title: careerContext.current_job,
+          years_of_experience: 5 // Defaulting, you might want to derive this
+        }
+      };
 
-      // 실제 AI 응답 — 폴백으로 덮어쓰지 않는다
-      setUnlockToken(data.unlockToken || 'local-developer-unlock-token');
-      setAiReport({ ...data, source: 'ai' });
+      // We'll poll up to 6 times (about 30 seconds) if it returns 429
+      let retries = 0;
+      let finalData = null;
+
+      while (retries < 6) {
+        const res = await fetch('/api/paid-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.status === 202) {
+          // Generating...
+          setUnlockLoadingText('수만 가지 경우의 수를 분석하여 리포트를 작성하고 있습니다... (최대 15초 소요)');
+          await new Promise(r => setTimeout(r, 5000));
+          retries++;
+          continue;
+        }
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || '리포트 생성 중 오류가 발생했습니다.');
+        }
+
+        finalData = await res.json();
+        break;
+      }
+
+      if (!finalData) {
+        throw new Error('리포트 생성이 지연되고 있습니다. 잠시 후 다시 시도해주세요.');
+      }
+
+      // Map finalData to aiReport structure
+      setAiReport({ ...finalData, source: 'ai' });
       setIsUnlocked(true);
       setShowManualPayModal(false);
-      notifyReportReady(true);
-    } catch (error) {
-      if (error instanceof PremiumReportError) {
-        // 서버가 실제로 응답했는데 결제/리포트 생성이 실패한 경우 — 예전엔 이 경우에도 조용히
-        // 가짜 리포트로 넘어가서 "생성 성공"처럼 보였지만, 서버엔 아무것도 저장되지 않아
-        // 나중에 이메일로 조회하면 "내역 없음"으로 뜨는 문제가 있었다. 이제는 실패를 그대로 알린다.
-        setUnlockError(error.message);
-      } else if (import.meta.env.DEV) {
-        // 로컬 개발 환경에서 백엔드가 꺼져 있을 때만 목업으로 대체한다. 운영 환경까지 여기로 오면
-        // 실제 unlockToken이 발급되지 않은 채 isUnlocked만 true가 되어, 이후 추가 질문(/api/followup)이
-        // "해금 토큰이 유효하지 않습니다"로 실패하는데도 사용자는 해금된 것처럼 보이는 문제가 있었다.
-        console.warn("AI 백엔드에 연결하지 못해 규칙 기반 고품질 리포트로 해금을 진행합니다:", error);
-        setAiReport(createFallbackReport());
-        setIsUnlocked(true);
-        setShowManualPayModal(false);
-        notifyReportReady(true);
-      } else {
-        console.warn("AI 백엔드 연결 실패:", error);
-        setUnlockError('리포트 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
-      }
+      
+    } catch (error: any) {
+      console.warn("AI 백엔드 연결 실패:", error);
+      setUnlockError(error.message || '리포트 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setIsAILoading(false);
     }
@@ -1074,7 +1074,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const blob = await canvasToPngBlob(canvas);
       const baseServiceUrl = import.meta.env.VITE_PUBLIC_SERVICE_URL || window.location.origin;
       const shareHook = buildShareHook(sajuResult!.scores);
-      const shareDescription = SHARE_BENEFIT_COPY;
+      const character = getCharacterAsset(sajuResult!.dayGan.char);
+      const verdict = buildVerdictView(sajuResult!.scores);
+      const shareDescription = `나의 직장인 사주: ${character.title}\n"${verdict.title}"\n👉 내 커리어 타이밍 확인하기`;
       // 백그라운드 준비가 클릭보다 늦었을 수 있으니, 여기서 한 번 더 "보장"한다 — 이미 캐시돼 있으면 즉시 반환된다.
       const { imageUrl, sharePageUrl } = await ensureShareAssets(canvas, shareHook, shareDescription);
       // 개인화 랜딩 페이지가 있으면 그 URL을 공유한다 — 카카오 SDK를 못 쓰는 브라우저에서 링크만

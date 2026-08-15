@@ -406,8 +406,50 @@ export default {
       });
     }
 
+    // --- [신규 경로] 무료 사주 결과 제공 API (AI 호출 없음) ---
+    if (new URL(request.url).pathname === "/api/free-result") {
+      try {
+        const { year, month, day, hour, minute, gender, isSolar } = await request.json();
+        
+        // 1. sajuEngine을 통해 사주 계산
+        const { buildFreeSajuResult } = await import('./sajuEngine.js');
+        const sajuResult = buildFreeSajuResult(year, month, day, hour, minute, gender, isSolar);
+        
+        // 2. 일주 추출 및 60갑자 DB 매칭
+        const dayPillar = sajuResult.pillars.day.ganHanja + sajuResult.pillars.day.zhiHanja;
+        const characters = (await import('../free_engine_characters.json', { with: { type: 'json' } })).default;
+        
+        const characterData = characters.find(c => c.id === dayPillar);
+        if (!characterData) {
+          return new Response(JSON.stringify({ error: `일주(${dayPillar})에 매칭되는 캐릭터를 찾을 수 없습니다.` }), {
+            status: 404,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          });
+        }
+        
+        return new Response(JSON.stringify({
+          saju_data: sajuResult,
+          character: characterData
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "무료 사주 계산 중 오류가 발생했습니다." }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+    }
+
     try {
       const url = new URL(request.url);
+
+      // --- [경로: 유료 리포트 생성 API (V5.1)] ---
+      if (request.method === "POST" && url.pathname === "/api/paid-report") {
+        const { handlePaidReportRequest } = await import('./paidReportApi.js');
+        return handlePaidReportRequest(request, env);
+      }
 
       // --- [경로 0] 토큰 기반 해금 리포트 조회 API (딥링크/이메일 링크 복구용) ---
       if (url.pathname === "/api/report-by-token" || (request.method === "GET" && url.pathname === "/api/report")) {
