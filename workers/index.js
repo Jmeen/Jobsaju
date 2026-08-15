@@ -417,7 +417,7 @@ export default {
         
         // 2. 일주 추출 및 60갑자 DB 매칭
         const dayPillar = sajuResult.pillars.day.ganHanja + sajuResult.pillars.day.zhiHanja;
-        const characters = (await import('../free_engine_characters.json', { assert: { type: 'json' } })).default;
+        const characters = (await import('../free_engine_characters.js')).default;
         
         const characterData = characters.find(c => c.id === dayPillar);
         if (!characterData) {

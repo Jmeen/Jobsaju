@@ -3,7 +3,7 @@ import { getSajuAnalysis, calculateShiShen, normalizeGanZhi } from '../src/utils
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { buildGeminiRequest } from './geminiTransport.js';
 import { validateAndRepairPaidReport } from './paidReportValidator.js';
-import characters from '../free_engine_characters.json' assert { type: 'json' };
+import characters from '../free_engine_characters.js';
 
 const SYSTEM_PROMPT = `
 # 🤖 잡사주 유료 리포트 전용 AI 시스템 프롬프트 v5.1
@@ -361,7 +361,7 @@ export async function handlePaidReportRequest(request, env) {
     if (env.DB) {
       try { await env.DB.prepare("UPDATE paid_reports SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE payment_id = ?").bind(payment_id).run(); } catch(e){}
     }
-    return new Response(JSON.stringify({ error: 'Failed to generate report' }), { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+    return new Response(JSON.stringify({ error: 'Failed to generate report: ' + error.message }), { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
   } finally {
     if (!env.DB) processingPayments.delete(payment_id);
   }
