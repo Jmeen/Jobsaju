@@ -230,6 +230,19 @@ export async function handlePaidReportRequest(request, env) {
       return new Response(JSON.stringify({ error: 'Invalid payment token' }), { status: 403 });
     }
 
+    // payment_id를 해금 토큰으로도 등록한다 — /api/followup, /api/share-bonus 등
+    // 기존 unlockToken 체계가 이 값으로 인증되도록 하기 위함.
+    if (env.SAJU_KV) {
+      const existingToken = await env.SAJU_KV.get(`token:${payment_id}`);
+      if (!existingToken) {
+        await env.SAJU_KV.put(`token:${payment_id}`, JSON.stringify({
+          paymentId: payment_id,
+          createdAt: new Date().toISOString(),
+          status: 'unlocked',
+        }));
+      }
+    }
+
     // 2. Generate Natal Chart
     const hasTime = birth.hour !== null && birth.hour !== undefined && birth.hour !== '';
     const analysis = getSajuAnalysis(Number(birth.year), Number(birth.month), Number(birth.day), hasTime ? Number(birth.hour) : 12, Number(birth.minute) || 0, Number(birth.gender) || 1, { isSolar: birth.isSolar !== false, hasTime });

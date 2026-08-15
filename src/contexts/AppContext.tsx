@@ -876,6 +876,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Map finalData to aiReport structure
       setAiReport({ ...finalData, source: 'ai' });
       setIsUnlocked(true);
+      setUnlockToken(finalPaymentId);
       setShowManualPayModal(false);
       
     } catch (error: any) {
