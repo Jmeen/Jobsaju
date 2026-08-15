@@ -471,12 +471,6 @@ export function ResultScreen() {
                   )}
                 </div>
               )}
-              {aiReport?.source === 'fallback' && (
-                <p className="fallback-notice">
-                  규칙 기반 간이 리포트입니다 — AI 상담 서버가 연결되면 입력한 고민을 더 깊게 반영한 해석이 제공됩니다.
-                </p>
-              )}
-
               {report && (
                 <>
                   {/* [SECTION 1] Paid Report Hero / 12개월 핵심 결론 */}

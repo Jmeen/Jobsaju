@@ -10,7 +10,7 @@ import { resolveCopyVariant, getCopy } from '../utils/copy';
 import { resolvePriceVariant } from '../utils/pricing';
 import { validateFollowUpQuestion } from '../utils/followUpValidation';
 import type { FollowUpRecord } from '../utils/followUpValidation';
-import { requestPremiumReport, lookupReportByEmail, lookupReportByToken, PremiumReportError } from '../utils/premiumApi';
+import { lookupReportByEmail, lookupReportByToken } from '../utils/premiumApi';
 import type { ReportHistoryEntry } from '../utils/premiumApi';
 import { renderAllResultCards } from '../utils/resultCardTargets';
 import { buildShareCardModel, canvasToPngBlob, drawShareCard } from '../utils/shareCard';
@@ -24,52 +24,6 @@ import { ReportProse } from '../components/ReportProse';
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../utils/reportCopy';
 import { CHECKOUT_COPY, buildCheckoutPresentation, runCheckoutAction } from '../utils/checkoutPresentation';
 
-
-// === 가상(Mock) AI 해석 리포트 데이터 (API 연결 오류 시 또는 데모용 고품질 Fallback) ===
-const MOCK_AI_REPORT: Record<string, any> = {
-  '을': {
-    one_line_conclusion: "현재는 2026년 병오(丙午) 세운의 식상(상관) 기운이 일간 을목을 강하게 자극하므로, 이직을 긍정적으로 탐색하되 10~11월 연봉 협상에서 주도권을 잡는 흐름이 가장 유리합니다.",
-    main_concern_report: {
-      title: "연봉 및 처우 협상운 심층 분석",
-      content: "귀하의 사주는 관성(금)과 재성(토)이 조화를 이루어 성실하게 명예를 축적하는 직장인 사주입니다. 다만, 현 직장에서는 일한 만큼의 보상(재성)에 목마름을 느낄 수 있습니다. 올해 들어온 병오(丙午) 세운은 '상관생재' 즉, 내 재능과 말솜씨(상관)를 발휘하여 재물(재성)을 벌어들이는 흐름입니다. 이직 면접이나 부서 이동 신청 시 본인의 포트폴리오를 숫자로 명확히 증명한다면 평소보다 15% 이상 높은 처우 제안을 받아낼 수 있습니다."
-    },
-    career_aspects: [
-      { area: "이동 및 변화 (이직)", content: "이직운 점수 83점이 말해주듯, 하반기 9~10월 사이에 강력한 이동수가 들어옵니다. 헤드헌터의 제안에 귀를 기울이고 적극적으로 이력서를 뿌리기에 아주 적절한 타이밍입니다." },
-      { area: "현 조직 내 적응 (잔류)", content: "잔류운은 49점으로 낮아 현 조직에 머무를 경우 부당한 R&R 배분이나 연봉 동결로 인한 소외감, 마음의 홧병이 생길 수 있으니 억지로 버티는 것은 추천하지 않습니다." },
-      { area: "조직 내 상사/동료 관계", content: "관성이 강해 기본적으로 윗사람의 눈치를 잘 보며 규율을 지키지만, 올해는 불합리한 윗선 지시에 참지 못하고 대립할 우려가 있습니다. 감정적인 충돌을 피하기 위해 현 직장에서는 포커페이스를 유지해야 합니다." }
-    ],
-    dos: [
-      "과거 진행한 프로젝트 기여도를 정량적 수치로 가다듬어 포트폴리오를 업데이트하세요.",
-      "인터뷰 시 당당하되 유연한 '을목'의 특성을 살려 커뮤니케이션 면접관을 매료시키세요."
-    ],
-    donts: [
-      "홧김에 이직처가 확정되지 않은 상태에서 먼저 퇴사 통보(사직서 던지기)를 하지 마세요.",
-      "기본 연봉 인상분 외에 사이닝 보너스나 성과급 지급 주기를 꼼꼼히 확인하지 않고 계약하지 마세요."
-    ],
-    character_name: "유연한 협상 테이블의 지배자 🧚"
-  },
-  'default': {
-    one_line_conclusion: "올해 세운의 변화가 커리어 성장에 긍정적인 파동을 일으키고 있습니다. 이직과 연봉 처우 개선을 주도적으로 기획해 보기에 적합한 시기입니다.",
-    main_concern_report: {
-      title: "커리어 및 연봉운 심층 진단",
-      content: "전반적인 사주 원국의 밸런스를 고려했을 때, 본인의 잠재력에 비해 직장 내 R&R 설정이 다소 정체되어 있는 양상입니다. 올해는 운의 흐름이 본인의 성과를 세상 밖으로 드러내는 식상과 재물의 흐름으로 이어집니다. 본인이 기여한 실무 성과를 강하게 리포트화하여 협상을 이끌어 낼 절호의 기회입니다."
-    },
-    career_aspects: [
-      { area: "이동 및 변화 (이직)", content: "변화의 기운이 70점 이상으로 강해, 현 직장에 머무르기보다 채용 시장에서 본인의 시장가치와 적합성을 확인해 볼 수 있는 시기입니다." },
-      { area: "현 조직 내 적응 (잔류)", content: "조직 안정성은 다소 흔들리고 있어 현 직장 내에 부서 재배치나 리더십 변경 등의 어수선한 잡음이 발생하기 쉽습니다." },
-      { area: "조직 내 상사/동료 관계", content: "상대방의 독선을 참고 넘기기 쉬운 운세이나, 필요할 때는 조리 있게 본인의 주장을 밝혀 선을 긋는 것이 현명합니다." }
-    ],
-    dos: [
-      "경쟁사 연봉 테이블을 조사하고 구체적인 희망 연봉 구간을 2개 이상 준비해두세요.",
-      "조급하게 결정하지 말고 제안을 받은 후 최소 3일간 고민의 여지를 두세요."
-    ],
-    donts: [
-      "연봉 협상 시 '회사 내규에 따름' 같은 소극적인 태도는 피하세요.",
-      "이전 동료들과의 관계를 험악하게 마무리 지으며 퇴사하지 않도록 마무리에 힘쓰세요."
-    ],
-    character_name: "영리한 커리어 스나이퍼 🎯"
-  }
-};
 
 export const STORAGE_KEY = 'saju_session_v1';
 
@@ -463,37 +417,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     return null;
   })();
-
-  // NOTE: 이 함수는 현재 어디서도 호출되지 않는다(AI 실패 시 폴백 리포트로 쓰려던 것으로 보인다).
-  // premiumReport는 사주 코어를 끌고 오므로, 살려두되 필요한 시점에만 받도록 동적 import로 둔다.
-  const createFallbackReport = async () => {
-    const { buildPremiumExpansion } = await import('../utils/premiumReport');
-    const elementKey = sajuResult?.dayGan.char === '을' ? '을' : 'default';
-    return {
-      ...MOCK_AI_REPORT[elementKey],
-      character_name: sajuResult
-        ? buildCharacterName(sajuResult.dayGan.char, sajuResult.scores)
-        : MOCK_AI_REPORT[elementKey].character_name,
-      ...buildPremiumExpansion(
-        {
-          currentStatus: careerContext.current_status,
-          currentJob: careerContext.current_job,
-          careerGoal: careerContext.career_goal,
-          desiredAnswer: careerContext.desired_answer,
-        },
-        {
-          jobChange: sajuResult?.scores.jobChange ?? 50,
-          stay: sajuResult?.scores.stay ?? 50,
-          negotiation: sajuResult?.scores.negotiation ?? 50,
-        },
-        {
-          dayGan: sajuResult?.dayGan.char,
-          bodyStrength: sajuResult?.bodyStrength,
-        },
-      ),
-      source: 'fallback' as const, // AI 미연동 표시 — 테스트 피드백 오염 방지
-    };
-  };
 
   // === Screen 6. Analysis Loading Text Sequence ===
   const [loadingText, setLoadingText] = useState('태어난 날의 하늘 우주 배치 확인 중...');
@@ -896,10 +819,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsUnlocked(true);
       setUnlockToken(finalPaymentId);
       setShowManualPayModal(false);
-      
+      // 생성에 최대 30초까지 걸려 그 사이 탭을 떠나 있을 수 있다.
+      // handleUnlock 진입 때 알림 권한을 받아둔 이유가 이것이다.
+      notifyReportReady(true);
     } catch (error: any) {
       console.warn("AI 백엔드 연결 실패:", error);
       setUnlockError(error.message || '리포트 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      notifyReportReady(false);
     } finally {
       setIsAILoading(false);
     }
