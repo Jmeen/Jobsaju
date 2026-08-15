@@ -1,13 +1,12 @@
 
+import { useState } from 'react';
 import { useAppContext } from '../../contexts/AppContext';
 import { WheelColumn, STORAGE_KEY } from '../../contexts/AppContext';
-import type { MonthTone } from '../../contexts/AppContext';
 
 import { getCharacterAsset } from '../../utils/characterAssets';
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
 import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
 import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
-import { buildMonthlyFlow } from '../../utils/monthlyFlow';
 // @ts-ignore
 import FREE_CHARACTERS from '../../../free_engine_characters.js';
 import { buildElementInsight, buildCharacterName, ELEMENT_INFO } from '../../utils/reportInsights';
@@ -15,6 +14,64 @@ import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUp';
 import { ReportProse } from '../ReportProse';
 
+type DominantMode = 'jobChange' | 'negotiation' | 'stay';
+
+/**
+ * Paywall 카피는 무료 3축 점수 중 가장 높은 축(dominantMode)에 맞춰 전환된다.
+ * 여기서 쓰는 데이터는 free scores/character뿐이며, paid month/highlight는 절대 참조하지 않는다.
+ */
+const PAYWALL_COPY: Record<DominantMode, {
+  eyebrow: string;
+  headlineLines: string[];
+  subcopyLines: string[];
+  lockedItems: { icon: string; title: string; hint: string; lockLabel: string }[];
+  ctaPrimary: string;
+  benefit1: string;
+  bridgeLines: string[];
+}> = {
+  jobChange: {
+    eyebrow: "다음은 '언제'입니다",
+    headlineLines: ['떠날지 말지보다', '언제 움직일지가 더 중요합니다.'],
+    subcopyLines: ['같은 이직 흐름이라도', '지원하기 좋은 달과 조건을 확인해야 할 달은 다릅니다.'],
+    lockedItems: [
+      { icon: '🔥', title: '가장 강한 이직 시기', hint: '외부 이동에 힘이 실리는 구간이 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '💰', title: '연봉·조건 협상 시기', hint: '오퍼와 조건을 조율하기 좋은 시기가 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '⚠️', title: '가장 조심해야 하는 구간', hint: '빠르게 움직일수록 조건 검증이 중요한 시기가 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '📅', title: '앞으로 12개월 커리어 흐름', hint: '이직 / 협상 / 잔류의 변화가 월별로 달라집니다.', lockLabel: '🔒 전체 타임라인 잠김' },
+    ],
+    ctaPrimary: '내 이직 타이밍 확인하기',
+    benefit1: '외부 이동에 가장 힘이 실리는 시기',
+    bridgeLines: ['지금은 외부 선택지를 열어둘 가치가 있습니다.', "다음 질문은 '언제 움직일 것인가'입니다."],
+  },
+  negotiation: {
+    eyebrow: '지금은 조건을 바꿀 때',
+    headlineLines: ['나갈지 말지보다', '어떤 조건을 얻고 움직일지가 더 중요합니다.'],
+    subcopyLines: ['연봉, 역할, 직급, 근무 조건은', '요구하는 시기에 따라 결과가 달라질 수 있습니다.'],
+    lockedItems: [
+      { icon: '💰', title: '연봉·조건 협상 승부처', hint: '성과를 실제 조건으로 바꾸기 좋은 시기가 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '🔥', title: '외부 기회를 확인하기 좋은 시기', hint: '현재 조건과 시장 가치를 비교해볼 구간이 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '⚠️', title: '협상을 서두르지 말아야 하는 구간', hint: '감정이나 조급함보다 근거가 중요한 시기가 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '📅', title: '앞으로 12개월 커리어 흐름', hint: '협상 / 이직 / 잔류의 흐름을 월별로 확인합니다.', lockLabel: '🔒 전체 타임라인 잠김' },
+    ],
+    ctaPrimary: '내 연봉·조건 승부처 확인하기',
+    benefit1: '연봉·역할·조건 협상의 승부처',
+    bridgeLines: ['지금은 바로 떠나기보다', '내 가치를 어떤 조건으로 바꿀지가 중요합니다.'],
+  },
+  stay: {
+    eyebrow: '남는다면, 무엇을 얻을 것인가',
+    headlineLines: ['지금은 떠나는 것보다', '남아서 무엇을 얻을지가 더 중요합니다.'],
+    subcopyLines: ['잔류가 유리한 흐름이어도', '성과를 인정받는 시기와 관계를 조심해야 하는 시기는 다릅니다.'],
+    lockedItems: [
+      { icon: '🏆', title: '성과·보상 승부처', hint: '현 직장에서 성과를 조건과 기회로 연결하기 좋은 시기가 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '💰', title: '연봉·역할 협상 시기', hint: '남더라도 조건을 다시 정리해볼 만한 시기가 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '⚠️', title: '관계·갈등을 조심해야 하는 구간', hint: '버티는 것보다 대응 방식이 중요한 시기가 있습니다.', lockLabel: '🔒 정확한 월은 결제 후 공개' },
+      { icon: '📅', title: '앞으로 12개월 커리어 흐름', hint: '잔류가 언제나 같은 의미는 아닙니다. 월별 흐름을 확인합니다.', lockLabel: '🔒 전체 타임라인 잠김' },
+    ],
+    ctaPrimary: '내 커리어 승부처 확인하기',
+    benefit1: '현 직장에서 성과와 보상을 만들기 좋은 시기',
+    bridgeLines: ['지금은 남는 선택에 힘이 실립니다.', "하지만 '그냥 버티는 것'과 '보상을 만들며 남는 것'은 다릅니다."],
+  },
+};
 
 export function ResultScreen() {
   const {
@@ -106,6 +163,7 @@ export function ResultScreen() {
     viralCardCanvasRef,
     summaryCardCanvasRef
   } = useAppContext();
+  const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const handleReset = () => {
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
     setSavedSession(null);
@@ -144,11 +202,11 @@ export function ResultScreen() {
               <>
                 {/* [SECTION 1] Character Hero */}
                 <section className="creature-hero" style={{ marginTop: 24, marginBottom: 40, textAlign: 'center' }}>
-                  <div style={{ fontSize: 72, marginBottom: 16 }}>{myChar.emoji}</div>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>{sajuResult.dayGan.char}{sajuResult.dayGan.element} · {myChar.name}</span>
-                  <strong style={{ fontSize: 28, color: '#fff', display: 'block', marginBottom: 16, lineHeight: 1.3 }}>{myChar.core_type}</strong>
+                  <div style={{ fontSize: 128, marginBottom: 8, lineHeight: 1 }}>{myChar.emoji}</div>
+                  <strong style={{ fontSize: 30, color: '#fff', display: 'block', marginBottom: 10, lineHeight: 1.3 }}>{myChar.core_type}</strong>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 14 }}>{sajuResult.dayGan.char}{sajuResult.dayGan.element} · {myChar.name}</span>
                   <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.6, wordBreak: 'keep-all', margin: '0 auto', maxWidth: 280 }}>
-                    "{myChar.identity}"
+                    {myChar.identity.split('. ')[0]}.
                   </p>
                   <div style={{ marginTop: 24, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                     {myChar.keywords.map((kw: string) => (
@@ -160,11 +218,18 @@ export function ResultScreen() {
                 </section>
 
                 {/* [SECTION 2] Current Career Verdict */}
-                <section style={{ marginBottom: 40, background: 'rgba(255,255,255,0.05)', padding: '24px 20px', borderRadius: 16, textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 600, display: 'block', marginBottom: 8 }}>지금의 커리어 흐름</span>
-                  <p style={{ fontSize: 16, color: '#fff', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all' }}>
-                    "{verdictHeadline}"
+                <section style={{ marginBottom: 40, background: 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(236,72,153,0.12))', padding: '28px 22px', borderRadius: 20, textAlign: 'center', border: '1px solid rgba(168,85,247,0.4)', boxShadow: '0 8px 30px rgba(168,85,247,0.18)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 700, letterSpacing: 0.5, display: 'block', marginBottom: 10 }}>지금의 결론</span>
+                  <p style={{ fontSize: 20, color: '#fff', margin: 0, lineHeight: 1.45, wordBreak: 'keep-all', fontWeight: 700 }}>
+                    {verdictHeadline}
                   </p>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginTop: 16 }}>
+                    {(['negotiation', 'jobChange', 'stay'] as const)
+                      .map(key => ({ key, label: key === 'negotiation' ? '협상' : key === 'jobChange' ? '이직' : '잔류', score: sajuResult.scores[key] }))
+                      .sort((a, b) => b.score - a.score)
+                      .map(a => `${a.label} ${a.score}`)
+                      .join(' · ')}
+                  </span>
                 </section>
 
                 {/* [SECTION 3] Three-Axis Decision Score */}
@@ -181,10 +246,19 @@ export function ResultScreen() {
                       return (
                         <div key={axis.key} style={{ background: isTop ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)', border: isTop ? '1px solid rgba(168,85,247,0.5)' : '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: 16 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
-                            <strong style={{ fontSize: 16, color: isTop ? 'var(--accent-purple)' : '#e5e7eb' }}>{axis.label}</strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <strong style={{ fontSize: 16, color: isTop ? 'var(--accent-purple)' : '#e5e7eb' }}>{axis.label}</strong>
+                              {isTop && (
+                                <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))', padding: '3px 8px', borderRadius: 20 }}>
+                                  현재 1순위
+                                </span>
+                              )}
+                            </div>
                             <div style={{ textAlign: 'right' }}>
                               <strong style={{ fontSize: 24, color: '#fff', marginRight: 8 }}>{scoreVal}</strong>
-                              <span style={{ fontSize: 13, color: isTop ? 'var(--accent-pink)' : 'var(--text-muted)' }}>{isTop ? '가장 우세' : (scoreVal > 50 ? '탐색해볼 만함' : '우선순위 낮음')}</span>
+                              {!isTop && (
+                                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{scoreVal > 50 ? '탐색해볼 만함' : '우선순위 낮음'}</span>
+                              )}
                             </div>
                           </div>
                           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>{axis.desc}</p>
@@ -192,43 +266,34 @@ export function ResultScreen() {
                       );
                     })}
                   </div>
-                  <div style={{ marginTop: 16, textAlign: 'center', padding: '16px', borderRadius: 8, background: 'rgba(255,255,255,0.02)' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>결론</span>
-                    <strong style={{ fontSize: 14, color: '#e5e7eb', lineHeight: 1.5 }}>"{verdictHeadline}"</strong>
-                  </div>
                 </section>
 
                 {/* [SECTION 4] Career DNA */}
                 <section style={{ marginBottom: 40 }}>
                   <h3 style={{ fontSize: 18, color: '#fff', marginBottom: 20, textAlign: 'center' }}>당신이 일할 때 강한 방식</h3>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, wordBreak: 'keep-all', margin: '0 0 20px' }}>
+                    {myChar.identity}
+                  </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12 }}>
                       <span style={{ fontSize: 13, color: 'var(--accent-purple)', fontWeight: 600, display: 'block', marginBottom: 6 }}>💪 강점</span>
-                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.strength.substring(0, 70)}...</p>
+                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.strength.split('. ')[0]}.</p>
                     </div>
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12 }}>
                       <span style={{ fontSize: 13, color: 'var(--accent-pink)', fontWeight: 600, display: 'block', marginBottom: 6 }}>⚠️ Blind Spot</span>
-                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.blind_spot.substring(0, 70)}...</p>
+                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.blind_spot.split('. ')[0]}.</p>
                     </div>
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12 }}>
                       <span style={{ fontSize: 13, color: 'var(--border-neon)', fontWeight: 600, display: 'block', marginBottom: 6 }}>🏢 잘 맞는 환경</span>
-                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.best_environment.substring(0, 70)}...</p>
+                      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{myChar.best_environment.split('. ')[0]}.</p>
                     </div>
                   </div>
                 </section>
 
-                {/* [SECTION 5] Share Card CTA */}
-                <section style={{ marginBottom: 40, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
-                  <h3 style={{ fontSize: 16, color: '#fff', marginBottom: 16 }}>친구는 어떤 타입일까요?</h3>
-                  <div style={{ background: '#1a1a2e', borderRadius: 12, padding: 20, border: '1px solid rgba(255,255,255,0.1)', marginBottom: 16, boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>{myChar.emoji}</div>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>{myChar.title}</span>
-                    <strong style={{ fontSize: 18, color: '#fff', display: 'block', marginBottom: 12 }}>{myChar.core_type}</strong>
-                    <p style={{ fontSize: 13, color: 'var(--accent-purple)', margin: 0 }}>"{myChar.summary_og}"</p>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 16, textAlign: 'right' }}>잡사주</div>
-                  </div>
-                  <button className="btn-secondary share-btn" onClick={handleShareResult} disabled={isShareLoading} style={{ width: '100%' }}>
-                    {isShareLoading ? '공유 준비 중...' : '내 캐릭터 카드 공유하기 ↗'}
+                {/* [SECTION 5] Share Card CTA (경량화 — 시각적 공유 카드는 하단에서만 보여줌) */}
+                <section style={{ marginBottom: 40, textAlign: 'center' }}>
+                  <button className="btn-text-only" onClick={handleShareResult} disabled={isShareLoading} style={{ fontSize: 14, color: 'var(--text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {isShareLoading ? '공유 준비 중...' : '내 캐릭터 공유하기 ↗'}
                   </button>
                 </section>
               </>
@@ -240,56 +305,57 @@ export function ResultScreen() {
           <div className="locked-area">
             
             {/* 1. Locked Overlay (Only shown when not unlocked) */}
-            {!isUnlocked && (
+            {!isUnlocked && (() => {
+              // dominantMode: 무료 3축 점수 중 최고점 축. buildTopScore의 기존 tie-break(AXIS_ORDER 순회 · 동점 시 선행값 유지)를 그대로 재사용한다.
+              const dominantMode = buildTopScore(sajuResult.scores).axis as DominantMode;
+              const pw = PAYWALL_COPY[dominantMode];
+              return (
               <div className="unlock-overlay" style={{ position: 'relative', background: 'transparent' }}>
                 <div className="unlock-card paywall-teaser" style={{ padding: '0 20px', background: 'transparent', border: 'none' }}>
-                  
+
+                  {/* 무료 결과 → Paywall bridge 문장 */}
+                  <div style={{ textAlign: 'center', marginBottom: 28, padding: '16px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: 14 }}>
+                    <p style={{ fontSize: 14, color: '#e5e7eb', lineHeight: 1.6, wordBreak: 'keep-all', margin: 0 }}>
+                      {pw.bridgeLines.map((line, i) => (
+                        <span key={line}>{line}{i < pw.bridgeLines.length - 1 && <br />}</span>
+                      ))}
+                    </p>
+                  </div>
+
                   {/* [SECTION 6] Timing Paywall Transition */}
                   <div className="teaser-header" style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 600, display: 'block', marginBottom: 8 }}>여기까지는 무료</span>
-                    <h3 style={{ fontSize: 24, color: '#fff', marginBottom: 16, lineHeight: 1.4 }}>"떠날지 말지보다<br/>언제 움직일지가 더 중요합니다."</h3>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>여기까지는 무료</span>
+                    <span style={{ fontSize: 13, color: 'var(--accent-purple)', fontWeight: 700, display: 'block', marginBottom: 12 }}>{pw.eyebrow}</span>
+                    <h3 style={{ fontSize: 24, color: '#fff', marginBottom: 16, lineHeight: 1.4 }}>
+                      "{pw.headlineLines.map((line, i) => (
+                        <span key={line}>{line}{i < pw.headlineLines.length - 1 && <br />}</span>
+                      ))}"
+                    </h3>
                     <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, wordBreak: 'keep-all' }}>
-                      같은 이직운이라도<br/>지원하기 좋은 달, 협상하기 좋은 달,<br/>조심해야 하는 달은 다릅니다.
+                      {pw.subcopyLines.map((line, i) => (
+                        <span key={line}>{line}{i < pw.subcopyLines.length - 1 && <br />}</span>
+                      ))}
                     </p>
                   </div>
 
                   {/* [SECTION 7] Locked Timing Preview */}
                   <div className="locked-preview-list" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>🔥 가장 강한 이직 시기</span>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>202·년 ·월</span>
-                        <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 600 }}>🔒 결제 후 공개</span>
+                    {pw.lockedItems.map(item => (
+                      <div key={item.title} className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 15, color: '#e5e7eb' }}>{item.icon} {item.title}</span>
+                          <span style={{ fontSize: 11, color: 'var(--accent-purple)', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.lockLabel}</span>
+                        </div>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all' }}>{item.hint}</p>
                       </div>
-                    </div>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>💰 연봉·조건 협상 시기</span>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>202·년 ·월</span>
-                        <span style={{ fontSize: 12, color: 'var(--accent-pink)', fontWeight: 600 }}>🔒 결제 후 공개</span>
-                      </div>
-                    </div>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>⚠️ 조심해야 하는 구간</span>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>202·년 ·월</span>
-                        <span style={{ fontSize: 12, color: '#f87171', fontWeight: 600 }}>🔒 결제 후 공개</span>
-                      </div>
-                    </div>
-                    <div className="locked-preview-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ fontSize: 15, color: '#e5e7eb' }}>📅 앞으로 12개월 커리어 흐름</span>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block' }}>12개월 전체 타임라인</span>
-                        <span style={{ fontSize: 12, color: 'var(--border-neon)', fontWeight: 600 }}>🔒 잠김</span>
-                      </div>
-                    </div>
+                    ))}
                   </div>
 
                   {/* [SECTION 8] Paid Benefits */}
                   <div style={{ marginBottom: 32, padding: 20, background: 'linear-gradient(135deg, rgba(168,85,247,0.1), rgba(236,72,153,0.05))', borderRadius: 16, border: '1px solid rgba(168,85,247,0.2)' }}>
                     <h4 style={{ fontSize: 16, color: '#fff', marginBottom: 16, textAlign: 'center' }}>8,900원으로 확인하는 것</h4>
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 가장 움직이기 좋은 달</li>
+                      <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> {pw.benefit1}</li>
                       <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 연봉·직급·역할 협상 타이밍</li>
                       <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 앞으로 12개월 이직 / 협상 / 잔류 흐름</li>
                       <li style={{ fontSize: 14, color: '#e5e7eb', display: 'flex', alignItems: 'flex-start', gap: 8 }}><span style={{ color: 'var(--accent-purple)' }}>✓</span> 현재 고민에 맞춘 행동 전략</li>
@@ -302,8 +368,11 @@ export function ResultScreen() {
 
                   {/* [SECTION 9] Main Purchase CTA */}
                   <div style={{ marginBottom: 24 }}>
-                    <button className="btn-primary" onClick={() => setShowManualPayModal(true)} style={{ width: '100%', padding: '16px', fontSize: 16, fontWeight: 600, marginBottom: 8, boxShadow: '0 4px 20px rgba(168,85,247,0.4)' }}>
-                      내 이직 타이밍 확인하기 · 8,900원
+                    <span style={{ display: 'block', textAlign: 'center', fontSize: 13, color: 'var(--accent-purple)', fontWeight: 600, marginBottom: 10 }}>
+                      12개월 전체 타이밍 열기
+                    </span>
+                    <button className="btn-primary" onClick={() => setShowManualPayModal(true)} style={{ width: '100%', padding: '20px', fontSize: 18, fontWeight: 700, marginBottom: 8, boxShadow: '0 8px 28px rgba(168,85,247,0.55)' }}>
+                      {pw.ctaPrimary} · 8,900원
                     </button>
                     <p style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', margin: 0 }}>
                       결제 후 바로 확인 · 12개월 전체 리포트
@@ -344,186 +413,271 @@ export function ResultScreen() {
 
                 </div>
               </div>
-            )}
+              );
+            })()}
 
-            {/* 2. Content Area (Blurred when locked) */}
-            <div className={`report-details${!isUnlocked ? ' blur-content' : ''}`}>
-              
-              {/* Continuous premium report */}
-              {aiReport && (
-                <div>
-                  {reportHistory.length > 1 && (
-                    <div className="glass-card" style={{ textAlign: 'left', marginBottom: 16, padding: 14 }}>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                        이 이메일로 구매한 리포트가 {reportHistory.length}건 있어요. 보고 싶은 리포트를 선택하세요.
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {reportHistory.map((entry: any, idx: any) => {
-                          const isActive = entry.unlock_token === unlockToken;
-                          return (
-                            <button
-                              key={entry.unlock_token}
-                              type="button"
-                              onClick={() => handleSelectPastReport(entry.unlock_token)}
-                              disabled={isLookupLoading}
-                              style={{
-                                textAlign: 'left', padding: '8px 12px', borderRadius: 8,
-                                border: isActive ? '1px solid var(--border-neon-bright)' : '1px solid rgba(255,255,255,0.08)',
-                                background: isActive ? 'rgba(168,85,247,0.12)' : 'transparent',
-                                color: '#fff', cursor: isLookupLoading ? 'default' : 'pointer', fontSize: 12,
-                              }}
-                            >
-                              <strong>{entry.label}</strong>
-                              {idx === 0 && <span style={{ marginLeft: 6, color: '#4ade80' }}>· 최신</span>}
-                              {entry.created_at && (
-                                <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
-                                  {new Date(entry.created_at).toLocaleDateString('ko-KR')}
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {lookupError && (
-                        <p style={{ color: '#f87171', fontSize: 12, marginTop: 8, marginBottom: 0 }}>{lookupError}</p>
-                      )}
-                    </div>
-                  )}
-                  {aiReport.source === 'fallback' && (
-                    <p className="fallback-notice">
-                      규칙 기반 간이 리포트입니다 — AI 상담 서버가 연결되면 입력한 고민을 더 깊게 반영한 해석이 제공됩니다.
-                    </p>
-                  )}
-                  {aiReport.report?.report_summary && (
-                    <section className="glass-card" style={{ textAlign: 'left', marginBottom: 24 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-purple)', display: 'block', marginBottom: 6 }}>리포트 요약</span>
-                      <h3 style={{ fontSize: 18, lineHeight: 1.5, color: '#f3f4f6', marginBottom: 12 }}>{aiReport.report.report_summary.headline}</h3>
-                      <strong style={{ color: 'var(--accent-pink)', fontSize: 14 }}>💡 {aiReport.report.report_summary.one_line_action}</strong>
-                    </section>
-                  )}
+            {/* 2. Content Area (구매 완료 후에만 렌더링 — 잠금 상태에서는 블러 미리보기 대신 위 paywall로 설명을 끝냄) */}
+            {isUnlocked && (() => {
+              const report = aiReport?.report;
+              const th = report?.timing_highlights;
+              const formatYm = (ym?: string) => {
+                if (!ym || !ym.includes('-')) return ym || '';
+                const [y, m] = ym.split('-');
+                return `${y}년 ${parseInt(m, 10)}월`;
+              };
+              const nowYm = new Date().toISOString().slice(0, 7);
+              const roadmapSteps = th
+                ? ([
+                    { ym: th.best_job_change?.year_month, phase: '이직 집중', detail: th.best_job_change?.action, color: 'var(--accent-pink)' },
+                    { ym: th.best_negotiation?.year_month, phase: '협상', detail: th.best_negotiation?.action, color: 'var(--accent-purple)' },
+                    { ym: th.caution_month?.year_month, phase: '신중 관망', detail: th.caution_month?.action, color: '#ef4444' },
+                  ].filter(s => s.ym) as { ym: string; phase: string; detail: string; color: string }[])
+                    .sort((a, b) => a.ym.localeCompare(b.ym))
+                : [];
+              const dayPillar = sajuResult.pillars.day.ganHanja + sajuResult.pillars.day.zhiHanja;
+              const myChar = FREE_CHARACTERS.find((c: any) => c.id === dayPillar) || FREE_CHARACTERS[0];
 
-                  {aiReport.report?.personalized_advice && (
-                    <section className="glass-card premium-section">
-                      <span className="report-number">01</span>
-                      <span className="eyebrow">맞춤 진단</span>
-                      <h3 style={{ fontSize: 18, marginBottom: 16 }}>고민에 대한 명리학적 솔루션</h3>
-                      <div style={{ marginBottom: 16, padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
-                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}><strong>Q.</strong> {aiReport.report.personalized_advice.question_summary}</p>
-                      </div>
-                      <p style={{ marginBottom: 16, lineHeight: 1.6 }}><strong>진단:</strong> {aiReport.report.personalized_advice.diagnosis}</p>
-                      <p style={{ marginBottom: 16, lineHeight: 1.6 }}><strong>기질 분석:</strong> {aiReport.report.personalized_advice.character_connection}</p>
-                      <p style={{ marginBottom: 24, lineHeight: 1.6, color: 'var(--accent-purple)' }}><strong>전략 제안:</strong> {aiReport.report.personalized_advice.recommendation}</p>
-                      
-                      <div className="action-columns">
-                        <div>
-                          <strong>지금 해야 할 일</strong>
-                          {aiReport.report.personalized_advice.action_steps.map((item: string) => <span key={item}>{item}</span>)}
-                        </div>
-                        <div>
-                          <strong>주의해야 할 일</strong>
-                          {aiReport.report.personalized_advice.watch_out.map((item: string) => <span key={item}>{item}</span>)}
-                        </div>
-                      </div>
-                    </section>
-                  )}
+              return (
+            <div className="report-details">
 
-                  {aiReport.report?.timing_highlights && (
-                    <section className="glass-card premium-section">
-                      <span className="report-number">02</span>
-                      <span className="eyebrow">타이밍 하이라이트</span>
-                      <h3 style={{ fontSize: 18, marginBottom: 16 }}>행동하기 가장 좋은 시기</h3>
-                      <div className="path-list">
-                        <article>
-                          <div><h4 style={{ color: 'var(--accent-pink)' }}>이직·이동 최적기</h4><strong>{aiReport.report.timing_highlights.best_job_change.year_month}</strong></div>
-                          <p>{aiReport.report.timing_highlights.best_job_change.reason}</p>
-                          <span style={{ fontSize: 12, marginTop: 8, display: 'block', color: 'var(--text-muted)' }}>👉 {aiReport.report.timing_highlights.best_job_change.action}</span>
-                        </article>
-                        <article>
-                          <div><h4 style={{ color: 'var(--accent-purple)' }}>협상·제안 최적기</h4><strong>{aiReport.report.timing_highlights.best_negotiation.year_month}</strong></div>
-                          <p>{aiReport.report.timing_highlights.best_negotiation.reason}</p>
-                          <span style={{ fontSize: 12, marginTop: 8, display: 'block', color: 'var(--text-muted)' }}>👉 {aiReport.report.timing_highlights.best_negotiation.action}</span>
-                        </article>
-                        <article>
-                          <div><h4 style={{ color: '#ef4444' }}>주의 및 리스크 구간</h4><strong>{aiReport.report.timing_highlights.caution_month.year_month}</strong></div>
-                          <p>{aiReport.report.timing_highlights.caution_month.reason}</p>
-                          <span style={{ fontSize: 12, marginTop: 8, display: 'block', color: 'var(--text-muted)' }}>👉 {aiReport.report.timing_highlights.caution_month.action}</span>
-                        </article>
-                      </div>
-                    </section>
-                  )}
-
-                  {aiReport.report?.timeline && (
-                    <section className="glass-card premium-section">
-                      <span className="report-number">03</span>
-                      <span className="eyebrow">월별 상세 흐름</span>
-                      <h3 style={{ fontSize: 18, marginBottom: 16 }}>앞으로 12개월의 기운</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {aiReport.report.timeline.map((item: any) => (
-                          <div key={item.year_month} style={{ padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                              <strong style={{ fontSize: 16, color: '#f3f4f6' }}>{item.year_month}</strong>
-                              <span style={{ fontSize: 12, padding: '4px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.1)' }}>{item.keyword}</span>
+              {reportHistory.length > 1 && (
+                <div className="glass-card" style={{ textAlign: 'left', marginBottom: 16, padding: 14 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                    이 이메일로 구매한 리포트가 {reportHistory.length}건 있어요. 보고 싶은 리포트를 선택하세요.
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {reportHistory.map((entry: any, idx: any) => {
+                      const isActive = entry.unlock_token === unlockToken;
+                      return (
+                        <button
+                          key={entry.unlock_token}
+                          type="button"
+                          onClick={() => handleSelectPastReport(entry.unlock_token)}
+                          disabled={isLookupLoading}
+                          style={{
+                            textAlign: 'left', padding: '8px 12px', borderRadius: 8,
+                            border: isActive ? '1px solid var(--border-neon-bright)' : '1px solid rgba(255,255,255,0.08)',
+                            background: isActive ? 'rgba(168,85,247,0.12)' : 'transparent',
+                            color: '#fff', cursor: isLookupLoading ? 'default' : 'pointer', fontSize: 12,
+                          }}
+                        >
+                          <strong>{entry.label}</strong>
+                          {idx === 0 && <span style={{ marginLeft: 6, color: '#4ade80' }}>· 최신</span>}
+                          {entry.created_at && (
+                            <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
+                              {new Date(entry.created_at).toLocaleDateString('ko-KR')}
                             </div>
-                            <div style={{ display: 'flex', gap: 8, marginBottom: 12, fontSize: 11, color: 'var(--text-muted)' }}>
-                              <span>이직운 {item.scores?.job_change ?? 0}</span> | 
-                              <span>협상운 {item.scores?.negotiation ?? 0}</span> | 
-                              <span>잔류운 {item.scores?.stay ?? 0}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {lookupError && (
+                    <p style={{ color: '#f87171', fontSize: 12, marginTop: 8, marginBottom: 0 }}>{lookupError}</p>
+                  )}
+                </div>
+              )}
+              {aiReport?.source === 'fallback' && (
+                <p className="fallback-notice">
+                  규칙 기반 간이 리포트입니다 — AI 상담 서버가 연결되면 입력한 고민을 더 깊게 반영한 해석이 제공됩니다.
+                </p>
+              )}
+
+              {report && (
+                <>
+                  {/* [SECTION 1] Paid Report Hero / 12개월 핵심 결론 */}
+                  {report.report_summary && (
+                    <section className="glass-card" style={{ textAlign: 'center', marginBottom: 20, padding: '28px 20px', background: 'linear-gradient(135deg, rgba(168,85,247,0.22), rgba(236,72,153,0.14))', border: '1px solid rgba(168,85,247,0.4)' }}>
+                      <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 700, letterSpacing: 0.5, display: 'block', marginBottom: 10 }}>당신의 다음 12개월</span>
+                      <h3 style={{ fontSize: 21, lineHeight: 1.5, color: '#fff', margin: '0 0 18px', wordBreak: 'keep-all' }}>{report.report_summary.headline}</h3>
+                      <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px', textAlign: 'left' }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>지금 가장 먼저 할 일</span>
+                        <strong style={{ fontSize: 15, color: '#fde68a', lineHeight: 1.5 }}>💡 {report.report_summary.one_line_action}</strong>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* [SECTION 2] 3대 핵심 타이밍 */}
+                  {th && (
+                    <section className="glass-card premium-section" style={{ marginBottom: 20 }}>
+                      <span className="eyebrow">가장 중요한 3개의 시기</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+                        {th.best_job_change && (
+                          <div style={{ padding: 16, borderRadius: 12, background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.3)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <strong style={{ fontSize: 14, color: 'var(--accent-pink)' }}>🔥 가장 좋은 이직 시기</strong>
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatYm(th.best_job_change.year_month)}</span>
                             </div>
-                            <p style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 8, color: '#d1d5db' }}>{item.summary}</p>
-                            <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>✅ {item.action}</p>
+                            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', marginBottom: 8 }}>이직운 {th.best_job_change.score}</div>
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 8px', wordBreak: 'keep-all' }}>{th.best_job_change.reason}</p>
+                            <span style={{ fontSize: 12, color: '#fde68a', fontWeight: 600 }}>👉 {th.best_job_change.action}</span>
+                          </div>
+                        )}
+                        {th.best_negotiation && (
+                          <div style={{ padding: 16, borderRadius: 12, background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.3)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <strong style={{ fontSize: 14, color: 'var(--accent-purple)' }}>💰 가장 좋은 협상 시기</strong>
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatYm(th.best_negotiation.year_month)}</span>
+                            </div>
+                            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', marginBottom: 8 }}>협상운 {th.best_negotiation.score}</div>
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 8px', wordBreak: 'keep-all' }}>{th.best_negotiation.reason}</p>
+                            <span style={{ fontSize: 12, color: '#fde68a', fontWeight: 600 }}>👉 {th.best_negotiation.action}</span>
+                          </div>
+                        )}
+                        {th.caution_month && (
+                          <div style={{ padding: 16, borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <strong style={{ fontSize: 14, color: '#ef4444' }}>⚠️ 가장 조심해야 하는 시기</strong>
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatYm(th.caution_month.year_month)}</span>
+                            </div>
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 8px', wordBreak: 'keep-all' }}>{th.caution_month.reason}</p>
+                            <span style={{ fontSize: 12, color: '#fca5a5', fontWeight: 600 }}>👉 {th.caution_month.action}</span>
+                            {(th.caution_month.year_month === th.best_job_change?.year_month || th.caution_month.year_month === th.best_negotiation?.year_month) && (
+                              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, marginBottom: 0 }}>* 기회와 리스크가 함께 큰 달입니다. 서두르되 조건은 반드시 확인하세요.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* [SECTION 3] 행동 로드맵 */}
+                  {roadmapSteps.length > 0 && (
+                    <section className="glass-card" style={{ marginBottom: 20 }}>
+                      <h3 style={{ fontSize: 15, color: '#fff', marginBottom: 14 }}>지금부터 이렇게 움직이세요</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {roadmapSteps.map((stepItem, i) => (
+                          <div key={stepItem.ym + stepItem.phase} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                            <div style={{ minWidth: 56, textAlign: 'center' }}>
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>{stepItem.ym}</span>
+                              <span style={{ width: 8, height: 8, borderRadius: 99, background: stepItem.color, display: 'inline-block', marginTop: 4 }} />
+                            </div>
+                            <div style={{ flex: 1, paddingBottom: i < roadmapSteps.length - 1 ? 10 : 0, borderBottom: i < roadmapSteps.length - 1 ? '1px dashed rgba(255,255,255,0.08)' : 'none' }}>
+                              <strong style={{ fontSize: 13, color: stepItem.color, display: 'block', marginBottom: 2 }}>{stepItem.phase}</strong>
+                              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{stepItem.detail}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </section>
                   )}
+
+                  {/* [SECTION 4] 당신의 고민에 대한 답 */}
+                  {report.personalized_advice && (
+                    <section className="glass-card premium-section" style={{ marginBottom: 20 }}>
+                      <span className="eyebrow">당신의 고민에 대한 답</span>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '10px 0 12px' }}><strong>Q.</strong> {report.personalized_advice.question_summary}</p>
+                      <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                        <p style={{ fontSize: 15, lineHeight: 1.6, color: '#f3f4f6', margin: 0, wordBreak: 'keep-all' }}>{report.personalized_advice.diagnosis}</p>
+                      </div>
+                      <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.25)' }}>
+                        <span style={{ fontSize: 11, color: 'var(--accent-purple)', fontWeight: 700, display: 'block', marginBottom: 4 }}>추천 방향</span>
+                        <p style={{ fontSize: 14, lineHeight: 1.6, color: '#e5e7eb', margin: 0, wordBreak: 'keep-all' }}>{report.personalized_advice.recommendation}</p>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* [SECTION 5] 12개월 커리어 타임라인 (compact + expand) */}
+                  {report.timeline && (
+                    <section className="glass-card" style={{ marginBottom: 20, textAlign: 'left' }}>
+                      <h3 style={{ fontSize: 15, color: '#fff', marginBottom: 14 }}>앞으로 12개월 커리어 흐름</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {report.timeline.map((item: any) => {
+                          const isBestJob = th?.best_job_change?.year_month === item.year_month;
+                          const isBestNego = th?.best_negotiation?.year_month === item.year_month;
+                          const isCaution = th?.caution_month?.year_month === item.year_month;
+                          const isCurrent = item.year_month === nowYm;
+                          const isOpen = expandedMonths.includes(item.year_month);
+                          const badge = isBestJob ? 'BEST MOVE' : isBestNego ? 'BEST DEAL' : isCaution ? 'CAUTION' : null;
+                          const badgeColor = isBestJob ? 'var(--accent-pink)' : isBestNego ? 'var(--accent-purple)' : '#ef4444';
+                          return (
+                            <div key={item.year_month} style={{
+                              padding: 14, borderRadius: 12,
+                              background: isCurrent ? 'rgba(168,85,247,0.1)' : 'rgba(255,255,255,0.03)',
+                              border: badge ? `1px solid ${badgeColor}` : isCurrent ? '1px solid var(--accent-purple)' : '1px solid rgba(255,255,255,0.05)',
+                              boxShadow: badge ? `0 0 16px ${badgeColor}33` : 'none',
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <strong style={{ fontSize: 14, color: '#f3f4f6' }}>{formatYm(item.year_month)}</strong>
+                                  {isCurrent && <span style={{ fontSize: 10, color: 'var(--accent-purple)' }}>· 이번 달</span>}
+                                </div>
+                                {badge && (
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: badgeColor, padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap' }}>{badge}</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0' }}>
+                                {item.keyword} · 이직 {item.scores?.job_change ?? 0} · 협상 {item.scores?.negotiation ?? 0} · 잔류 {item.scores?.stay ?? 0}
+                              </div>
+                              <p style={{
+                                fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all',
+                                ...(isOpen ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }),
+                              }}>
+                                {item.summary}
+                              </p>
+                              {isOpen && (
+                                <p style={{ fontSize: 13, color: '#d1d5db', marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>✅ {item.action}</p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setExpandedMonths(prev => prev.includes(item.year_month) ? prev.filter(m => m !== item.year_month) : [...prev, item.year_month])}
+                                style={{ marginTop: 6, fontSize: 11, color: 'var(--accent-purple)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+                              >
+                                {isOpen ? '접기 ▲' : '자세히 보기 ▼'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* [SECTION 6] Character Connection (축소된 보조 카드) */}
+                  {report.personalized_advice?.character_connection && (
+                    <div className="glass-card" style={{ marginBottom: 20, padding: 14, display: 'flex', gap: 12, alignItems: 'center', textAlign: 'left' }}>
+                      <div style={{ fontSize: 26, flexShrink: 0 }}>{myChar.emoji}</div>
+                      <div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>왜 이런 선택이 당신에게 잘 맞나</span>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all' }}>{report.personalized_advice.character_connection}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* [SECTION 7] Action Steps / Watch Out */}
+                  {report.personalized_advice && (
+                    <section className="glass-card" style={{ marginBottom: 20, textAlign: 'left' }}>
+                      <h3 style={{ fontSize: 15, color: '#fff', marginBottom: 12 }}>지금 해야 할 {report.personalized_advice.action_steps.length}가지</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+                        {report.personalized_advice.action_steps.map((item: string) => (
+                          <div key={item} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#e5e7eb' }}>
+                            <span>☐</span><span style={{ lineHeight: 1.5 }}>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ padding: 14, borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                        <strong style={{ fontSize: 13, color: '#f87171', display: 'block', marginBottom: 8 }}>이건 꼭 조심하세요</strong>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {report.personalized_advice.watch_out.map((item: string) => (
+                            <span key={item} style={{ fontSize: 13, color: '#fca5a5', lineHeight: 1.5 }}>⚠️ {item}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
                   {aiReport.closing_advice && (
                     <section className="closing-card">
                       <span className="eyebrow">{REPORT_HEADINGS.closing}</span>
                       <p>{aiReport.closing_advice}</p>
                     </section>
                   )}
-                </div>
+                </>
               )}
 
-              {/* Monthly Timeline Calendar (월운 규칙 엔진 기반) */}
-              <div className="glass-card" style={{ textAlign: 'left' }}>
-                  <h3 style={{ fontSize: 16, color: '#fff', marginBottom: 12 }}>{REPORT_HEADINGS.roadmap}</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>내 일간과 매달 실제 월운(월건)을 대조해 계산한 달별 추천 행동입니다.</p>
+              {/* [SECTION 8] 3축 전체 흐름 시각화 (보조 정보 — 핵심 결론보다 항상 아래) */}
+              <div className="glass-card" style={{ marginTop: report ? 4 : 0 }}>
+                  <h3 style={{ fontSize: 15, color: '#fff', marginBottom: 12, textAlign: 'left' }}>{REPORT_HEADINGS.elementProfile}</h3>
 
-                  <div className="timeline-list">
-                    {(() => {
-                      const natalZhis = [
-                        sajuResult.pillars.year.zhi,
-                        sajuResult.pillars.month.zhi,
-                        sajuResult.pillars.day.zhi,
-                        ...(sajuResult.pillars.hour.zhi ? [sajuResult.pillars.hour.zhi] : []),
-                      ];
-                      const toneColor: Record<MonthTone, string> = {
-                        move: 'var(--accent-purple)',
-                        nego: 'var(--accent-pink)',
-                        press: '#b3583f',
-                        doc: 'var(--accent-blue)',
-                        peer: 'var(--accent-cyan)',
-                        calm: '#4d5a78',
-                      };
-                      return buildMonthlyFlow(sajuResult.dayGan.char, natalZhis, 6).map(plan => (
-                        <div className="timeline-item" key={`${plan.year}-${plan.month}`}>
-                          <div>
-                            <span className="timeline-badge" style={{ background: toneColor[plan.tone] }}>
-                              {plan.label}{plan.isPeak ? ' ★' : ''}
-                            </span>
-                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{plan.description}</p>
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-              </div>
-
-              {/* Elements Radar Chart */}
-              <div className="glass-card">
-                  <h3 style={{ fontSize: 16, color: '#fff', marginBottom: 12, textAlign: 'left' }}>{REPORT_HEADINGS.elementProfile}</h3>
-                  
                   {/* Radar Chart SVG rendering */}
                   <div className="radar-wrapper">
                     <svg className="radar-svg" width="220" height="220" viewBox="0 0 220 220">
@@ -531,7 +685,7 @@ export function ResultScreen() {
                       <polygon points="110,10 205,79 169,191 51,191 15,79" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
                       {/* Grid Pentagon 2 (Middle) */}
                       <polygon points="110,60 157.5,94.5 139.5,150.5 80.5,150.5 62.5,94.5" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-                      
+
                       {/* Axes */}
                       <line x1="110" y1="110" x2="110" y2="10" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
                       <line x1="110" y1="110" x2="205" y2="79" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
@@ -587,6 +741,8 @@ export function ResultScreen() {
                   </div>
               </div>
             </div>
+              );
+            })()}
 
             {/* 추가 질문 — 상세 리포트 다음, 이직운 캐릭터 카드 바로 위 */}
             {isUnlocked && (
