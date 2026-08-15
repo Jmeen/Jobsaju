@@ -28,7 +28,10 @@ test('1. CHONG 단일 관계 (Sample A 기반)', () => {
 
 test('2. LIUHE 단일 관계 (Sample B 기반)', () => {
   // Sample B: fortuneBranch=진, fortuneStem=정인, natalDay=유 (진유합)
-  // V3.1 문서에서 월지 자(子)는 계산에서 제외됨
+  // 월지 자(子)는 계산에서 제외됨
+  //
+  // v3.2 기준 기대값이다. Stay 공식의 Mobility·Risk 계수가 v3.1의 1.0에서 0.7로
+  // 완화되면서(SCORING_RULES.md 참고) raw 44.5 -> 42.7, 정규화 88 -> 87이 됐다.
   const natalZhis = [
     { char: '유', weight: 1.2, position: 'natalDayBranch' }
   ];
@@ -37,10 +40,11 @@ test('2. LIUHE 단일 관계 (Sample B 기반)', () => {
   const liuhe = result.debug.relations.find(r => r.relation === 'LIUHE');
   assert.ok(liuhe);
   
-  // Sample B 기대값
+  // Sample B 기대값 (v3.2)
   assert.strictEqual(result.job_change, 33);
   assert.strictEqual(result.negotiation, 59);
-  assert.strictEqual(result.stay, 88);
+  // Stay = Stability(22)*1.5 + Opportunity(11)*0.5 - Mobility(-6)*0.7 = 42.7 -> 87
+  assert.strictEqual(result.stay, 87);
 });
 
 test('3. XING / PO / HAI 검증 (Sample C, D)', () => {
@@ -52,15 +56,12 @@ test('3. XING / PO / HAI 검증 (Sample C, D)', () => {
   const cResult = computeMonthlyScore('정관', '묘', natalZhis);
   assert.strictEqual(cResult.job_change, 68);
   assert.strictEqual(cResult.negotiation, 35);
-  assert.strictEqual(cResult.stay, 11);
+  // Stay = Stability(-9.5)*1.5 + Opportunity(5)*0.5 - Mobility(16.5)*0.7 - Risk(24)*0.7
+  //      = -40.1 -> 13 (v3.1 계수 1.0이면 -52.25 -> 11이었다)
+  assert.strictEqual(cResult.stay, 13);
 
   // Sample D: 오월, 편재, 일지 유(파), 월지 자(충)
   const dResult = computeMonthlyScore('편재', '오', natalZhis);
-  // 디버깅:
-  if (dResult.job_change !== 73) {
-      console.log('Sample D Debug:', JSON.stringify(dResult, null, 2));
-      console.log('Sample D Raw Job Change:', dResult.debug.semantic_signals);
-  }
   assert.strictEqual(dResult.job_change, 73);
   assert.strictEqual(dResult.negotiation, 53);
   assert.strictEqual(dResult.stay, 11); 
@@ -131,7 +132,7 @@ test('9. Highlight tie-break 및 best/caution 동시 허용', () => {
   
   const tl = buildScoreTimeline(fortunes, natalZhis);
   
-  assert.strictEqual(tl.scoring_rule_version, 'v3.1');
+  assert.strictEqual(tl.scoring_rule_version, 'v3.2');
   assert.strictEqual(tl.precomputed_highlights.best_job_change_month, '2026-01');
   assert.strictEqual(tl.precomputed_highlights.caution_month, '2026-01');
   assert.strictEqual(tl.precomputed_highlights.best_negotiation_month, '2026-02');

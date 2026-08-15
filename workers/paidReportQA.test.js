@@ -69,32 +69,38 @@ test('Validator: Completely Empty / Malformed JSON', async () => {
 
 import { handlePaidReportRequest } from './paidReportApi.js';
 
-test('API: Concurrency check on identical payment_id', async () => {
+test('API: 같은 payment_id로 동시에 들어오면 한 건만 생성하고 나머지는 202로 돌린다', async () => {
   const paymentId = "concurrent_test_123";
   const reqBody = {
     payment_id: paymentId,
     birth: { year: 1990, month: 1, day: 1, isSolar: true, gender: "M" },
     career_context: { worry_text: "test" }
   };
-  
-  const createMockReq = () => ({ json: async () => reqBody });
-  
-  // Create a mock env that fakes the LLM request to just delay
-  // But wait, the code uses fetch globally. We can't easily mock global fetch in node:test
-  // without messing with globals. However, we can just test that handlePaidReportRequest 
-  // catches the duplicate in the in-memory set immediately.
-  
-  const env = {
-    GEMINI_API_KEY: "fake"
-  };
 
-  // Trigger both simultaneously
-  const p1 = handlePaidReportRequest(createMockReq(), env);
-  const p2 = handlePaidReportRequest(createMockReq(), env);
-  
-  const [res1, res2] = await Promise.all([p1, p2]);
-  
-  // One of them should be a 429
-  const statuses = [res1.status, res2.status];
-  assert.ok(statuses.includes(429), "One request should be rate-limited (429)");
+  const createMockReq = () => ({ json: async () => reqBody });
+  const env = { GEMINI_API_KEY: "fake" };
+
+  // D1 바인딩이 없으면 isolate 메모리 Set으로 중복을 막는다(paidReportApi의 폴백 경로).
+  // Gemini는 실제로 부르지 않는다 — 여기서 보려는 건 중복 차단이지 리포트 생성이 아니다.
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    candidates: [{ content: { parts: [{ text: '{}' }] } }],
+  }), { status: 200 });
+
+  try {
+    const [res1, res2] = await Promise.all([
+      handlePaidReportRequest(createMockReq(), env),
+      handlePaidReportRequest(createMockReq(), env),
+    ]);
+
+    const statuses = [res1.status, res2.status];
+    // 뒤늦게 들어온 쪽은 생성을 다시 시작하지 않고 "생성 중"으로 돌아가야 한다.
+    assert.ok(statuses.includes(202), `둘 중 하나는 202여야 한다 (실제: ${statuses.join(', ')})`);
+    assert.equal(statuses.filter(status => status === 202).length, 1, '한 건은 실제로 생성을 진행해야 한다');
+
+    const pending = res1.status === 202 ? res1 : res2;
+    assert.match(await pending.text(), /Generating/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import worker from './index.js';
+import { decodeSecurePayload } from './crypto.js';
 
 function createKv() {
   const values = new Map();
@@ -260,8 +261,16 @@ test('이메일 조회(/api/lookup)는 발송 설정이 있으면 리포트 대�
     assert.equal(sentRequests.length, 1);
     assert.equal(sentRequests[0].url, 'https://api.resend.com/emails');
     assert.equal(sentRequests[0].body.to[0], email);
-    assert.match(sentRequests[0].body.html, /token-new/);
-    assert.match(sentRequests[0].body.html, /token-old/);
+    // 토큰은 메일 본문에 평문으로 실리지 않는다 — ?p= 뒤에 암호화된 payload로 들어간다.
+    const html = sentRequests[0].body.html;
+    assert.doesNotMatch(html, /token-new|token-old/, '토큰이 링크에 평문으로 노출되면 안 된다');
+
+    const linkedTokens = [...html.matchAll(/\?p=([^"]+)"/g)]
+      .map(match => decodeSecurePayload(decodeURIComponent(match[1])))
+      .map(payload => payload?.token);
+
+    // 이력 전체(최신순)가 각각의 열람 링크로 들어가야 한다
+    assert.deepEqual(linkedTokens, ['token-new', 'token-old']);
   } finally {
     globalThis.fetch = originalFetch;
   }

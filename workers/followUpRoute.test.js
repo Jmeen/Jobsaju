@@ -149,7 +149,10 @@ test('허용 질문은 구조화 분석 계약과 사용자 커리어 정보를 
     assert.match(promptText, /7년차 IT 서비스 기획자/);
     assert.match(promptText, /핀테크 프로덕트 리더/);
     assert.match(promptText, /업종/);
-    assert.deepEqual(kv.writes.map(write => write[0]), [`followup:${token}`]);
+    // 질문권 소진 기록이 남아야 한다. 답변 이력 저장(followups:) 같은 부가 쓰기가
+    // 늘어나도 깨지지 않도록, 전체 목록을 통째로 비교하지 않고 포함 여부만 본다.
+    const writtenKeys = kv.writes.map(write => write[0]);
+    assert.ok(writtenKeys.includes(`followup:${token}`));
   } finally {
     globalThis.fetch = originalFetch;
   }
