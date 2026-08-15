@@ -1,16 +1,17 @@
 
+import { useState } from 'react';
 import { useAppContext } from '../../contexts/AppContext';
 import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
 
 
 export function LookupModal() {
   const {
+    lookupEmailDraftRef,
     step,
     birthData,
     careerContext,
     sajuResult,
     isUnlocked,
-    emailInput,
     isAILoading,
     unlockLoadingText,
     unlockError,
@@ -18,13 +19,11 @@ export function LookupModal() {
     showManualPayModal,
     savedSession,
     showLookupModal,
-    lookupEmailInput,
     isLookupLoading,
     lookupError,
     lookupSentMessage,
     reportHistory,
     deepLinkError,
-    couponInput,
     appliedCoupon,
     couponMessage,
     couponError,
@@ -33,7 +32,6 @@ export function LookupModal() {
     secretClickCount,
     followUps,
     shareBonusGranted,
-    followUpInput,
     followUpError,
     isFollowUpLoading,
     isShareLoading,
@@ -44,7 +42,6 @@ export function LookupModal() {
     setCareerContext,
     setSajuResult,
     setIsUnlocked,
-    setEmailInput,
     setIsAILoading,
     setUnlockLoadingText,
     setUnlockError,
@@ -52,13 +49,11 @@ export function LookupModal() {
     setShowManualPayModal,
     setSavedSession,
     setShowLookupModal,
-    setLookupEmailInput,
     setIsLookupLoading,
     setLookupError,
     setLookupSentMessage,
     setReportHistory,
     setDeepLinkError,
-    setCouponInput,
     setAppliedCoupon,
     setCouponMessage,
     setCouponError,
@@ -67,7 +62,6 @@ export function LookupModal() {
     setSecretClickCount,
     setFollowUps,
     setShareBonusGranted,
-    setFollowUpInput,
     setFollowUpError,
     setIsFollowUpLoading,
     setIsShareLoading,
@@ -93,6 +87,13 @@ export function LookupModal() {
     viralCardCanvasRef,
     summaryCardCanvasRef
   } = useAppContext();
+
+  // 모달이 닫혔다 다시 열려도 입력값이 남도록 초안 ref에서 시작한다.
+  const [lookupEmailInput, setLookupEmailInputLocal] = useState(lookupEmailDraftRef.current);
+  const setLookupEmailInput = (next: string) => {
+    lookupEmailDraftRef.current = next;
+    setLookupEmailInputLocal(next);
+  };
 
   return (
     <div style={{
@@ -126,7 +127,7 @@ export function LookupModal() {
                   <input
                     type="email" className="input-text" placeholder="yourname@gmail.com"
                     value={lookupEmailInput} onChange={e => setLookupEmailInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleEmailLookup(); }}
+                    onKeyDown={e => { if (e.key === 'Enter') void handleEmailLookup(lookupEmailInput); }}
                   />
                 </div>
 
@@ -138,7 +139,7 @@ export function LookupModal() {
 
                 <button
                   className="btn-primary" style={{ width: '100%', padding: 14, fontSize: 14 }}
-                  onClick={handleEmailLookup} disabled={isLookupLoading}
+                  onClick={() => void handleEmailLookup(lookupEmailInput)} disabled={isLookupLoading}
                 >
                   {isLookupLoading ? '링크를 보내는 중...' : CHECKOUT_COPY.lookupButton}
                 </button>

@@ -233,7 +233,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // === Calculation & Unlock Results State ===
   const [sajuResult, setSajuResult] = useState<SajuCoreResult | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [emailInput, setEmailInput] = useState('');
+  // 입력 중인 텍스트는 컨텍스트 state로 두지 않는다.
+  // 한 글자마다 Provider가 리렌더되면 ResultScreen 전체(레이더 차트·12개월 타임라인 포함)가
+  // 다시 그려져 저사양 기기에서 입력이 밀린다. 값은 각 컴포넌트의 로컬 state가 들고,
+  // 여기서는 모달이 닫혔다 열려도 입력이 남도록 ref로만 초안을 보관한다.
+  const emailDraftRef = useRef('');
   const [isAILoading, setIsAILoading] = useState(false);
   const [unlockLoadingText, setUnlockLoadingText] = useState('결제를 확인하는 중...');
   const [unlockError, setUnlockError] = useState<string | null>(null);
@@ -243,7 +247,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // === 이메일 기반 리포트 조회 모달 상태 ===
   const [showLookupModal, setShowLookupModal] = useState(false);
-  const [lookupEmailInput, setLookupEmailInput] = useState('');
+  const lookupEmailDraftRef = useRef('');
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   // 이메일로 열람 링크 발송 요청이 성공했을 때 안내 문구 (리포트는 메일 링크를 눌러야 열람 가능)
@@ -254,7 +258,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
 
   // === 쿠폰 시스템 상태 ===
-  const [couponInput, setCouponInput] = useState('');
+  const couponDraftRef = useRef('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -282,7 +286,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 추가 질문 기본 1회 + 친구 공유 보너스 1회
   const [followUps, setFollowUps] = useState<FollowUpRecord[]>([]);
   const [shareBonusGranted, setShareBonusGranted] = useState(false);
-  const [followUpInput, setFollowUpInput] = useState('');
   const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
   const [isShareLoading, setIsShareLoading] = useState(false);
@@ -341,8 +344,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setIsLookupLoading(false);
         });
     } else if (emailParam && !savedSession) {
-      setEmailInput(emailParam);
-      setLookupEmailInput(emailParam);
+      // 아직 열리지 않은 모달들이 마운트될 때 초기값으로 읽어간다
+      emailDraftRef.current = emailParam;
+      lookupEmailDraftRef.current = emailParam;
     }
   }, [savedSession]);
 
@@ -750,8 +754,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 코드 자체를 프론트에 하드코딩하지 않는다 — 서버(SAJU_KV의 coupon:<CODE> 레코드)에 실시간으로
   // 물어봐서 사용 가능 여부만 확인한다(이 확인 자체는 사용 횟수를 소비하지 않고, 실제 소비는
   // "무료 해금하기" 클릭 시 /api/payment/validate에서 일어난다).
-  const handleApplyCoupon = async () => {
-    const raw = couponInput.trim().toUpperCase();
+  const handleApplyCoupon = async (code: string) => {
+    const raw = code.trim().toUpperCase();
     if (!raw) {
       setCouponError('쿠폰 코드를 입력해 주세요.');
       setCouponMessage(null);
@@ -890,8 +894,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // === 이메일 주소로 구매한 해금 리포트 열람 링크 발송 요청 ===
   // 화면에 바로 리포트를 띄우지 않는다 — 이메일 주소만 아는 사람이 남의 리포트를 볼 수 없도록,
   // 실제로 그 메일함을 열 수 있는 사람만 링크를 눌러 열람하게 한다.
-  const handleEmailLookup = async () => {
-    if (!lookupEmailInput || !lookupEmailInput.includes('@')) {
+  const handleEmailLookup = async (email: string) => {
+    if (!email || !email.includes('@')) {
       setLookupError('올바른 이메일 주소를 입력해 주세요.');
       return;
     }
@@ -900,7 +904,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLookupSentMessage(null);
 
     try {
-      const data = await lookupReportByEmail(lookupEmailInput);
+      const data = await lookupReportByEmail(email);
       setLookupSentMessage(data.message || '입력하신 이메일로 리포트 열람 링크를 보내드렸습니다. 메일함을 확인해 주세요.');
     } catch (error: any) {
       setLookupError(error?.message || '이메일 조회 중 오류가 발생했습니다.');
@@ -934,19 +938,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // === 추가 질문 제출 (기본 1회 + 공유 보너스 1회) ===
-  const handleFollowUpSubmit = async () => {
+  // 요청을 실제로 보냈으면 true — 호출한 쪽에서 입력창을 비울지 판단한다.
+  // (검증 실패로 되돌아온 경우에는 사용자가 쓴 질문을 지우지 않는다)
+  const handleFollowUpSubmit = async (rawQuestion: string): Promise<boolean> => {
     const questionLimit = shareBonusGranted ? 2 : 1;
-    if (!sajuResult || followUps.length >= questionLimit) return;
+    if (!sajuResult || followUps.length >= questionLimit) return false;
 
-    const validationError = validateFollowUpQuestion(followUpInput);
+    const validationError = validateFollowUpQuestion(rawQuestion);
     if (validationError) {
       setFollowUpError(validationError);
-      return;
+      return false;
     }
 
     setFollowUpError(null);
     setIsFollowUpLoading(true);
-    const question = followUpInput.trim();
+    const question = rawQuestion.trim();
 
     // 대운은 이 프롬프트에서만 쓰이므로 lunar-javascript(gzip 약 113KB)를 여기서만 내려받는다.
     // 실패해도 추가 질문 자체는 진행한다 (프롬프트에서 대운 한 줄이 비는 정도의 영향).
@@ -1016,8 +1022,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } finally {
       setIsFollowUpLoading(false);
-      setFollowUpInput('');
     }
+    return true;
   };
 
   // iOS Safari(WebKit)는 <a download>를 지원하지 않아 클릭해도 아무 일도 일어나지 않는다.
@@ -1131,7 +1137,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     careerContext,
     sajuResult,
     isUnlocked,
-    emailInput,
     isAILoading,
     unlockLoadingText,
     unlockError,
@@ -1139,13 +1144,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     showManualPayModal,
     savedSession,
     showLookupModal,
-    lookupEmailInput,
     isLookupLoading,
     lookupError,
     lookupSentMessage,
     reportHistory,
     deepLinkError,
-    couponInput,
     appliedCoupon,
     couponMessage,
     couponError,
@@ -1156,7 +1159,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     price,
     followUps,
     shareBonusGranted,
-    followUpInput,
     followUpError,
     isFollowUpLoading,
     isShareLoading,
@@ -1168,7 +1170,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCareerContext,
     setSajuResult,
     setIsUnlocked,
-    setEmailInput,
     setIsAILoading,
     setUnlockLoadingText,
     setUnlockError,
@@ -1176,13 +1177,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setShowManualPayModal,
     setSavedSession,
     setShowLookupModal,
-    setLookupEmailInput,
     setIsLookupLoading,
     setLookupError,
     setLookupSentMessage,
     setReportHistory,
     setDeepLinkError,
-    setCouponInput,
     setAppliedCoupon,
     setCouponMessage,
     setCouponError,
@@ -1191,12 +1190,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSecretClickCount,
     setFollowUps,
     setShareBonusGranted,
-    setFollowUpInput,
     setFollowUpError,
     setIsFollowUpLoading,
     setIsShareLoading,
     setIsShareConfirming,
     setUnlockToken,
+    emailDraftRef,
+    lookupEmailDraftRef,
+    couponDraftRef,
     restoreSavedSession,
     handleUnlock,
     handleEmailLookup,

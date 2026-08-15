@@ -1,16 +1,18 @@
 
+import { useState } from 'react';
 import { useAppContext } from '../../contexts/AppContext';
 import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
 
 
 export function ManualPayModal() {
   const {
+    emailDraftRef,
+    couponDraftRef,
     step,
     birthData,
     careerContext,
     sajuResult,
     isUnlocked,
-    emailInput,
     isAILoading,
     unlockLoadingText,
     unlockError,
@@ -18,13 +20,11 @@ export function ManualPayModal() {
     showManualPayModal,
     savedSession,
     showLookupModal,
-    lookupEmailInput,
     isLookupLoading,
     lookupError,
     lookupSentMessage,
     reportHistory,
     deepLinkError,
-    couponInput,
     appliedCoupon,
     couponMessage,
     couponError,
@@ -33,7 +33,6 @@ export function ManualPayModal() {
     secretClickCount,
     followUps,
     shareBonusGranted,
-    followUpInput,
     followUpError,
     isFollowUpLoading,
     isShareLoading,
@@ -44,7 +43,6 @@ export function ManualPayModal() {
     setCareerContext,
     setSajuResult,
     setIsUnlocked,
-    setEmailInput,
     setIsAILoading,
     setUnlockLoadingText,
     setUnlockError,
@@ -52,13 +50,11 @@ export function ManualPayModal() {
     setShowManualPayModal,
     setSavedSession,
     setShowLookupModal,
-    setLookupEmailInput,
     setIsLookupLoading,
     setLookupError,
     setLookupSentMessage,
     setReportHistory,
     setDeepLinkError,
-    setCouponInput,
     setAppliedCoupon,
     setCouponMessage,
     setCouponError,
@@ -67,7 +63,6 @@ export function ManualPayModal() {
     setSecretClickCount,
     setFollowUps,
     setShareBonusGranted,
-    setFollowUpInput,
     setFollowUpError,
     setIsFollowUpLoading,
     setIsShareLoading,
@@ -93,6 +88,19 @@ export function ManualPayModal() {
     viralCardCanvasRef,
     summaryCardCanvasRef
   } = useAppContext();
+
+  // 결제 모달을 닫았다 다시 열어도 입력값이 남도록 초안 ref에서 시작한다.
+  // (컨텍스트 state로 두면 한 글자마다 결과 화면 전체가 다시 그려진다)
+  const [emailInput, setEmailInputLocal] = useState(emailDraftRef.current);
+  const setEmailInput = (next: string) => {
+    emailDraftRef.current = next;
+    setEmailInputLocal(next);
+  };
+  const [couponInput, setCouponInputLocal] = useState(couponDraftRef.current);
+  const setCouponInput = (next: string) => {
+    couponDraftRef.current = next;
+    setCouponInputLocal(next);
+  };
 
   return (
     <div style={{
@@ -198,13 +206,13 @@ export function ManualPayModal() {
                           setCouponInput(e.target.value);
                           setCouponError(null);
                         }}
-                        onKeyDown={e => { if (e.key === 'Enter') void handleApplyCoupon(); }}
+                        onKeyDown={e => { if (e.key === 'Enter') void handleApplyCoupon(couponInput); }}
                         style={{ fontSize: 13, textTransform: 'uppercase' }}
                         autoFocus
                       />
                       <button
                         className="btn-secondary coupon-apply-button"
-                        onClick={() => void handleApplyCoupon()}
+                        onClick={() => void handleApplyCoupon(couponInput)}
                         disabled={isCouponChecking}
                       >
                         {isCouponChecking ? '확인 중...' : '적용'}

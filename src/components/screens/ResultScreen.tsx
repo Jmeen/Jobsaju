@@ -74,13 +74,14 @@ const PAYWALL_COPY: Record<DominantMode, {
 };
 
 export function ResultScreen() {
+  // 입력 중인 질문은 로컬 state로 둔다 — 컨텍스트에 두면 한 글자마다 이 화면 전체가 다시 그려진다.
+  const [followUpInput, setFollowUpInput] = useState('');
   const {
     step,
     birthData,
     careerContext,
     sajuResult,
     isUnlocked,
-    emailInput,
     isAILoading,
     unlockLoadingText,
     unlockError,
@@ -88,13 +89,11 @@ export function ResultScreen() {
     showManualPayModal,
     savedSession,
     showLookupModal,
-    lookupEmailInput,
     isLookupLoading,
     lookupError,
     lookupSentMessage,
     reportHistory,
     deepLinkError,
-    couponInput,
     appliedCoupon,
     couponMessage,
     couponError,
@@ -103,7 +102,6 @@ export function ResultScreen() {
     secretClickCount,
     followUps,
     shareBonusGranted,
-    followUpInput,
     followUpError,
     isFollowUpLoading,
     isShareLoading,
@@ -114,7 +112,6 @@ export function ResultScreen() {
     setCareerContext,
     setSajuResult,
     setIsUnlocked,
-    setEmailInput,
     setIsAILoading,
     setUnlockLoadingText,
     setUnlockError,
@@ -122,13 +119,11 @@ export function ResultScreen() {
     setShowManualPayModal,
     setSavedSession,
     setShowLookupModal,
-    setLookupEmailInput,
     setIsLookupLoading,
     setLookupError,
     setLookupSentMessage,
     setReportHistory,
     setDeepLinkError,
-    setCouponInput,
     setAppliedCoupon,
     setCouponMessage,
     setCouponError,
@@ -137,7 +132,6 @@ export function ResultScreen() {
     setSecretClickCount,
     setFollowUps,
     setShareBonusGranted,
-    setFollowUpInput,
     setFollowUpError,
     setIsFollowUpLoading,
     setIsShareLoading,
@@ -788,7 +782,16 @@ export function ResultScreen() {
                       <span>{followUpInput.trim().length}/{FOLLOW_UP_MAX_LENGTH}</span>
                       {followUpError && <em>{followUpError}</em>}
                     </div>
-                    <button className="btn-primary" style={{ marginTop: 10 }} onClick={handleFollowUpSubmit}>
+                    <button
+                      className="btn-primary"
+                      style={{ marginTop: 10 }}
+                      onClick={() => {
+                        void (async () => {
+                          const sent = await handleFollowUpSubmit(followUpInput);
+                          if (sent) setFollowUpInput('');
+                        })();
+                      }}
+                    >
                       내 사주 기준으로 답변 받기
                     </button>
                   </>
