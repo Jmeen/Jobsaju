@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppReport, useAppActions } from '../../contexts/AppContext';
 import { STORAGE_KEY } from '../../utils/session';
 
 import { getCharacterAsset } from '../../utils/characterAssets';
@@ -90,6 +90,8 @@ export function ResultScreen() {
     isShareLoading,
     isShareConfirming,
     unlockToken,
+  } = useAppReport();
+  const {
     setStep,
     setCareerContext,
     setIsUnlocked,
@@ -105,7 +107,7 @@ export function ResultScreen() {
     handleDownloadCard,
     handleShareResult,
     viralCardCanvasRef,
-  } = useAppContext();
+  } = useAppActions();
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const handleReset = () => {
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }

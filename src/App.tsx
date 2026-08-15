@@ -1,5 +1,5 @@
 
-import { AppProvider, useAppContext, STORAGE_KEY } from './contexts/AppContext';
+import { AppProvider, useAppFlow, useAppReport, useAppActions, STORAGE_KEY } from './contexts/AppContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BusinessFooter } from './components/BusinessFooter';
 import { IntroScreen } from './components/screens/IntroScreen';
@@ -14,7 +14,17 @@ import { LookupModal } from './components/modals/LookupModal';
 import './index.css';
 
 function AppRouter() {
-  const { currentInputStep, deepLinkError, setDeepLinkError, setStep, step, sajuResult, showManualPayModal, showLookupModal } = useAppContext();
+  const {
+    currentInputStep,
+    deepLinkError,
+    step,
+    showManualPayModal,
+    showLookupModal,
+  } = useAppFlow();
+  const {
+    sajuResult,
+  } = useAppReport();
+  const { setDeepLinkError, setStep } = useAppActions();
 
   return (
     <div className="app-container">

@@ -1,5 +1,5 @@
 
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppFlow, useAppActions } from '../../contexts/AppContext';
 import { WheelColumn } from '../WheelColumn';
 import { CURRENT_YEAR, WHEEL_YEARS, WHEEL_MONTHS, WHEEL_HOURS, WHEEL_MINUTES, daysInMonth } from '../../utils/birthWheel';
 
@@ -17,12 +17,14 @@ import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 export function BirthScreen() {
   const {
     birthData,
-    setStep,
-    setBirthData,
     wheelDayCount,
     wheelDays,
     birthError,
-  } = useAppContext();
+  } = useAppFlow();
+  const {
+    setStep,
+    setBirthData,
+  } = useAppActions();
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

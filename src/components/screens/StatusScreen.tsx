@@ -1,5 +1,5 @@
 
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppFlow, useAppActions } from '../../contexts/AppContext';
 
 
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
@@ -15,9 +15,11 @@ import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 export function StatusScreen() {
   const {
     careerContext,
+  } = useAppFlow();
+  const {
     setStep,
     setCareerContext,
-  } = useAppContext();
+  } = useAppActions();
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

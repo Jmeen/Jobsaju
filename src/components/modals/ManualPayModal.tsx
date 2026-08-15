@@ -1,13 +1,11 @@
 
 import { useState } from 'react';
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppCheckout, useAppActions } from '../../contexts/AppContext';
 import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
 
 
 export function ManualPayModal() {
   const {
-    emailDraftRef,
-    couponDraftRef,
     isAILoading,
     unlockLoadingText,
     unlockError,
@@ -17,15 +15,19 @@ export function ManualPayModal() {
     isCouponChecking,
     showSecretCoupon,
     secretClickCount,
+    checkout,
+    price,
+  } = useAppCheckout();
+  const {
+    emailDraftRef,
+    couponDraftRef,
     setShowManualPayModal,
     setCouponError,
     setShowSecretCoupon,
     setSecretClickCount,
     handleUnlock,
     handleApplyCoupon,
-    checkout,
-    price,
-  } = useAppContext();
+  } = useAppActions();
 
   // 결제 모달을 닫았다 다시 열어도 입력값이 남도록 초안 ref에서 시작한다.
   // (컨텍스트 state로 두면 한 글자마다 결과 화면 전체가 다시 그려진다)

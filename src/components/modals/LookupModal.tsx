@@ -1,20 +1,22 @@
 
 import { useState } from 'react';
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppReport, useAppActions } from '../../contexts/AppContext';
 import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
 
 
 export function LookupModal() {
   const {
-    lookupEmailDraftRef,
     isLookupLoading,
     lookupError,
     lookupSentMessage,
+  } = useAppReport();
+  const {
+    lookupEmailDraftRef,
     setShowLookupModal,
     setLookupError,
     setLookupSentMessage,
     handleEmailLookup,
-  } = useAppContext();
+  } = useAppActions();
 
   // 모달이 닫혔다 다시 열려도 입력값이 남도록 초안 ref에서 시작한다.
   const [lookupEmailInput, setLookupEmailInputLocal] = useState(lookupEmailDraftRef.current);

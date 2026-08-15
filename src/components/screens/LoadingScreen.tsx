@@ -1,5 +1,5 @@
 
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppFlow } from '../../contexts/AppContext';
 
 
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
@@ -16,7 +16,7 @@ export function LoadingScreen() {
   const {
     copy,
     loadingText,
-  } = useAppContext();
+  } = useAppFlow();
 
   return (
     <div className="analysis-loading">

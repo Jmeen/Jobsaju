@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { decodeSecurePayload } from '../utils/crypto';
 import { STORAGE_KEY, loadSavedSession } from '../utils/session';
 import { daysInMonth, CURRENT_YEAR } from '../utils/birthWheel';
@@ -31,10 +31,36 @@ const SERVICE_URL = 'jobsaju.kr';
 
 // 리포트 가격은 utils/pricing.ts 의 A/B 변형이 결정한다 (?p=6900 / ?p=8900)
 
-const AppContext = createContext<any>(null);
+const AppFlowContext = createContext<any>(null);
+const AppReportContext = createContext<any>(null);
+const AppCheckoutContext = createContext<any>(null);
+const AppActionsContext = createContext<any>(null);
 
-export function useAppContext() {
-    return useContext(AppContext);
+function useRequired(ctx: any, name: string) {
+  if (!ctx) throw new Error(`${name}은(는) AppProvider 안에서만 쓸 수 있습니다.`);
+  return ctx;
+}
+
+/** 입력 단계 진행 상태 — step, 생년월일, 고민 입력, 저장 세션. */
+export function useAppFlow() {
+  return useRequired(useContext(AppFlowContext), 'useAppFlow');
+}
+
+/** 진단 결과와 그 이후 — 사주 결과, 유료 리포트, 추가 질문, 공유, 조회. */
+export function useAppReport() {
+  return useRequired(useContext(AppReportContext), 'useAppReport');
+}
+
+/** 결제·쿠폰 — 결제 모달이 열려 있는 동안에만 바쁘게 바뀌는 값들. */
+export function useAppCheckout() {
+  return useRequired(useContext(AppCheckoutContext), 'useAppCheckout');
+}
+
+/** 상태를 바꾸는 함수들. 참조가 고정돼 있어 이것만 쓰는 컴포넌트는 다시 그려지지 않는다. */
+export function useAppActions() {
+  const ctx = useContext(AppActionsContext);
+  if (!ctx) throw new Error('useAppActions는 AppProvider 안에서만 쓸 수 있습니다.');
+  return ctx;
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -115,7 +141,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       typeof window === 'undefined' ? null : window.localStorage,
     ),
   );
-  const checkout = buildCheckoutPresentation(price.label, Boolean(appliedCoupon));
+  // 매 렌더 새 객체를 만들면 checkoutState 메모가 늘 무효가 된다.
+  const checkout = useMemo(
+    () => buildCheckoutPresentation(price.label, Boolean(appliedCoupon)),
+    [price.label, appliedCoupon],
+  );
 
   // 추가 질문 기본 1회 + 친구 공유 보너스 1회
   const [followUps, setFollowUps] = useState<FollowUpRecord[]>([]);
@@ -270,7 +300,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     parseInt(birthData.month) || 1,
     birthData.isSolar,
   );
-  const wheelDays = Array.from({ length: wheelDayCount }, (_, i) => i + 1);
+  // 같은 이유로 배열도 개수가 그대로면 같은 참조를 유지한다.
+  const wheelDays = useMemo(
+    () => Array.from({ length: wheelDayCount }, (_, i) => i + 1),
+    [wheelDayCount],
+  );
 
   // 연/월이 바뀌어 지금의 '일'이 더는 유효하지 않으면 그달의 말일로 당겨준다 (예: 31일 → 2월 선택 시 28일)
   useEffect(() => {
@@ -956,73 +990,74 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 
 
-  const value = {
+  // 상태와 액션을 분리한 두 컨텍스트로 내보낸다.
+  //
+  // 상태 객체는 굳이 메모하지 않는다 — AppProvider가 다시 그려지는 이유가 곧 상태 변경이라,
+  // 어차피 매번 새 값이 맞다. 대신 액션 쪽 신원을 고정해서, 액션만 쓰는 화면(입력 단계들)은
+  // 다른 상태가 바뀌어도 다시 그려지지 않게 한다.
+  // 상태를 도메인별로 나눠 내보낸다.
+  //
+  // 한 덩어리로 두면 결제 진행 중 2.6초마다 도는 안내 문구 갱신 같은 변화가
+  // 결과 화면(레이더 차트·12개월 타임라인)까지 매번 다시 그리게 만든다.
+  // 실제 소비를 보면 경계가 겹치지 않는다 — ResultScreen은 결제 상태를 쓰지 않고,
+  // ManualPayModal은 리포트 상태를 쓰지 않는다.
+  //
+  // 각 객체는 자기 도메인 값으로만 메모한다. 이게 없으면 AppProvider가 다시 그려질 때마다
+  // 세 객체가 모두 새로 만들어져, 컨텍스트를 나눈 의미가 사라진다(실제로 그랬다).
+  /** 입력 단계 진행 상태 */
+  const flowState = useMemo(() => ({
     step,
+    currentInputStep,
     birthData,
     careerContext,
+    birthError,
+    wheelDayCount,
+    wheelDays,
+    loadingText,
+    copy,
+    deepLinkError,
+    savedSession,
+    showManualPayModal,
+    showLookupModal,
+  }), [step, currentInputStep, birthData, careerContext, birthError, wheelDayCount, wheelDays, loadingText, copy, deepLinkError, savedSession, showManualPayModal, showLookupModal]);
+
+  /** 진단 결과와 그 이후 */
+  const reportState = useMemo(() => ({
     sajuResult,
     isUnlocked,
-    isAILoading,
-    unlockLoadingText,
-    unlockError,
     aiReport,
-    showManualPayModal,
-    savedSession,
-    showLookupModal,
+    unlockToken,
+    followUps,
+    followUpError,
+    isFollowUpLoading,
+    shareBonusGranted,
+    isShareLoading,
+    isShareConfirming,
     isLookupLoading,
     lookupError,
     lookupSentMessage,
     reportHistory,
-    deepLinkError,
+  }), [sajuResult, isUnlocked, aiReport, unlockToken, followUps, followUpError, isFollowUpLoading, shareBonusGranted, isShareLoading, isShareConfirming, isLookupLoading, lookupError, lookupSentMessage, reportHistory]);
+
+  /** 결제·쿠폰 */
+  const checkoutState = useMemo(() => ({
+    isAILoading,
+    unlockLoadingText,
+    unlockError,
     appliedCoupon,
     couponMessage,
     couponError,
     isCouponChecking,
     showSecretCoupon,
     secretClickCount,
-    copy,
+    checkout,
     price,
-    followUps,
-    shareBonusGranted,
-    followUpError,
-    isFollowUpLoading,
-    isShareLoading,
-    isShareConfirming,
-    unlockToken,
-    loadingText,
-    setStep,
-    setBirthData,
-    setCareerContext,
-    setSajuResult,
-    setIsUnlocked,
-    setIsAILoading,
-    setUnlockLoadingText,
-    setUnlockError,
-    setAiReport,
-    setShowManualPayModal,
-    setSavedSession,
-    setShowLookupModal,
-    setIsLookupLoading,
-    setLookupError,
-    setLookupSentMessage,
-    setReportHistory,
-    setDeepLinkError,
-    setAppliedCoupon,
-    setCouponMessage,
-    setCouponError,
-    setIsCouponChecking,
-    setShowSecretCoupon,
-    setSecretClickCount,
-    setFollowUps,
-    setShareBonusGranted,
-    setFollowUpError,
-    setIsFollowUpLoading,
-    setIsShareLoading,
-    setIsShareConfirming,
-    setUnlockToken,
-    emailDraftRef,
-    lookupEmailDraftRef,
-    couponDraftRef,
+  }), [isAILoading, unlockLoadingText, unlockError, appliedCoupon, couponMessage, couponError, isCouponChecking, showSecretCoupon, secretClickCount, checkout, price]);
+
+  // 안쪽 핸들러는 지금처럼 매 렌더 새로 만들어진다(클로저가 항상 최신).
+  // 밖으로 나가는 것은 이 ref를 거치는 고정 참조라, 렌더가 바뀌어도 같은 함수다.
+  const handlersRef = useRef<Record<string, (...args: any[]) => any>>({});
+  handlersRef.current = {
     restoreSavedSession,
     handleUnlock,
     handleEmailLookup,
@@ -1032,14 +1067,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     handleShareResult,
     handleApplyCoupon,
     pollShareBonusStatus,
-    checkout,
-    currentInputStep,
-    wheelDayCount,
-    wheelDays,
-    birthError,
-    viralCardCanvasRef,
-    summaryCardCanvasRef,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  const actions = useMemo(() => {
+    const stable = (name: string) => (...args: any[]) => handlersRef.current[name](...args);
+    return {
+      setStep,
+      setBirthData,
+      setCareerContext,
+      setSajuResult,
+      setIsUnlocked,
+      setIsAILoading,
+      setUnlockLoadingText,
+      setUnlockError,
+      setAiReport,
+      setShowManualPayModal,
+      setSavedSession,
+      setShowLookupModal,
+      setIsLookupLoading,
+      setLookupError,
+      setLookupSentMessage,
+      setReportHistory,
+      setDeepLinkError,
+      setAppliedCoupon,
+      setCouponMessage,
+      setCouponError,
+      setIsCouponChecking,
+      setShowSecretCoupon,
+      setSecretClickCount,
+      setFollowUps,
+      setShareBonusGranted,
+      setFollowUpError,
+      setIsFollowUpLoading,
+      setIsShareLoading,
+      setIsShareConfirming,
+      setUnlockToken,
+      emailDraftRef,
+      lookupEmailDraftRef,
+      couponDraftRef,
+      viralCardCanvasRef,
+      summaryCardCanvasRef,
+      restoreSavedSession: stable('restoreSavedSession'),
+      handleUnlock: stable('handleUnlock'),
+      handleEmailLookup: stable('handleEmailLookup'),
+      handleSelectPastReport: stable('handleSelectPastReport'),
+      handleFollowUpSubmit: stable('handleFollowUpSubmit'),
+      handleDownloadCard: stable('handleDownloadCard'),
+      handleShareResult: stable('handleShareResult'),
+      handleApplyCoupon: stable('handleApplyCoupon'),
+      pollShareBonusStatus: stable('pollShareBonusStatus'),
+    };
+    // setState 함수와 ref는 렌더가 바뀌어도 같은 참조라 의존성이 없다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <AppActionsContext.Provider value={actions}>
+      <AppFlowContext.Provider value={flowState}>
+        <AppReportContext.Provider value={reportState}>
+          <AppCheckoutContext.Provider value={checkoutState}>{children}</AppCheckoutContext.Provider>
+        </AppReportContext.Provider>
+      </AppFlowContext.Provider>
+    </AppActionsContext.Provider>
+  );
 }

@@ -1,5 +1,5 @@
 
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppFlow, useAppReport, useAppActions } from '../../contexts/AppContext';
 import { CHECKOUT_COPY } from '../../utils/checkoutPresentation';
 
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
@@ -14,14 +14,18 @@ import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 
 export function IntroScreen() {
   const {
-    isUnlocked,
     savedSession,
+    copy,
+  } = useAppFlow();
+  const {
+    isUnlocked,
+  } = useAppReport();
+  const {
     setStep,
     setShowLookupModal,
     setLookupError,
     restoreSavedSession,
-    copy,
-  } = useAppContext();
+  } = useAppActions();
 
   return (
     <div className="intro-screen">
