@@ -11,7 +11,7 @@ import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
 import FREE_CHARACTERS from '../../../free_engine_characters.js';
 import { buildElementInsight, buildCharacterName, ELEMENT_INFO } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
-import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUp';
+import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUpValidation';
 import { ReportProse } from '../ReportProse';
 
 type DominantMode = 'jobChange' | 'negotiation' | 'stay';

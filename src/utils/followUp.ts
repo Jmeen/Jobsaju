@@ -7,28 +7,13 @@ import {
   assessFollowUpQuestion,
   buildRefusalMessage,
 } from '../../workers/followUpPolicy.js';
+import { FOLLOW_UP_MAX_LENGTH } from './followUpValidation.ts';
+import type { FollowUpContext } from './followUpValidation.ts';
 
-export const FOLLOW_UP_MAX_LENGTH = 300;
-
-export interface FollowUpRecord {
-  question: string;
-  answer: string;
-  answeredAt: string;
-}
-
-export interface FollowUpContext {
-  current_job?: string;
-  career_goal?: string;
-}
-
-export function validateFollowUpQuestion(question: string): string | null {
-  const q = question.trim();
-  if (q.length < 5) return '질문을 5자 이상 적어주세요.';
-  if (q.length > FOLLOW_UP_MAX_LENGTH) return `질문은 ${FOLLOW_UP_MAX_LENGTH}자 이내로 적어주세요.`;
-  const assessment = assessFollowUpQuestion(q);
-  if (!assessment.allowed) return buildRefusalMessage(assessment);
-  return null;
-}
+// 검증 쪽은 엔진 없이도 써야 해서 followUpValidation.ts로 분리했다.
+// 기존 import 경로가 깨지지 않도록 여기서 그대로 다시 내보낸다.
+export { FOLLOW_UP_MAX_LENGTH, validateFollowUpQuestion } from './followUpValidation.ts';
+export type { FollowUpRecord, FollowUpContext } from './followUpValidation.ts';
 
 /** 추가 질문의 의도 — 무엇을 묻는지에 따라 봐야 할 사주 신호가 다르다 */
 export type FollowUpIntent =

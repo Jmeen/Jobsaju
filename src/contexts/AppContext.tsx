@@ -1,18 +1,15 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { decodeSecurePayload } from '../utils/crypto';
-import { getSajuAnalysis } from '../utils/sajuCore';
 import type { SajuCoreResult } from '../utils/sajuCore';
 import { buildScoreBars, buildVerdictView } from '../utils/reportViewModel';
-import { buildPremiumExpansion } from '../utils/premiumReport';
-import { buildMonthlyFlow } from '../utils/monthlyFlow';
 export type { MonthTone } from '../utils/monthlyFlow';
 import { buildElementInsight, buildCharacterName } from '../utils/reportInsights';
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../utils/scorePresentation';
 import { resolveCopyVariant, getCopy } from '../utils/copy';
 import { resolvePriceVariant } from '../utils/pricing';
-import { validateFollowUpQuestion, buildLocalFollowUpAnswer, FOLLOW_UP_MAX_LENGTH } from '../utils/followUp';
-import type { FollowUpRecord } from '../utils/followUp';
+import { validateFollowUpQuestion } from '../utils/followUpValidation';
+import type { FollowUpRecord } from '../utils/followUpValidation';
 import { requestPremiumReport, lookupReportByEmail, lookupReportByToken, PremiumReportError } from '../utils/premiumApi';
 import type { ReportHistoryEntry } from '../utils/premiumApi';
 import { renderAllResultCards } from '../utils/resultCardTargets';
@@ -467,7 +464,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return null;
   })();
 
-  const createFallbackReport = () => {
+  // NOTE: 이 함수는 현재 어디서도 호출되지 않는다(AI 실패 시 폴백 리포트로 쓰려던 것으로 보인다).
+  // premiumReport는 사주 코어를 끌고 오므로, 살려두되 필요한 시점에만 받도록 동적 import로 둔다.
+  const createFallbackReport = async () => {
+    const { buildPremiumExpansion } = await import('../utils/premiumReport');
     const elementKey = sajuResult?.dayGan.char === '을' ? '을' : 'default';
     return {
       ...MOCK_AI_REPORT[elementKey],
@@ -499,27 +499,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loadingText, setLoadingText] = useState('태어난 날의 하늘 우주 배치 확인 중...');
   useEffect(() => {
     if (step === 'loading') {
+      // 만세력 엔진(gzip 약 100KB)이 처음 필요해지는 지점이다.
+      // 로딩 연출이 2.4초 돌아가는 동안 받아두면 사용자가 기다리는 시간은 늘지 않는다.
+      const enginePromise = import('../utils/sajuCore');
       const t1 = setTimeout(() => setLoadingText('이동·직장·재물 기운 추출 중...'), 800);
       const t2 = setTimeout(() => setLoadingText('현재 직장 고민 상황과 결합 분석 중...'), 1600);
       const t3 = setTimeout(() => {
         // 사주 계산 코어 돌리기
         const hourVal = birthData.hasTime ? parseInt(birthData.hour) : 12;
         const minVal = birthData.hasTime ? parseInt(birthData.minute) : 0;
-        const analysis = getSajuAnalysis(
-          parseInt(birthData.year),
-          parseInt(birthData.month),
-          parseInt(birthData.day),
-          hourVal,
-          minVal,
-          birthData.gender,
-          {
-            applyTimeCorrection: true,
-            isSolar: birthData.isSolar,
-            hasTime: birthData.hasTime
-          }
-        );
-        setSajuResult(analysis);
-        setStep('result');
+        void enginePromise.then(({ getSajuAnalysis }) => {
+          const analysis = getSajuAnalysis(
+            parseInt(birthData.year),
+            parseInt(birthData.month),
+            parseInt(birthData.day),
+            hourVal,
+            minVal,
+            birthData.gender,
+            {
+              applyTimeCorrection: true,
+              isSolar: birthData.isSolar,
+              hasTime: birthData.hasTime
+            }
+          );
+          setSajuResult(analysis);
+          setStep('result');
+        }).catch(() => {
+          // 네트워크가 끊겨 엔진 청크를 못 받은 경우 — 결과 화면으로 넘기지 않고 안내한다.
+          setDeepLinkError('사주 계산 엔진을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.');
+          setStep('intro');
+        });
       }, 2400);
 
       return () => {
@@ -1006,6 +1015,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         const data = await res.json().catch(() => null);
         if (import.meta.env.DEV) {
+          // 개발 중 API 없이 화면을 보기 위한 로컬 폴백. 프로덕션 번들에는 들어가지 않는다.
+          const { buildLocalFollowUpAnswer } = await import('../utils/followUp');
           setFollowUps(current => [...current, {
             question,
             answer: buildLocalFollowUpAnswer(question, sajuResult, careerContext),
@@ -1017,6 +1028,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       if (import.meta.env.DEV) {
+        const { buildLocalFollowUpAnswer } = await import('../utils/followUp');
         setFollowUps(current => [...current, {
           question,
           answer: buildLocalFollowUpAnswer(question, sajuResult, careerContext),
