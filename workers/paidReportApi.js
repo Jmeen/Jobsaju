@@ -3,7 +3,7 @@ import { getSajuAnalysis, calculateShiShen, normalizeGanZhi } from '../src/utils
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { buildGeminiRequest } from './geminiTransport.js';
 import { validateAndRepairPaidReport } from './paidReportValidator.js';
-import characters from '../free_engine_characters.json' with { type: 'json' };
+import characters from '../free_engine_characters.json' assert { type: 'json' };
 
 const SYSTEM_PROMPT = `
 # 🤖 잡사주 유료 리포트 전용 AI 시스템 프롬프트 v5.1
