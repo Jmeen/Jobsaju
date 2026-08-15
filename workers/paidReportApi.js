@@ -231,8 +231,8 @@ export async function handlePaidReportRequest(request, env) {
     }
 
     // 2. Generate Natal Chart
-    const hasTime = birth.hour !== null && birth.hour !== undefined;
-    const analysis = getSajuAnalysis(birth.year, birth.month, birth.day, hasTime ? birth.hour : 12, birth.minute || 0, birth.gender, { isSolar: birth.isSolar, hasTime });
+    const hasTime = birth.hour !== null && birth.hour !== undefined && birth.hour !== '';
+    const analysis = getSajuAnalysis(Number(birth.year), Number(birth.month), Number(birth.day), hasTime ? Number(birth.hour) : 12, Number(birth.minute) || 0, Number(birth.gender) || 1, { isSolar: birth.isSolar !== false, hasTime });
 
     // 3. Prepare Base Zhis
     const baseZhis = [
