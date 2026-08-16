@@ -1,0 +1,422 @@
+<meta charset="UTF-8">
+<div id="jobsaju-guardian-flow" data-element="wood">
+  <style>
+    #jobsaju-guardian-flow {
+      --jg-ink: #2f3732;
+      --jg-muted: #858b83;
+      --jg-page: #faf8f2;
+      --jg-phone: #faf8f2;
+      --jg-card: #f3f0e7;
+      --jg-green: #66866e;
+      --jg-green-soft: #e8eee8;
+      --jg-line: #ddd8cd;
+      --jg-lock: #4a3b31;
+      color: var(--jg-ink);
+      font-family: Pretendard, "Noto Sans KR", system-ui, sans-serif;
+      background: var(--jg-page);
+      padding: 22px;
+      border-radius: 24px;
+    }
+    #jobsaju-guardian-flow[data-element="wood"] { --jg-guardian-accent:#7fae9a; --jg-guardian-soft:#eef6f1; --jg-guardian-pressed:#e5f1ea; }
+    #jobsaju-guardian-flow[data-element="fire"] { --jg-guardian-accent:#e99a88; --jg-guardian-soft:#fff1ec; --jg-guardian-pressed:#fbe8e1; }
+    #jobsaju-guardian-flow[data-element="earth"] { --jg-guardian-accent:#c6a86b; --jg-guardian-soft:#f7f1e3; --jg-guardian-pressed:#f1e8d4; }
+    #jobsaju-guardian-flow[data-element="metal"] { --jg-guardian-accent:#c7b27a; --jg-guardian-soft:#f8f5eb; --jg-guardian-pressed:#f0eadc; }
+    #jobsaju-guardian-flow[data-element="water"] { --jg-guardian-accent:#7893ae; --jg-guardian-soft:#eef3f8; --jg-guardian-pressed:#e4ebf3; }
+    #jobsaju-guardian-flow * { box-sizing: border-box; }
+    #jobsaju-guardian-flow .jg-shell { max-width: 1040px; margin: 0 auto; }
+    #jobsaju-guardian-flow .jg-head { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:18px; }
+    #jobsaju-guardian-flow .jg-head h2 { margin:0; font-size:24px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-head p { margin:5px 0 0; color:var(--jg-muted); font-size:13px; }
+    #jobsaju-guardian-flow .jg-boundary { display:flex; gap:8px; flex-wrap:wrap; }
+    #jobsaju-guardian-flow .jg-tag { padding:7px 11px; border-radius:999px; background:var(--jg-card); color:var(--jg-muted); font-size:12px; }
+    #jobsaju-guardian-flow .jg-tag strong { color:var(--jg-green); font-weight:500; }
+    #jobsaju-guardian-flow .jg-stage { display:grid; grid-template-columns:220px minmax(320px, 390px) 1fr; gap:24px; align-items:start; }
+    #jobsaju-guardian-flow .jg-steps { display:flex; flex-direction:column; gap:8px; }
+    #jobsaju-guardian-flow .jg-step { appearance:none; width:100%; display:flex; align-items:center; gap:11px; padding:12px; border:0; border-radius:14px; background:transparent; color:var(--jg-muted); text-align:left; cursor:pointer; }
+    #jobsaju-guardian-flow .jg-step[aria-pressed="true"] { background:var(--jg-phone); color:var(--jg-ink); }
+    #jobsaju-guardian-flow .jg-step-num { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--jg-card); font-size:12px; flex:0 0 auto; }
+    #jobsaju-guardian-flow .jg-step[aria-pressed="true"] .jg-step-num { background:var(--jg-green); color:var(--jg-phone); }
+    #jobsaju-guardian-flow .jg-step span:last-child { font-size:13px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-phone { position:relative; overflow:hidden; min-height:680px; border-radius:34px; background:var(--jg-phone); box-shadow:0 18px 50px rgba(31,48,38,.16); }
+    #jobsaju-guardian-flow .jg-status { display:flex; justify-content:space-between; padding:15px 20px 7px; color:var(--jg-muted); font-size:10px; }
+    #jobsaju-guardian-flow .jg-brand { padding:9px 22px 12px; color:var(--jg-green); font-size:13px; font-weight:500; letter-spacing:.02em; }
+    #jobsaju-guardian-flow .jg-brand.is-hidden { display:none; }
+    #jobsaju-guardian-flow .jg-screen { display:none; padding:0 22px 26px; }
+    #jobsaju-guardian-flow .jg-screen.is-active { display:block; }
+    #jobsaju-guardian-flow .jg-kicker { margin:4px 0 7px; color:var(--jg-green); font-size:11px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-title { margin:0; font-size:24px; line-height:1.3; font-weight:500; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-sub { margin:9px 0 0; color:var(--jg-muted); font-size:13px; line-height:1.65; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-guardian { display:block; width:270px; height:270px; object-fit:contain; margin:2px auto -4px; filter:drop-shadow(0 15px 18px rgba(55,86,65,.16)); }
+    #jobsaju-guardian-flow .jg-result-name { text-align:center; font-size:27px; font-weight:500; margin:0; }
+    #jobsaju-guardian-flow .jg-ganzhi { display:block; margin-top:7px; color:var(--jg-green); font-size:12px; }
+    #jobsaju-guardian-flow .jg-arrival { margin:6px 0 0; color:var(--jg-muted); text-align:center; font-size:13px; line-height:1.55; }
+    #jobsaju-guardian-flow .jg-quote { margin:13px 0 16px; color:var(--jg-muted); text-align:center; font-size:14px; line-height:1.65; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    #jobsaju-guardian-flow .jg-mini { padding:12px; border-radius:14px; background:var(--jg-card); }
+    #jobsaju-guardian-flow .jg-mini span { display:block; color:var(--jg-green); font-size:10px; margin-bottom:5px; }
+    #jobsaju-guardian-flow .jg-mini p { margin:0; font-size:12px; line-height:1.45; }
+    #jobsaju-guardian-flow .jg-btn { width:100%; margin-top:16px; padding:14px 16px; border:0; border-radius:15px; background:var(--jg-green); color:var(--jg-phone); font:inherit; font-size:14px; font-weight:500; cursor:pointer; }
+    #jobsaju-guardian-flow .jg-btn-secondary { background:var(--jg-green-soft); color:var(--jg-green); }
+    #jobsaju-guardian-flow .jg-text-link { appearance:none; display:block; margin:13px auto 0; padding:7px; border:0; background:transparent; color:var(--jg-green); font:inherit; font-size:12px; cursor:pointer; }
+    #jobsaju-guardian-flow .jg-small-guardian { width:168px; height:168px; object-fit:contain; display:block; margin:4px auto 4px; }
+    #jobsaju-guardian-flow .jg-why { margin-top:17px; padding:18px; border-radius:18px; background:var(--jg-card); }
+    #jobsaju-guardian-flow .jg-why strong { display:block; color:var(--jg-green); margin-bottom:9px; font-size:14px; }
+    #jobsaju-guardian-flow .jg-why p { margin:0; font-size:14px; line-height:1.75; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-questions { display:grid; gap:10px; margin-top:22px; }
+    #jobsaju-guardian-flow .jg-question-item { overflow:hidden; border-radius:16px; }
+    #jobsaju-guardian-flow .jg-question-item.is-open { border:1px solid var(--jg-guardian-accent); background:var(--jg-guardian-soft); }
+    #jobsaju-guardian-flow .jg-question-guide { display:flex; flex-direction:column; align-items:center; gap:2px; margin:0 0 5px; text-align:center; }
+    #jobsaju-guardian-flow .jg-question-guide img { width:104px; height:104px; object-fit:contain; flex:0 0 auto; }
+    #jobsaju-guardian-flow .jg-question-guide .jg-kicker { margin:0; }
+    #jobsaju-guardian-flow .jg-question { appearance:none; display:flex; align-items:center; gap:13px; width:100%; padding:15px; border:1px solid var(--jg-line); border-radius:16px; background:var(--jg-phone); color:var(--jg-ink); text-align:left; cursor:pointer; }
+    #jobsaju-guardian-flow .jg-question:hover, #jobsaju-guardian-flow .jg-question:focus { border-color:color-mix(in srgb,var(--jg-guardian-accent) 55%,var(--jg-line)); background:color-mix(in srgb,var(--jg-guardian-soft) 65%,var(--jg-phone)); }
+    #jobsaju-guardian-flow .jg-question.is-selected { position:relative; border-color:var(--jg-guardian-accent); background:var(--jg-guardian-soft); }
+    #jobsaju-guardian-flow .jg-question-item.is-open .jg-question { border:0; border-radius:15px 15px 0 0; }
+    #jobsaju-guardian-flow .jg-question.is-selected::after { content:"✓"; display:grid; place-items:center; width:22px; height:22px; margin-left:auto; border-radius:50%; background:var(--jg-guardian-accent); color:#fff; font-size:12px; }
+    #jobsaju-guardian-flow .jg-question.is-selected .jg-qicon { background:color-mix(in srgb,var(--jg-guardian-accent) 24%,var(--jg-guardian-soft)); }
+    #jobsaju-guardian-flow .jg-question:active { border-color:var(--jg-guardian-accent); background:var(--jg-guardian-pressed); }
+    #jobsaju-guardian-flow .jg-qicon { display:grid; place-items:center; width:40px; height:40px; border-radius:13px; background:var(--jg-green-soft); font-size:18px; }
+    #jobsaju-guardian-flow .jg-question strong { display:block; font-size:14px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-question small { display:block; margin-top:3px; color:var(--jg-muted); font-size:11px; }
+    #jobsaju-guardian-flow .jg-answer { display:none; padding:0 15px 16px 68px; background:var(--jg-guardian-soft); }
+    #jobsaju-guardian-flow .jg-question-item.is-open .jg-answer { display:block; }
+    #jobsaju-guardian-flow .jg-answer strong { display:block; padding-top:14px; border-top:1px solid color-mix(in srgb,var(--jg-guardian-accent) 34%,transparent); color:var(--jg-ink); font-size:15px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-answer p { margin:8px 0 0; color:var(--jg-muted); font-size:12px; line-height:1.65; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-answer-cta { appearance:none; margin-top:12px; padding:0; border:0; background:transparent; color:var(--jg-green); font:inherit; font-size:12px; font-weight:500; cursor:pointer; }
+    #jobsaju-guardian-flow .jg-signal { margin:22px 0 14px; padding:21px 18px; border-radius:20px; background:linear-gradient(145deg,var(--jg-green-soft),var(--jg-card)); }
+    #jobsaju-guardian-flow .jg-signal span { color:var(--jg-muted); font-size:11px; }
+    #jobsaju-guardian-flow .jg-signal strong { display:block; margin:8px 0 10px; color:var(--jg-green); font-size:22px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-signal p { margin:0; font-size:13px; line-height:1.65; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-preview { margin-top:18px; padding:17px; border-radius:18px; background:var(--jg-card); }
+    #jobsaju-guardian-flow .jg-preview-title { display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+    #jobsaju-guardian-flow .jg-preview-title strong { font-weight:500; }
+    #jobsaju-guardian-flow .jg-lock { color:var(--jg-lock); font-size:11px; }
+    #jobsaju-guardian-flow .jg-scores { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:13px; }
+    #jobsaju-guardian-flow .jg-score { padding:12px 6px; border-radius:12px; background:var(--jg-phone); text-align:center; }
+    #jobsaju-guardian-flow .jg-score span { display:block; color:var(--jg-muted); font-size:10px; }
+    #jobsaju-guardian-flow .jg-score b { display:block; margin-top:4px; filter:blur(4px); font-size:19px; font-weight:500; user-select:none; }
+    #jobsaju-guardian-flow .jg-paid-list { margin:18px 0 0; padding:0; list-style:none; }
+    #jobsaju-guardian-flow .jg-paid-list li { display:flex; gap:9px; margin:10px 0; font-size:12px; line-height:1.45; }
+    #jobsaju-guardian-flow .jg-paid-list li::before { content:"✓"; color:var(--jg-green); }
+    #jobsaju-guardian-flow .jg-roadmap { margin-top:18px; padding:16px; border-radius:18px; background:var(--jg-card); }
+    #jobsaju-guardian-flow .jg-roadmap h4, #jobsaju-guardian-flow .jg-followup h4 { margin:0 0 12px; color:var(--jg-ink); font-size:14px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-roadmap-row { display:grid; grid-template-columns:38px 1fr auto; gap:8px; align-items:center; min-height:28px; border-top:1px solid color-mix(in srgb,var(--jg-line) 70%,transparent); font-size:11px; }
+    #jobsaju-guardian-flow .jg-roadmap-row:first-of-type { border-top:0; }
+    #jobsaju-guardian-flow .jg-roadmap-row span:nth-child(2) { color:var(--jg-muted); }
+    #jobsaju-guardian-flow .jg-roadmap-row.is-locked span:nth-child(2) { filter:blur(3px); user-select:none; }
+    #jobsaju-guardian-flow .jg-roadmap p { margin:10px 0 0; color:var(--jg-muted); font-size:10px; line-height:1.55; }
+    #jobsaju-guardian-flow .jg-followup { margin-top:12px; padding:16px; border-radius:18px; background:var(--jg-guardian-soft); }
+    #jobsaju-guardian-flow .jg-followup-lead { display:block; margin:-4px 0 10px; color:var(--jg-ink); font-size:13px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-followup p { margin:7px 0 0; color:var(--jg-muted); font-size:10px; line-height:1.55; }
+    #jobsaju-guardian-flow .jg-product-summary { margin:15px 0 -3px; color:var(--jg-muted); text-align:center; font-size:10px; }
+    #jobsaju-guardian-flow .jg-onboarding-guardian { display:block; width:112px; height:112px; object-fit:contain; margin:0 auto 2px; }
+    #jobsaju-guardian-flow .jg-form { display:grid; gap:19px; margin-top:20px; }
+    #jobsaju-guardian-flow .jg-field label { display:block; margin-bottom:4px; color:var(--jg-ink); font-size:12px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-field input, #jobsaju-guardian-flow .jg-field textarea { width:100%; padding:12px 13px; border:1px solid var(--jg-line); border-radius:13px; background:var(--jg-card); color:var(--jg-ink); font:inherit; font-size:12px; outline:none; }
+    #jobsaju-guardian-flow .jg-field textarea { min-height:72px; resize:vertical; line-height:1.55; }
+    #jobsaju-guardian-flow .jg-field input:focus, #jobsaju-guardian-flow .jg-field textarea:focus { border-color:var(--jg-guardian-accent); background:var(--jg-guardian-soft); }
+    #jobsaju-guardian-flow .jg-field small { display:block; margin-top:5px; color:var(--jg-muted); font-size:9px; line-height:1.45; }
+    #jobsaju-guardian-flow .jg-skip-note { margin:15px 0 0; color:var(--jg-muted); text-align:center; font-size:10px; }
+    #jobsaju-guardian-flow .jg-skip-link { margin-top:1px; }
+    #jobsaju-guardian-flow .jg-landing { position:relative; min-height:600px; overflow:hidden; padding-top:34px; text-align:center; }
+    #jobsaju-guardian-flow .jg-landing-pre { margin:18px 0 0; color:var(--jg-green); font-size:9.5px; font-weight:400; letter-spacing:.05em; opacity:.8; }
+    #jobsaju-guardian-flow .jg-landing h3 { margin:8px auto 0; max-width:315px; color:var(--jg-ink); font-size:28px; line-height:1.32; font-weight:500; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-landing > p { margin:18px auto 0; max-width:285px; color:var(--jg-muted); font-size:13px; line-height:1.7; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-peek { position:absolute; width:112px; height:150px; overflow:hidden; opacity:.2; filter:blur(.5px); }
+    #jobsaju-guardian-flow .jg-peek img { width:118px; height:158px; object-fit:contain; }
+    #jobsaju-guardian-flow .jg-peek-a { top:250px; left:-54px; transform:rotate(7deg); }
+    #jobsaju-guardian-flow .jg-peek-b { top:275px; right:-56px; transform:rotate(-7deg); }
+    #jobsaju-guardian-flow .jg-guardian-cluster { display:grid; grid-template-columns:1fr 1fr 1fr; align-items:end; gap:8px; width:286px; margin:30px auto 0; }
+    #jobsaju-guardian-flow .jg-guardian-sample { display:flex; min-width:0; flex-direction:column; align-items:center; gap:5px; }
+    #jobsaju-guardian-flow .jg-guardian-sample img { width:84px; height:102px; object-fit:contain; filter:drop-shadow(0 7px 10px rgba(47,55,50,.08)); }
+    #jobsaju-guardian-flow .jg-guardian-sample span { color:#667069; font-size:9.5px; font-weight:500; white-space:nowrap; }
+    #jobsaju-guardian-flow .jg-mystery { display:grid; place-items:center; width:72px; height:90px; border-radius:45% 45% 42% 42%; background:linear-gradient(180deg,#dfe8e1,#cbd7ce); color:var(--jg-green); font-size:27px; font-weight:500; box-shadow:0 12px 25px rgba(47,55,50,.14); }
+    #jobsaju-guardian-flow .jg-marquee { width:100%; overflow-x:auto; margin-top:13px; cursor:grab; mask-image:linear-gradient(to right,transparent,#000 14%,#000 86%,transparent); scrollbar-width:none; touch-action:pan-x; }
+    #jobsaju-guardian-flow .jg-marquee::-webkit-scrollbar { display:none; }
+    #jobsaju-guardian-flow .jg-marquee.is-dragging { cursor:grabbing; }
+    #jobsaju-guardian-flow .jg-marquee-track { display:flex; width:max-content; gap:9px; padding:2px 34px; }
+    #jobsaju-guardian-flow .jg-marquee-chip { display:flex; align-items:center; gap:5px; height:38px; padding:3px 11px 3px 5px; border-radius:999px; background:var(--jg-card); color:var(--jg-muted); font-size:9px; white-space:nowrap; }
+    #jobsaju-guardian-flow .jg-marquee-chip img { width:31px; height:31px; object-fit:contain; }
+    #jobsaju-guardian-flow .jg-landing-cta { position:absolute; right:22px; bottom:66px; left:22px; }
+    #jobsaju-guardian-flow .jg-landing-note { margin:8px 0 0; color:var(--jg-muted); font-size:9px; }
+    #jobsaju-guardian-flow .jg-desire-chips { display:flex; justify-content:center; gap:6px; margin-top:28px; }
+    #jobsaju-guardian-flow .jg-desire-chips span { padding:7px 9px; border-radius:999px; background:var(--jg-card); color:var(--jg-muted); font-size:10px; }
+    #jobsaju-guardian-flow .jg-birth-card { margin-top:18px; padding:17px; border-radius:18px; background:var(--jg-card); }
+    #jobsaju-guardian-flow .jg-toggle-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+    #jobsaju-guardian-flow .jg-toggle { padding:10px; border:1px solid var(--jg-line); border-radius:12px; background:var(--jg-phone); color:var(--jg-muted); font-size:11px; text-align:center; }
+    #jobsaju-guardian-flow .jg-toggle.is-on { border-color:var(--jg-green); background:var(--jg-green-soft); color:var(--jg-green); font-weight:500; }
+    #jobsaju-guardian-flow .jg-date-grid { display:grid; grid-template-columns:1.2fr .8fr .8fr; gap:7px; }
+    #jobsaju-guardian-flow .jg-birth-label { display:block; margin:14px 0 6px; color:var(--jg-ink); font-size:11px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-select { width:100%; padding:11px 8px; border:1px solid var(--jg-line); border-radius:11px; background:var(--jg-phone); color:var(--jg-ink); font:inherit; font-size:11px; }
+    #jobsaju-guardian-flow .jg-time-row { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    #jobsaju-guardian-flow .jg-unknown { display:flex; align-items:center; gap:7px; margin-top:12px; color:var(--jg-muted); font-size:10px; }
+    #jobsaju-guardian-flow .jg-screen.jg-summon { display:none; min-height:580px; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+    #jobsaju-guardian-flow .jg-screen.jg-summon.is-active { display:flex; }
+    #jobsaju-guardian-flow .jg-pouch { position:relative; display:grid; place-items:center; width:112px; height:98px; border-radius:42% 42% 48% 48%; background:var(--jg-green-soft); color:var(--jg-green); font-size:35px; box-shadow:0 18px 34px rgba(102,134,110,.18); animation:jg-pouch-shake 1s ease-in-out infinite; }
+    #jobsaju-guardian-flow .jg-pouch::before { content:""; position:absolute; top:-12px; width:68px; height:24px; border-radius:50%; background:var(--jg-green); opacity:.85; }
+    #jobsaju-guardian-flow .jg-summon-copy { min-height:44px; margin:31px 0 0; color:var(--jg-ink); font-size:15px; line-height:1.55; font-weight:500; }
+    #jobsaju-guardian-flow .jg-summon-sub { margin:8px 0 0; color:var(--jg-muted); font-size:10px; }
+    #jobsaju-guardian-flow .jg-summon-guardian { position:absolute; width:190px; height:190px; object-fit:contain; opacity:0; filter:blur(10px); transform:scale(.8); transition:opacity .6s ease,filter .6s ease,transform .6s ease; }
+    #jobsaju-guardian-flow .jg-summon.is-revealing .jg-pouch { opacity:0; }
+    #jobsaju-guardian-flow .jg-summon.is-revealing .jg-summon-guardian { opacity:.24; filter:blur(3px); transform:scale(1); }
+    #jobsaju-guardian-flow .jg-summon .jg-btn { display:none; max-width:290px; }
+    #jobsaju-guardian-flow .jg-summon.is-ready .jg-btn { display:block; }
+    @keyframes jg-pouch-shake { 0%,100%{transform:rotate(-2deg) translateY(0)} 50%{transform:rotate(2deg) translateY(-4px)} }
+    @media (prefers-reduced-motion:reduce) { #jobsaju-guardian-flow .jg-pouch { animation:none; } }
+    #jobsaju-guardian-flow .jg-note { align-self:stretch; padding:18px; border-radius:18px; background:var(--jg-phone); }
+    #jobsaju-guardian-flow .jg-note h3 { margin:0 0 13px; font-size:15px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-note-row { position:relative; padding:0 0 18px 23px; color:var(--jg-muted); font-size:12px; line-height:1.55; }
+    #jobsaju-guardian-flow .jg-note-row::before { content:""; position:absolute; left:5px; top:5px; width:8px; height:8px; border-radius:50%; background:var(--jg-green); }
+    #jobsaju-guardian-flow .jg-note-row:not(:last-child)::after { content:""; position:absolute; left:8px; top:15px; bottom:2px; width:2px; background:var(--jg-line); }
+    #jobsaju-guardian-flow .jg-note-row strong { display:block; margin-bottom:3px; color:var(--jg-ink); font-weight:500; }
+    @media (max-width: 1100px) {
+      #jobsaju-guardian-flow .jg-stage { grid-template-columns:1fr; }
+      #jobsaju-guardian-flow .jg-steps { flex-direction:row; overflow-x:auto; padding-bottom:5px; }
+      #jobsaju-guardian-flow .jg-step { min-width:max-content; width:auto; }
+      #jobsaju-guardian-flow .jg-phone { width:min(100%,390px); margin:0 auto; }
+      #jobsaju-guardian-flow .jg-note { width:min(100%,390px); margin:0 auto; }
+      #jobsaju-guardian-flow .jg-head { align-items:flex-start; flex-direction:column; }
+    }
+  </style>
+
+  <div class="jg-shell">
+    <div class="jg-head">
+      <div><h2>수호신 발견 → 의사결정 리포트</h2><p>첫 30초는 애착, 그 다음부터 분석과 결제 이유를 만듭니다.</p></div>
+      <div class="jg-boundary"><span class="jg-tag"><strong>무료</strong> 정체성 · 공감 · 방향</span><span class="jg-tag"><strong>유료</strong> 비교 · 근거 · 타이밍 · 행동</span></div>
+    </div>
+
+    <div class="jg-stage">
+      <nav class="jg-steps" aria-label="화면 단계">
+        <button class="jg-step" type="button" data-step="landing" aria-pressed="true"><span class="jg-step-num">1</span><span>랜딩</span></button>
+        <button class="jg-step" type="button" data-step="birth" aria-pressed="false"><span class="jg-step-num">2</span><span>출생 입력</span></button>
+        <button class="jg-step" type="button" data-step="summon" aria-pressed="false"><span class="jg-step-num">3</span><span>수호신 소환</span></button>
+        <button class="jg-step" type="button" data-step="0" aria-pressed="false"><span class="jg-step-num">4</span><span>결과 발표</span></button>
+        <button class="jg-step" type="button" data-step="1" aria-pressed="false"><span class="jg-step-num">5</span><span>사주 근거</span></button>
+        <button class="jg-step" type="button" data-step="2" aria-pressed="false"><span class="jg-step-num">6</span><span>고민 선택</span></button>
+        <button class="jg-step" type="button" data-step="4" aria-pressed="false"><span class="jg-step-num">7</span><span>유료 전환</span></button>
+        <button class="jg-step" type="button" data-step="5" aria-pressed="false"><span class="jg-step-num">8</span><span>결제 후 입력</span></button>
+      </nav>
+
+      <div class="jg-phone" aria-live="polite">
+        <div class="jg-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="jg-brand is-hidden" data-brand>내 커리어 수호신</div>
+
+        <section class="jg-screen is-active jg-landing" data-screen="landing">
+          <p class="jg-landing-pre">직장인마다 하나씩 있다는</p>
+          <h3>60마리 중<br>내 수호신은 누구?</h3>
+          <p>태어난 날의 기운으로 만나는<br>나랑 꼭 닮은 직장생활 수호신</p>
+          <div class="jg-guardian-cluster" aria-label="저지르쥐와 예민보스토끼 사이에 가려진 나의 수호신">
+            <div class="jg-guardian-sample"><img src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/01_갑자_쥐.png" alt="저지르쥐"><span>저지르쥐</span></div>
+            <div class="jg-guardian-sample"><div class="jg-mystery" aria-hidden="true">?</div><span>내 수호신은?</span></div>
+            <div class="jg-guardian-sample"><img src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/52_을묘_토끼.png" alt="예민보스토끼"><span>예민보스토끼</span></div>
+          </div>
+          <div class="jg-marquee" data-marquee aria-label="대표 커리어 수호신 20종"><div class="jg-marquee-track" data-marquee-track></div></div>
+          <div class="jg-landing-cta"><button class="jg-btn" type="button" data-next="birth">내 수호신 뽑아보기</button><p class="jg-landing-note">생년월일로 정해져요 · 10초 · 무료</p></div>
+        </section>
+
+        <section class="jg-screen" data-screen="birth">
+          <h3 class="jg-title">수호신을 깨워볼까요?</h3>
+          <p class="jg-sub">태어난 날과 시간을 알려주세요.<br>입력한 정보는 수호신을 찾는 데만 사용해요.</p>
+          <div class="jg-birth-card">
+            <span class="jg-birth-label" style="margin-top:0">성별</span><div class="jg-toggle-row"><div class="jg-toggle is-on">여성</div><div class="jg-toggle">남성</div></div>
+            <span class="jg-birth-label">달력</span><div class="jg-toggle-row"><div class="jg-toggle is-on">양력</div><div class="jg-toggle">음력</div></div>
+            <span class="jg-birth-label">생년월일</span><div class="jg-date-grid"><select class="jg-select" aria-label="출생 연도"><option>1993년</option></select><select class="jg-select" aria-label="출생 월"><option>5월</option></select><select class="jg-select" aria-label="출생 일"><option>18일</option></select></div>
+            <span class="jg-birth-label">태어난 시간</span><div class="jg-time-row"><select class="jg-select" aria-label="출생 시"><option>오전 9시</option></select><select class="jg-select" aria-label="출생 분"><option>30분</option></select></div>
+            <label class="jg-unknown"><input type="checkbox"> 태어난 시간을 잘 몰라요</label>
+          </div>
+          <button class="jg-btn" type="button" data-next="summon">수호신 깨우기</button>
+        </section>
+
+        <section class="jg-screen jg-summon" data-screen="summon">
+          <img class="jg-summon-guardian" src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="희미하게 나타나는 호랑이 수호신">
+          <div class="jg-pouch" aria-hidden="true">🌱</div>
+          <p class="jg-summon-copy" data-summon-copy aria-live="polite">태어난 날의 기운을<br>읽는 중…</p>
+          <p class="jg-summon-sub" data-summon-sub>잠시만 기다려주세요</p>
+          <button class="jg-btn" type="button" data-next="0">내 수호신 만나기</button>
+        </section>
+
+        <section class="jg-screen" data-screen="0">
+          <div class="jg-kicker" style="text-align:center">드디어 당신의 수호신을 만났어요</div>
+          <p class="jg-arrival">오늘부터 당신의 직장생활을 지켜줄 친구예요</p>
+          <img class="jg-guardian" src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="운주머니를 찬 파란 아기 호랑이 수호신">
+          <h3 class="jg-result-name">새싹호랑이<span class="jg-ganzhi">갑인 甲寅 · 커리어 수호신</span></h3>
+          <p class="jg-quote">“새 길은 내가 열어볼게!<br>근데… 꼬리가 왜 이렇게 떨리지?”</p>
+          <div class="jg-mini-grid">
+            <div class="jg-mini"><span>내가 지켜줄게</span><p>새로운 환경에서 기회를 찾고 먼저 길을 열어요.</p></div>
+            <div class="jg-mini"><span>근데 사실은…</span><p>결정적인 순간이 오면 누구보다 긴장해요.</p></div>
+          </div>
+          <button class="jg-btn" type="button">내 수호신 자랑하기</button>
+          <button class="jg-text-link" type="button" data-next="1">왜 나는 새싹호랑이일까요? →</button>
+        </section>
+
+        <section class="jg-screen" data-screen="1">
+          <img class="jg-small-guardian" src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="새싹호랑이">
+          <h3 class="jg-title">새싹호랑이가 나온 이유</h3>
+          <div class="jg-why"><strong>갑인(甲寅)의 기운을 타고났어요.</strong><p>새로운 길을 먼저 열고 성장하려는 힘이 강해요.<br>다만 중요한 결정을 앞두면 생각보다 긴장을 많이 하는 편이에요.</p></div>
+          <button class="jg-btn jg-btn-secondary" type="button" data-next="2">내 커리어 고민 이어보기 →</button>
+        </section>
+
+        <section class="jg-screen" data-screen="2">
+          <div class="jg-question-guide"><img src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="새싹호랑이"><div class="jg-kicker">새싹호랑이에게 물어보기</div></div>
+          <h3 class="jg-title">요즘 회사에서<br>뭐가 제일 고민이에요?</h3>
+          <p class="jg-sub">하나만 골라주세요.<br>새싹호랑이가 지금 어떤 방향이 좋은지 살짝 알려드릴게요.</p>
+          <div class="jg-questions">
+            <div class="jg-question-item">
+              <button class="jg-question" type="button"><span class="jg-qicon">🚪</span><span><strong>이직할까?</strong><small>지금 움직일까, 조금 더 기다릴까</small></span></button>
+              <div class="jg-answer"><strong>움직여볼 만해요 ↑</strong><p>새로운 환경을 찾는 힘이 올라와 있어요.<br>다만 조건만 보고 급하게 움직이는 건 조심해야 해요.</p><button class="jg-answer-cta" type="button" data-next="4">이직 점수 · 좋은 시기까지 보기 →</button></div>
+            </div>
+            <div class="jg-question-item">
+              <button class="jg-question" type="button"><span class="jg-qicon">💰</span><span><strong>연봉 협상할까?</strong><small>지금 말해도 될까, 얼마나 요구할까</small></span></button>
+              <div class="jg-answer"><strong>조건을 꺼내볼 만해요 ↑</strong><p>내 가치를 말로 정리할 힘이 올라와 있어요.<br>다만 원하는 조건의 우선순위를 먼저 정해보세요.</p><button class="jg-answer-cta" type="button" data-next="4">협상 점수 · 좋은 시기까지 보기 →</button></div>
+            </div>
+            <div class="jg-question-item">
+              <button class="jg-question" type="button"><span class="jg-qicon">🪑</span><span><strong>지금 회사에 남을까?</strong><small>더 버틸 가치가 있을까, 떠날 준비를 할까</small></span></button>
+              <div class="jg-answer"><strong>남는 이유를 따져봐요 →</strong><p>지금 자리를 지키는 선택도 가능해요.<br>다만 버티는 동안 무엇을 얻을지 먼저 정해야 해요.</p><button class="jg-answer-cta" type="button" data-next="4">잔류 점수 · 좋은 시기까지 보기 →</button></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="jg-screen" data-screen="4">
+          <div class="jg-kicker">새싹호랑이가 세 가지 길을 비교해봤어요</div>
+          <h3 class="jg-title">지금 나에게 가장 유리한 선택은?</h3>
+          <div class="jg-preview">
+            <div class="jg-preview-title"><strong>세 가지 선택 비교</strong><span class="jg-lock">상세 리포트에서 공개돼요</span></div>
+            <div class="jg-scores"><div class="jg-score"><span>🚪 이직</span><b>78점</b></div><div class="jg-score"><span>💰 협상</span><b>63점</b></div><div class="jg-score"><span>🪑 잔류</span><b>41점</b></div></div>
+          </div>
+          <ul class="jg-paid-list"><li>왜 이런 점수가 나왔는지</li><li>나에게 맞는 회사 · 역할 · 조건</li><li>앞으로 6개월, 언제 움직이면 좋은지</li><li>실수하지 않기 위한 행동 가이드</li><li>내 직무 · 목표 · 지금 상황까지 반영</li></ul>
+
+          <div class="jg-roadmap">
+            <h4>앞으로 6개월 커리어 흐름</h4>
+            <div class="jg-roadmap-row"><strong>8월</strong><span>압박 관리 · 변동 주의</span><span>공개</span></div>
+            <div class="jg-roadmap-row"><strong>9월</strong><span>평가 · 승진 어필</span><span>공개</span></div>
+            <div class="jg-roadmap-row is-locked"><strong>10월</strong><span>이동 기회 · 조건 점검</span><span>🔒</span></div>
+            <div class="jg-roadmap-row is-locked"><strong>11월</strong><span>협상 우위 · 선택 집중</span><span>🔒</span></div>
+            <div class="jg-roadmap-row is-locked"><strong>12월</strong><span>관계 정리 · 실속 확보</span><span>🔒</span></div>
+            <div class="jg-roadmap-row is-locked"><strong>1월</strong><span>새 출발 · 역할 확장</span><span>🔒</span></div>
+            <p>월별로 이직 · 협상 · 잔류 중 어디에 힘을 줄지 알려드려요.</p>
+          </div>
+
+          <div class="jg-followup">
+            <h4>정해진 리포트만 보는 게 아니에요</h4>
+            <strong class="jg-followup-lead">내 상황을 딱 하나 더 물어보세요</strong>
+            <p>“9월에 오퍼가 오면 옮기는 게 좋을까요?”</p>
+            <p>“지금 연봉보다 직급을 먼저 요구해야 할까요?”</p>
+            <p>“올해 안에 이직하지 않으면 기다리는 게 나을까요?”</p>
+          </div>
+
+          <p class="jg-product-summary">3가지 선택 비교 · 6개월 타이밍 · 내 상황 맞춤 답변</p>
+          <button class="jg-btn" type="button" data-next="5">내 커리어 선택 리포트 열기 · 8,900원</button>
+        </section>
+
+        <section class="jg-screen" data-screen="5">
+          <img class="jg-onboarding-guardian" src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="새싹호랑이">
+          <div class="jg-kicker" style="text-align:center">결제가 완료됐어요</div>
+          <h3 class="jg-title" style="text-align:center">리포트를 조금 더<br>나답게 만들까요?</h3>
+          <p class="jg-sub" style="text-align:center">딱 3가지만 알려주세요.<br>구체적으로 적을수록 지금 상황에 맞춰 더 자세히 분석해드려요.</p>
+
+          <div class="jg-form">
+            <div class="jg-field"><label for="jg-job">1. 지금 어떤 일을 하고 있나요?</label><input id="jg-job" type="text" placeholder="예: 6년차 B2B SaaS 영업"></div>
+            <div class="jg-field"><label for="jg-goal">2. 앞으로 어디까지 가고 싶나요?</label><input id="jg-goal" type="text" placeholder="예: 글로벌 SaaS 기업 세일즈 리드"></div>
+            <div class="jg-field"><label for="jg-situation">3. 지금 가장 고민되는 상황은 무엇인가요?</label><textarea id="jg-situation" placeholder="예: 이직 제안을 받았는데 연봉 협상을 세게 해도 괜찮을지 궁금해요."></textarea><small>이 질문에는 리포트 마지막에 직접 답해드려요.</small></div>
+          </div>
+
+          <button class="jg-btn" type="button">내 상황까지 반영해 리포트 만들기</button>
+          <p class="jg-skip-note">잘 모르겠으면 건너뛰어도 괜찮아요.</p>
+          <button class="jg-text-link jg-skip-link" type="button">기본 분석으로 보기 →</button>
+        </section>
+      </div>
+
+      <aside class="jg-note">
+        <h3>화면의 역할</h3>
+        <div class="jg-note-row"><strong>애착</strong>캐릭터·별명·결함으로 “나 같다”를 먼저 만듭니다.</div>
+        <div class="jg-note-row"><strong>신뢰</strong>갑자 근거는 한 문단만 열어 랜덤 테스트처럼 보이지 않게 합니다.</div>
+        <div class="jg-note-row"><strong>자기 선언</strong>사용자가 고민을 직접 골라 결제 관심사를 분명히 합니다.</div>
+        <div class="jg-note-row"><strong>방향 제시</strong>무료는 숫자 대신 한 줄 결론과 주의점만 줍니다.</div>
+        <div class="jg-note-row"><strong>구매 이유</strong>유료는 점수가 아니라 비교·근거·타이밍·행동을 판매합니다.</div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('jobsaju-guardian-flow');
+      // 기준 데이터: 사용자가 마지막으로 전달한 60수호신 목록
+      // 07c51dc0-f9e7-46e9-a22b-36a2bd7a26f8/pasted-text.txt의 번호·간지·닉네임을 그대로 사용한다.
+      const marqueeItems = [
+        { id: 1, ganzhi: '갑자', nickname: '저지르쥐', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/01_갑자_쥐.png' },
+        { id: 26, ganzhi: '기축', nickname: '조금만더소', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/26_기축_소.png' },
+        { id: 10, ganzhi: '계유', nickname: '퇴근알람닭', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/10_계유_닭.png' },
+        { id: 20, ganzhi: '계미', nickname: '꾸벅양', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/20_계미_양.png' },
+        { id: 52, ganzhi: '을묘', nickname: '예민보스토끼', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/52_을묘_토끼.png' },
+        { id: 15, ganzhi: '무인', nickname: '허당호랑이', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/15_무인_호랑이.png' },
+        { id: 25, ganzhi: '무자', nickname: '짐백개쥐', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/25_무자_쥐.png' },
+        { id: 28, ganzhi: '신묘', nickname: '1mm토끼', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/28_신묘_토끼.png' },
+        { id: 40, ganzhi: '계묘', nickname: '인사폭탄토끼', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/40_계묘_토끼.png' },
+        { id: 55, ganzhi: '무오', nickname: '존버말', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/55_무오_말.png' },
+        { id: 50, ganzhi: '계축', nickname: '말하다말고잤소', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/50_계축_소.png' },
+        { id: 53, ganzhi: '병진', nickname: '얘기하다커져용', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/53_병진_용.png' },
+        { id: 51, ganzhi: '갑인', nickname: '새싹호랑이', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png' },
+        { id: 35, ganzhi: '무술', nickname: '철벽멍', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/35_무술_개.png' },
+        { id: 6, ganzhi: '기사', nickname: '한번더뱀', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/06_기사_뱀.png' },
+        { id: 9, ganzhi: '임신', nickname: '아이디어숭이', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/09_임신_원숭이.png' },
+        { id: 17, ganzhi: '경진', nickname: '별잡이용', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/17_경진_용.png' },
+        { id: 37, ganzhi: '경자', nickname: '짤랑쥐', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/37_경자_쥐.png' },
+        { id: 47, ganzhi: '경술', nickname: '내몫멍', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/47_경술_개.png' },
+        { id: 59, ganzhi: '임술', nickname: '퇴근멍', src: '../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/59_임술_개.png' }
+      ];
+      const marqueeTrack = root.querySelector('[data-marquee-track]');
+      marqueeTrack.innerHTML = [...marqueeItems,...marqueeItems].map(({ src, nickname, ganzhi }) => `<span class="jg-marquee-chip"><img src="${src}" alt="${nickname}"><span>${nickname}</span></span>`).join('');
+      const marquee = root.querySelector('[data-marquee]');
+      const reduceMarqueeMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let marqueePaused = false;
+      let marqueeDragging = false;
+      let marqueeStartX = 0;
+      let marqueeStartScroll = 0;
+      const moveMarquee = () => {
+        if (!reduceMarqueeMotion && !marqueePaused && !marqueeDragging && root.querySelector('[data-screen="landing"]').classList.contains('is-active')) {
+          marquee.scrollLeft += 1.25;
+          if (marquee.scrollLeft >= marquee.scrollWidth / 2) marquee.scrollLeft -= marquee.scrollWidth / 2;
+        }
+        window.requestAnimationFrame(moveMarquee);
+      };
+      marquee.addEventListener('mouseenter', () => { marqueePaused = true; });
+      marquee.addEventListener('mouseleave', () => { marqueePaused = false; marqueeDragging = false; marquee.classList.remove('is-dragging'); });
+      marquee.addEventListener('pointerdown', (event) => { marqueeDragging = true; marqueeStartX = event.clientX; marqueeStartScroll = marquee.scrollLeft; marquee.classList.add('is-dragging'); marquee.setPointerCapture(event.pointerId); });
+      marquee.addEventListener('pointermove', (event) => { if (marqueeDragging) marquee.scrollLeft = marqueeStartScroll - (event.clientX - marqueeStartX); });
+      marquee.addEventListener('pointerup', () => { marqueeDragging = false; marquee.classList.remove('is-dragging'); });
+      window.requestAnimationFrame(moveMarquee);
+      let summonTimers = [];
+      const showStep = (index) => {
+        summonTimers.forEach((timer) => window.clearTimeout(timer));
+        summonTimers = [];
+        root.querySelectorAll('.jg-screen').forEach((screen) => screen.classList.toggle('is-active', screen.dataset.screen === String(index)));
+        root.querySelectorAll('.jg-step').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.step === String(index))));
+        const brand = root.querySelector('[data-brand]');
+        brand.classList.toggle('is-hidden', String(index) === 'landing');
+        brand.textContent = '내 커리어 수호신';
+        const summon = root.querySelector('.jg-summon');
+        summon.classList.remove('is-revealing', 'is-ready');
+        root.querySelector('[data-summon-copy]').innerHTML = '태어난 날의 기운을<br>읽는 중…';
+        root.querySelector('[data-summon-sub]').hidden = false;
+        root.querySelector('[data-summon-sub]').textContent = '잠시만 기다려주세요';
+        if (String(index) === 'summon') {
+          summonTimers.push(window.setTimeout(() => {
+            summon.classList.add('is-revealing');
+            root.querySelector('[data-summon-copy]').innerHTML = '60마리 중 당신의 수호신을<br>찾는 중…';
+          }, 1100));
+          summonTimers.push(window.setTimeout(() => {
+            summon.classList.add('is-ready');
+            root.querySelector('[data-summon-copy]').innerHTML = '당신의 수호신이<br>깨어났어요!';
+            root.querySelector('[data-summon-sub]').hidden = true;
+          }, 2700));
+        }
+      };
+      root.querySelectorAll('.jg-step').forEach((button) => button.addEventListener('click', () => showStep(button.dataset.step)));
+      root.querySelectorAll('[data-next]').forEach((button) => button.addEventListener('click', () => showStep(button.dataset.next)));
+      root.querySelectorAll('.jg-question').forEach((button) => button.addEventListener('click', () => {
+        root.querySelectorAll('.jg-question').forEach((peer) => peer.classList.toggle('is-selected', peer === button));
+        root.querySelectorAll('.jg-question-item').forEach((item) => item.classList.toggle('is-open', item === button.closest('.jg-question-item')));
+      }));
+    })();
+  </script>
+</div>
