@@ -35,9 +35,29 @@ export { STORAGE_KEY } from '../utils/session';
 
 /** 공유 카드에 찍히는 유입 경로. */
 const SERVICE_URL = 'jobsaju.kr';
+const RESULT_VIEW_REPORTED_STORAGE_PREFIX = 'jobsaju_guardian_result_viewed:';
 
 function guardianIdFor(result: SajuCoreResult): string {
   return result.pillars.day.ganHanja + result.pillars.day.zhiHanja;
+}
+
+function hasReportedGuardianResultView(resultSessionId: string): boolean {
+  try {
+    return typeof localStorage !== 'undefined'
+      && localStorage.getItem(RESULT_VIEW_REPORTED_STORAGE_PREFIX + resultSessionId) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markGuardianResultViewReported(resultSessionId: string): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(RESULT_VIEW_REPORTED_STORAGE_PREFIX + resultSessionId, '1');
+    }
+  } catch {
+    // 저장소를 쓸 수 없어도 결과 화면과 분석 전송을 막지 않는다.
+  }
 }
 
 // 리포트 가격은 utils/pricing.ts 의 A/B 변형이 결정한다 (?p=6900 / ?p=8900)
@@ -416,6 +436,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (step !== 'result' || !sajuResult || reportedResultSessionIdsRef.current.has(analyticsIds.resultSessionId)) return;
     reportedResultSessionIdsRef.current.add(analyticsIds.resultSessionId);
+    if (hasReportedGuardianResultView(analyticsIds.resultSessionId)) return;
+    markGuardianResultViewReported(analyticsIds.resultSessionId);
     void trackGuardianEvent({
       eventId: crypto.randomUUID(),
       eventName: 'guardian_result_view',
