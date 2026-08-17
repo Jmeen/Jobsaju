@@ -77,6 +77,10 @@ export function createResultSessionId(randomUUID: RandomUUID = defaultRandomUUID
   return randomUUID();
 }
 
+export function getGuardianResultViewEventId(resultSessionId: string): string {
+  return resultSessionId;
+}
+
 export function ensureShareId(
   shareId: string | null | undefined,
   randomUUID: RandomUUID = defaultRandomUUID,

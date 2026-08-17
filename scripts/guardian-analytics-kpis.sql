@@ -32,6 +32,7 @@ WHERE occurred_at >= ?1 AND occurred_at < ?2;
 
 -- Growth: Completed Guardians per Confirmed Share
 -- Plan 2 will begin producing the inbound completion event; keep this query ready for rollout.
+-- One confirmed row represents one Kakao X-Kakao-Resource-ID; transport retries reuse event_id.
 SELECT
   1.0 * COUNT(DISTINCT CASE
     WHEN event_name = 'guardian_result_complete_from_share' THEN visitor_session_id

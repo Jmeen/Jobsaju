@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { convertV4MiniflareOptions, Miniflare } from 'miniflare';
 import { handleGuardianAnalyticsRequest, recordGuardianAnalyticsEvent } from './guardianAnalytics.js';
 
 const UUID_A = '11111111-1111-4111-8111-111111111111';
@@ -16,6 +18,9 @@ function createAnalyticsDb() {
     rows,
     prepare() {
       return { bind(...values) { return { async run() {
+        if (values.some(value => value === undefined)) {
+          throw new Error('D1_TYPE_ERROR: Type undefined not supported');
+        }
         if (rows.some(row => row.event_id === values[0])) {
           const error = new Error('UNIQUE constraint failed: guardian_analytics_events.event_id');
           throw error;
@@ -65,6 +70,36 @@ test('rejects unknown events, invalid UUIDs, invalid guardian IDs, and oversized
   assert.equal((await handleGuardianAnalyticsRequest(makeRequest({ ...validEvent(), padding: 'x'.repeat(4096) }), { DB: createAnalyticsDb() })).status, 400);
 });
 
+test('rejects non-canonical occurredAt values so lexical KPI windows remain chronological', async () => {
+  const invalidOccurredAtValues = [
+    '2026-08-17T09:00:00+09:00',
+    '2026-08-17T00:00:00Z',
+    '2026-08-17',
+    '2026-02-30T00:00:00.000Z',
+  ];
+
+  for (const occurredAt of invalidOccurredAtValues) {
+    const response = await handleGuardianAnalyticsRequest(
+      makeRequest({ ...validEvent(), occurredAt }),
+      { DB: createAnalyticsDb() },
+    );
+    assert.equal(response.status, 400, `expected ${occurredAt} to be rejected`);
+  }
+});
+
+test('rejects guardian_share_confirmed from the unauthenticated browser analytics route', async () => {
+  const db = createAnalyticsDb();
+  const response = await handleGuardianAnalyticsRequest(makeRequest({
+    ...validEvent(),
+    eventName: 'guardian_share_confirmed',
+    shareId: UUID_A,
+    shareChannel: 'kakao',
+  }), { DB: db });
+
+  assert.equal(response.status, 400);
+  assert.equal(db.rows.length, 0);
+});
+
 test('allows only the documented event fields to reach D1', async () => {
   const db = createAnalyticsDb();
   const response = await handleGuardianAnalyticsRequest(makeRequest({
@@ -93,4 +128,55 @@ test('rethrows non-unique database failures', async () => {
   const db = { prepare: () => ({ bind: () => ({ run: async () => { throw new Error('database unavailable'); } }) }) };
 
   await assert.rejects(() => recordGuardianAnalyticsEvent({ DB: db }, validEvent()), /database unavailable/);
+});
+
+test('normalizes every omitted optional field to null before binding to D1', async () => {
+  const db = createAnalyticsDb();
+
+  await recordGuardianAnalyticsEvent({ DB: db }, validEvent());
+
+  assert.deepEqual(db.rows[0], {
+    event_id: UUID_A,
+    event_name: 'guardian_result_view',
+    occurred_at: '2026-08-17T00:00:00.000Z',
+    visitor_session_id: UUID_B,
+    result_session_id: UUID_C,
+    share_id: null,
+    guardian_id: '甲子',
+    from_guardian_id: null,
+    share_channel: null,
+    utm_source: null,
+  });
+});
+
+test('writes omitted optional fields through a real local Miniflare D1 binding', async () => {
+  const miniflare = new Miniflare(convertV4MiniflareOptions({
+    compatibilityDate: '2026-08-13',
+    modules: true,
+    script: 'export default { fetch() { return new Response("ok"); } };',
+    d1Databases: { DB: 'guardian-analytics-test' },
+  }));
+
+  try {
+    const db = await miniflare.getD1Database('DB');
+    const migration = await readFile(new URL('../migrations/0001_guardian_analytics_events.sql', import.meta.url), 'utf8');
+    for (const statement of migration.split(';').map(value => value.trim()).filter(Boolean)) {
+      await db.prepare(statement).run();
+    }
+
+    await recordGuardianAnalyticsEvent({ DB: db }, validEvent());
+
+    const row = await db.prepare(`
+      SELECT share_id, from_guardian_id, share_channel, utm_source
+      FROM guardian_analytics_events WHERE event_id = ?
+    `).bind(UUID_A).first();
+    assert.deepEqual(row, {
+      share_id: null,
+      from_guardian_id: null,
+      share_channel: null,
+      utm_source: null,
+    });
+  } finally {
+    await miniflare.dispose();
+  }
 });

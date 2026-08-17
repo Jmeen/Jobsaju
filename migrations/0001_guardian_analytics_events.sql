@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS guardian_analytics_events (
 
 CREATE INDEX IF NOT EXISTS idx_guardian_events_name_time
   ON guardian_analytics_events(event_name, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_guardian_events_time
+  ON guardian_analytics_events(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_guardian_events_share
   ON guardian_analytics_events(share_id, event_name);
 CREATE INDEX IF NOT EXISTS idx_guardian_events_visitor

@@ -44,6 +44,17 @@ const EMAIL_HISTORY_LIMIT = 20;
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const GUARDIAN_IDS = new Set(guardianCharacters.map(({ id }) => id));
 
+async function kakaoResourceEventId(resourceId) {
+  const digest = new Uint8Array(await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`guardian-share-confirmed:${resourceId}`),
+  ));
+  digest[6] = (digest[6] & 0x0f) | 0x40;
+  digest[8] = (digest[8] & 0x3f) | 0x80;
+  const hex = [...digest.slice(0, 16)].map(value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 /**
  * 이메일당 리포트 구매 이력을 [{ token, createdAt, label }, ...] (최신순) 형태로 저장/조회한다.
  * 과거엔 email:<이메일> 키에 토큰 문자열 하나만 저장했으므로, 그 레거시 값도 1건짜리 이력으로 복원한다.
@@ -394,12 +405,14 @@ export default {
       const resultSessionId = typeof callbackArgs.result_session_id === 'string' ? callbackArgs.result_session_id : null;
       const visitorSessionId = typeof callbackArgs.visitor_session_id === 'string' ? callbackArgs.visitor_session_id : null;
       const guardianId = typeof callbackArgs.guardian_id === 'string' ? callbackArgs.guardian_id : null;
+      const kakaoResourceId = request.headers.get('X-Kakao-Resource-ID')?.trim() || null;
       const hasValidAnalyticsMetadata = [shareId, resultSessionId, visitorSessionId].every(value => UUID_V4_PATTERN.test(value || ''))
-        && Boolean(guardianId && GUARDIAN_IDS.has(guardianId));
+        && Boolean(guardianId && GUARDIAN_IDS.has(guardianId))
+        && Boolean(kakaoResourceId);
       if (hasValidAnalyticsMetadata && env.DB) {
-        try {
+        const analyticsTask = (async () => {
           await recordGuardianAnalyticsEvent(env, {
-            eventId: crypto.randomUUID(),
+            eventId: await kakaoResourceEventId(kakaoResourceId),
             eventName: 'guardian_share_confirmed',
             occurredAt: new Date().toISOString(),
             shareId,
@@ -409,8 +422,14 @@ export default {
             shareChannel: 'kakao',
             utmSource: 'guardian_share',
           });
-        } catch {
+        })().catch(() => {
           // 분석 D1 장애가 카카오의 2XX 웹훅 계약이나 공유 보상을 막으면 안 된다.
+        });
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(analyticsTask);
+        } else {
+          // Node 단위 테스트나 ExecutionContext가 없는 호환 런타임에서는 안전하게 완료를 기다린다.
+          await analyticsTask;
         }
       }
 

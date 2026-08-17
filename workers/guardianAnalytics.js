@@ -11,6 +11,9 @@ export const GUARDIAN_EVENT_NAMES = new Set([
   'guardian_share_landing_view', 'guardian_result_complete_from_share',
   'paid_conversion',
 ]);
+const BROWSER_GUARDIAN_EVENT_NAMES = new Set(
+  [...GUARDIAN_EVENT_NAMES].filter(eventName => eventName !== 'guardian_share_confirmed'),
+);
 
 const json = (body, status) => new Response(JSON.stringify(body), {
   status,
@@ -34,7 +37,9 @@ function isNullableShareChannel(value) {
 }
 
 function isValidOccurredAt(value) {
-  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
+  if (typeof value !== 'string') return false;
+  const timestamp = Date.parse(value);
+  return !Number.isNaN(timestamp) && new Date(timestamp).toISOString() === value;
 }
 
 async function readBodyWithinLimit(request) {
@@ -106,7 +111,7 @@ async function readAndValidateAnalyticsBody(request) {
   };
 
   if (!isUuidV4(value.eventId)) return { ok: false, error: 'Invalid eventId' };
-  if (!GUARDIAN_EVENT_NAMES.has(value.eventName)) return { ok: false, error: 'Invalid eventName' };
+  if (!BROWSER_GUARDIAN_EVENT_NAMES.has(value.eventName)) return { ok: false, error: 'Invalid eventName' };
   if (!isValidOccurredAt(value.occurredAt)) return { ok: false, error: 'Invalid occurredAt' };
   if (![value.visitorSessionId, value.resultSessionId, value.shareId].every(isNullableUuid)) {
     return { ok: false, error: 'Invalid analytics identifier' };
@@ -133,13 +138,13 @@ export async function recordGuardianAnalyticsEvent(env, event) {
       event.eventId,
       event.eventName,
       event.occurredAt,
-      event.visitorSessionId,
-      event.resultSessionId,
-      event.shareId,
-      event.guardianId,
-      event.fromGuardianId,
-      event.shareChannel,
-      event.utmSource,
+      event.visitorSessionId ?? null,
+      event.resultSessionId ?? null,
+      event.shareId ?? null,
+      event.guardianId ?? null,
+      event.fromGuardianId ?? null,
+      event.shareChannel ?? null,
+      event.utmSource ?? null,
     ).run();
     return 'inserted';
   } catch (error) {

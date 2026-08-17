@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createResultSessionId, ensureShareId, getVisitorSessionId, trackGuardianEvent } from './guardianAnalytics.ts';
+import {
+  createResultSessionId,
+  ensureShareId,
+  getGuardianResultViewEventId,
+  getVisitorSessionId,
+  trackGuardianEvent,
+} from './guardianAnalytics.ts';
 
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
@@ -67,6 +73,17 @@ test('transport filters undefined fields and resolves even when beacon and fetch
 
 test('result session IDs are generated per result', () => {
   assert.equal(createResultSessionId(() => 'result-session-id'), 'result-session-id');
+});
+
+test('result-view event ID is stable for restores and distinct between result sessions', () => {
+  assert.equal(
+    getGuardianResultViewEventId('33333333-3333-4333-8333-333333333333'),
+    '33333333-3333-4333-8333-333333333333',
+  );
+  assert.equal(
+    getGuardianResultViewEventId('44444444-4444-4444-8444-444444444444'),
+    '44444444-4444-4444-8444-444444444444',
+  );
 });
 
 test('transport projects only allowlisted fields and falls back from beacon', async () => {
