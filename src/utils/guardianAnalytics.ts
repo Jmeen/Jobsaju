@@ -34,6 +34,14 @@ const VISITOR_SESSION_STORAGE_KEY = 'jobsaju_visitor_session_id';
 
 const defaultRandomUUID: RandomUUID = () => crypto.randomUUID();
 
+function getSessionStorage(): Storage | null {
+  try {
+    return typeof sessionStorage === 'undefined' ? null : sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
 const browserTransport: GuardianAnalyticsTransport = {
   sendBeacon: (url, data) => {
     if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return false;
@@ -43,13 +51,25 @@ const browserTransport: GuardianAnalyticsTransport = {
 };
 
 export function getVisitorSessionId(
-  storage: Storage = sessionStorage,
+  storage: Storage | null = getSessionStorage(),
   randomUUID: RandomUUID = defaultRandomUUID,
 ): string {
-  const existing = storage.getItem(VISITOR_SESSION_STORAGE_KEY);
-  if (existing) return existing;
+  try {
+    if (storage && typeof storage.getItem === 'function') {
+      const existing = storage.getItem(VISITOR_SESSION_STORAGE_KEY);
+      if (existing) return existing;
+    }
+  } catch {
+    // Private browsing and denied storage must not block identity creation.
+  }
   const visitorSessionId = randomUUID();
-  storage.setItem(VISITOR_SESSION_STORAGE_KEY, visitorSessionId);
+  try {
+    if (storage && typeof storage.setItem === 'function') {
+      storage.setItem(VISITOR_SESSION_STORAGE_KEY, visitorSessionId);
+    }
+  } catch {
+    // Keep the identifier in memory when persistence is unavailable.
+  }
   return visitorSessionId;
 }
 
@@ -87,8 +107,15 @@ export async function trackGuardianEvent(
   input: GuardianEventInput,
   deps: GuardianAnalyticsTransport = browserTransport,
 ): Promise<void> {
-  const body = JSON.stringify(compactEvent(input));
-  const payload = new Blob([body], { type: 'application/json' });
+  let body: string;
+  let payload: Blob;
+  try {
+    body = JSON.stringify(compactEvent(input));
+    payload = new Blob([body], { type: 'application/json' });
+  } catch {
+    // Malformed input or an unavailable Blob must never block product behavior.
+    return;
+  }
   try {
     if (deps.sendBeacon('/api/analytics', payload)) return;
   } catch {

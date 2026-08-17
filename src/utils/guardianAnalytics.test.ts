@@ -38,6 +38,29 @@ test('visitor ID is stable in sessionStorage and one result reuses one shareId',
   assert.equal(ensureShareId('22222222-2222-4222-8222-222222222222', randomUUID), '22222222-2222-4222-8222-222222222222');
 });
 
+test('visitor ID falls back to a nonpersistent UUID when storage is denied', () => {
+  const deniedStorage = {
+    getItem: () => { throw new Error('storage denied'); },
+    setItem: () => { throw new Error('storage denied'); },
+  } as unknown as Storage;
+  assert.equal(
+    getVisitorSessionId(deniedStorage, () => 'fallback-visitor-id'),
+    'fallback-visitor-id',
+  );
+  const setDeniedStorage = {
+    getItem: () => null,
+    setItem: () => { throw new Error('storage denied'); },
+  } as unknown as Storage;
+  assert.equal(
+    getVisitorSessionId(setDeniedStorage, () => 'set-denied-visitor-id'),
+    'set-denied-visitor-id',
+  );
+  assert.equal(
+    getVisitorSessionId(undefined, () => 'unavailable-storage-id'),
+    'unavailable-storage-id',
+  );
+});
+
 test('transport filters undefined fields and resolves even when beacon and fetch fail', async () => {
   await assert.doesNotReject(() => trackGuardianEvent(baseEvent, failingTransport));
 });
@@ -70,4 +93,25 @@ test('transport projects only allowlisted fields and falls back from beacon', as
     guardianId: baseEvent.guardianId,
   });
   assert.equal(fetchBody, expected);
+});
+
+test('transport resolves when event serialization fails', async () => {
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  await assert.doesNotReject(() => trackGuardianEvent({
+    ...baseEvent,
+    eventId: circular,
+  } as unknown as typeof baseEvent, failingTransport));
+});
+
+test('transport resolves when Blob construction fails', async () => {
+  const originalBlob = globalThis.Blob;
+  globalThis.Blob = class {
+    constructor() { throw new Error('Blob unavailable'); }
+  } as unknown as typeof Blob;
+  try {
+    await assert.doesNotReject(() => trackGuardianEvent(baseEvent, failingTransport));
+  } finally {
+    globalThis.Blob = originalBlob;
+  }
 });
