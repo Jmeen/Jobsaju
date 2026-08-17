@@ -12,6 +12,8 @@ export type SavedSession = {
   followUp?: FollowUpRecord | null;
   followUps?: FollowUpRecord[];
   shareBonusGranted?: boolean;
+  resultSessionId?: string;
+  shareId?: string;
   unlockToken?: string;
   savedAt: string;
 };
