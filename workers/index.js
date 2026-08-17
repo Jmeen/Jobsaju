@@ -21,7 +21,8 @@ import {
   formatSeoulDate,
   parseAndValidatePremiumReport,
 } from './reportQuality.js';
-import { handleGuardianAnalyticsRequest } from './guardianAnalytics.js';
+import { handleGuardianAnalyticsRequest, recordGuardianAnalyticsEvent } from './guardianAnalytics.js';
+import guardianCharacters from '../free_engine_characters.js';
 
 /**
  * 직장인 이직사주 - Cloudflare Workers 기반 AI API 프록시 & 해금 게이트웨이
@@ -40,6 +41,8 @@ const FALLBACK_FLASH_MODELS = [
 const REPORT_VERSION = 'copy-v2';
 const reportCacheKey = (token) => `report:${REPORT_VERSION}:${token}`;
 const EMAIL_HISTORY_LIMIT = 20;
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const GUARDIAN_IDS = new Set(guardianCharacters.map(({ id }) => id));
 
 /**
  * 이메일당 리포트 구매 이력을 [{ token, createdAt, label }, ...] (최신순) 형태로 저장/조회한다.
@@ -365,24 +368,50 @@ export default {
         return new Response("Unauthorized", { status: 401 });
       }
 
-      let unlockToken = new URL(request.url).searchParams.get("unlock_token");
-      if (!unlockToken && request.method === "POST") {
+      const callbackArgs = Object.fromEntries(new URL(request.url).searchParams);
+      if (request.method === "POST") {
         try {
           const contentType = request.headers.get("Content-Type") || "";
           if (contentType.includes("application/json")) {
             const body = await request.json();
-            unlockToken = body?.unlock_token || null;
+            if (body && typeof body === 'object') Object.assign(callbackArgs, body);
           } else {
             const body = await request.text();
-            unlockToken = new URLSearchParams(body).get("unlock_token");
+            Object.assign(callbackArgs, Object.fromEntries(new URLSearchParams(body)));
           }
         } catch {
           // 바디 파싱에 실패해도 아래에서 2XX만 정상 응답하면 된다 (문서 요구사항: 3초 내 2XX).
         }
       }
 
+      const unlockToken = typeof callbackArgs.unlock_token === 'string' ? callbackArgs.unlock_token : null;
+
       if (unlockToken && env.SAJU_KV) {
         await env.SAJU_KV.put(`share-bonus:${unlockToken}`, new Date().toISOString());
+      }
+
+      const shareId = typeof callbackArgs.share_id === 'string' ? callbackArgs.share_id : null;
+      const resultSessionId = typeof callbackArgs.result_session_id === 'string' ? callbackArgs.result_session_id : null;
+      const visitorSessionId = typeof callbackArgs.visitor_session_id === 'string' ? callbackArgs.visitor_session_id : null;
+      const guardianId = typeof callbackArgs.guardian_id === 'string' ? callbackArgs.guardian_id : null;
+      const hasValidAnalyticsMetadata = [shareId, resultSessionId, visitorSessionId].every(value => UUID_V4_PATTERN.test(value || ''))
+        && Boolean(guardianId && GUARDIAN_IDS.has(guardianId));
+      if (hasValidAnalyticsMetadata && env.DB) {
+        try {
+          await recordGuardianAnalyticsEvent(env, {
+            eventId: crypto.randomUUID(),
+            eventName: 'guardian_share_confirmed',
+            occurredAt: new Date().toISOString(),
+            shareId,
+            resultSessionId,
+            visitorSessionId,
+            guardianId,
+            shareChannel: 'kakao',
+            utmSource: 'guardian_share',
+          });
+        } catch {
+          // 분석 D1 장애가 카카오의 2XX 웹훅 계약이나 공유 보상을 막으면 안 된다.
+        }
       }
 
       return new Response("OK", { status: 200 });

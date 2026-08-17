@@ -38,6 +38,27 @@ test('unlockToken을 넘기면 카카오 웹훅으로 그대로 돌아올 server
   assert.deepEqual(template.serverCallbackArgs, { unlock_token: 'unlock-abc-123' });
 });
 
+test('카카오 콜백 인자에는 보상 토큰과 익명 분석 식별자가 함께 담긴다', () => {
+  const template = buildKakaoFeedTemplate({
+    imageUrl: 'https://example.com/card.png',
+    serviceUrl: 'https://example.com',
+    shareHook: '나는 잔류형이래. 너는 지금 옮겨도 될까?',
+    unlockToken: 'unlock-abc-123',
+    shareId: '11111111-1111-4111-8111-111111111111',
+    resultSessionId: '22222222-2222-4222-8222-222222222222',
+    visitorSessionId: '33333333-3333-4333-8333-333333333333',
+    guardianId: '甲子',
+  });
+
+  assert.deepEqual(template.serverCallbackArgs, {
+    unlock_token: 'unlock-abc-123',
+    share_id: '11111111-1111-4111-8111-111111111111',
+    result_session_id: '22222222-2222-4222-8222-222222222222',
+    visitor_session_id: '33333333-3333-4333-8333-333333333333',
+    guardian_id: '甲子',
+  });
+});
+
 test('description을 넘기면 기본 안내 문구 대신 개인화된 문구를 카드 본문으로 쓴다', () => {
   const template = buildKakaoFeedTemplate({
     imageUrl: 'https://example.com/card.png',

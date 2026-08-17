@@ -22,12 +22,23 @@ import { preloadKakaoSdk } from '../utils/kakaoSdk';
 import { getCharacterAsset } from '../utils/characterAssets';
 import { buildShareHook, earnsBonusQuestion } from '../utils/shareIncentive';
 import { buildCheckoutPresentation } from '../utils/checkoutPresentation';
+import {
+  createResultSessionId,
+  ensureShareId,
+  getVisitorSessionId,
+  trackGuardianEvent,
+  type GuardianAnalyticsIds,
+} from '../utils/guardianAnalytics';
 
 
 export { STORAGE_KEY } from '../utils/session';
 
 /** 공유 카드에 찍히는 유입 경로. */
 const SERVICE_URL = 'jobsaju.kr';
+
+function guardianIdFor(result: SajuCoreResult): string {
+  return result.pillars.day.ganHanja + result.pillars.day.zhiHanja;
+}
 
 // 리포트 가격은 utils/pricing.ts 의 A/B 변형이 결정한다 (?p=6900 / ?p=8900)
 
@@ -104,6 +115,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [aiReport, setAiReport] = useState<any | null>(null);
   const [showManualPayModal, setShowManualPayModal] = useState(false);
   const [savedSession, setSavedSession] = useState<SavedSession | null>(() => loadSavedSession());
+  const [analyticsIds, setAnalyticsIds] = useState<GuardianAnalyticsIds>(() => ({
+    visitorSessionId: getVisitorSessionId(),
+    resultSessionId: savedSession?.resultSessionId || createResultSessionId(),
+    shareId: savedSession?.shareId || null,
+  }));
+  const restoringSavedSessionRef = useRef(false);
+  const reportedResultSessionIdsRef = useRef(new Set<string>());
 
   // === 이메일 기반 리포트 조회 모달 상태 ===
   const [showLookupModal, setShowLookupModal] = useState(false);
@@ -270,6 +288,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isUnlocked,
         followUps,
         shareBonusGranted,
+        resultSessionId: analyticsIds.resultSessionId,
+        ...(analyticsIds.shareId ? { shareId: analyticsIds.shareId } : {}),
         unlockToken,
         savedAt: new Date().toISOString()
       };
@@ -277,10 +297,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
       } catch { /* 저장 공간 부족 등은 무시 */ }
     }
-  }, [step, sajuResult, aiReport, isUnlocked, followUps, shareBonusGranted, unlockToken, birthData, careerContext]);
+  }, [step, sajuResult, aiReport, isUnlocked, followUps, shareBonusGranted, analyticsIds.resultSessionId, analyticsIds.shareId, unlockToken, birthData, careerContext]);
 
   const restoreSavedSession = () => {
     if (!savedSession) return;
+    restoringSavedSessionRef.current = true;
+    setAnalyticsIds(current => ({
+      visitorSessionId: current.visitorSessionId,
+      resultSessionId: savedSession.resultSessionId || createResultSessionId(),
+      shareId: savedSession.shareId || null,
+    }));
     setBirthData(savedSession.birthData);
     setCareerContext(savedSession.careerContext);
     setAiReport(savedSession.aiReport);
@@ -361,6 +387,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               hasTime: birthData.hasTime
             }
           );
+          if (restoringSavedSessionRef.current) {
+            restoringSavedSessionRef.current = false;
+          } else {
+            setAnalyticsIds(current => ({
+              visitorSessionId: current.visitorSessionId,
+              resultSessionId: createResultSessionId(),
+              shareId: null,
+            }));
+          }
           setSajuResult(analysis);
           setStep('result');
         }).catch(() => {
@@ -377,6 +412,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
   }, [step, birthData.day, birthData.gender, birthData.hasTime, birthData.hour, birthData.isSolar, birthData.minute, birthData.month, birthData.year]);
+
+  useEffect(() => {
+    if (step !== 'result' || !sajuResult || reportedResultSessionIdsRef.current.has(analyticsIds.resultSessionId)) return;
+    reportedResultSessionIdsRef.current.add(analyticsIds.resultSessionId);
+    void trackGuardianEvent({
+      eventId: crypto.randomUUID(),
+      eventName: 'guardian_result_view',
+      occurredAt: new Date().toISOString(),
+      visitorSessionId: analyticsIds.visitorSessionId,
+      resultSessionId: analyticsIds.resultSessionId,
+      guardianId: guardianIdFor(sajuResult),
+    });
+  }, [step, sajuResult, analyticsIds.resultSessionId, analyticsIds.visitorSessionId]);
 
   // === 결제 후 AI 리포트 생성 대기 문구 순환 (소요 시간이 길어 진행감을 계속 보여줘야 한다) ===
   useEffect(() => {
@@ -735,6 +783,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsUnlocked(true);
       setUnlockToken(finalPaymentId);
       setShowManualPayModal(false);
+      if (sajuResult) {
+        void trackGuardianEvent({
+          eventId: crypto.randomUUID(),
+          eventName: 'paid_conversion',
+          occurredAt: new Date().toISOString(),
+          visitorSessionId: analyticsIds.visitorSessionId,
+          resultSessionId: analyticsIds.resultSessionId,
+          guardianId: guardianIdFor(sajuResult),
+        });
+      }
       // 생성에 최대 30초까지 걸려 그 사이 탭을 떠나 있을 수 있다.
       // handleUnlock 진입 때 알림 권한을 받아둔 이유가 이것이다.
       notifyReportReady(true);
@@ -944,7 +1002,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // === 카카오톡 및 SNS 바이럴 공유 기능 (Web Share API + 클립보드 복사) ===
   const handleShareResult = async () => {
     const canvas = viralCardCanvasRef.current;
-    if (!canvas || isShareLoading) return;
+    if (!canvas || !sajuResult || isShareLoading) return;
+    const shareId = ensureShareId(analyticsIds.shareId);
+    const shareAnalyticsIds = { ...analyticsIds, shareId };
+    if (shareId !== analyticsIds.shareId) setAnalyticsIds(shareAnalyticsIds);
+    const guardianId = guardianIdFor(sajuResult);
+    void trackGuardianEvent({
+      eventId: crypto.randomUUID(),
+      eventName: 'guardian_share_click',
+      occurredAt: new Date().toISOString(),
+      visitorSessionId: shareAnalyticsIds.visitorSessionId,
+      resultSessionId: shareAnalyticsIds.resultSessionId,
+      shareId: shareAnalyticsIds.shareId,
+      guardianId,
+    });
     setIsShareLoading(true);
     try {
       const blob = await canvasToPngBlob(canvas);
@@ -966,19 +1037,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: shareDescription,
         preUploadedImageUrl: imageUrl || undefined,
         unlockToken,
+        shareId: shareAnalyticsIds.shareId,
+        resultSessionId: shareAnalyticsIds.resultSessionId,
+        visitorSessionId: shareAnalyticsIds.visitorSessionId,
+        guardianId,
       });
       if (result === 'kakao') {
+        void trackGuardianEvent({
+          eventId: crypto.randomUUID(), eventName: 'guardian_share_sheet_opened', occurredAt: new Date().toISOString(),
+          visitorSessionId: shareAnalyticsIds.visitorSessionId, resultSessionId: shareAnalyticsIds.resultSessionId,
+          shareId: shareAnalyticsIds.shareId, guardianId, shareChannel: 'kakao',
+        });
         // 카카오톡 공유는 실제 "보내기" 완료를 카카오 웹훅으로 확인한 뒤에만 보너스를 준다(클릭만으로는 신뢰하지 않는다).
         if (!shareBonusGranted) pollShareBonusStatus(unlockToken);
-      } else if (earnsBonusQuestion(result) && !shareBonusGranted) {
-        // 시스템 공유 시트(link/file)는 실제 전송 여부를 확인할 방법이 없어 클릭 자체를 신뢰한다.
-        const bonusResponse = await fetch('/api/share-bonus', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ unlock_token: unlockToken }),
+      } else if (result === 'link' || result === 'file') {
+        void trackGuardianEvent({
+          eventId: crypto.randomUUID(), eventName: 'guardian_share_sheet_opened', occurredAt: new Date().toISOString(),
+          visitorSessionId: shareAnalyticsIds.visitorSessionId, resultSessionId: shareAnalyticsIds.resultSessionId,
+          shareId: shareAnalyticsIds.shareId, guardianId,
+          shareChannel: result === 'link' ? 'web_link' : 'web_file',
         });
-        if (!bonusResponse.ok) throw new Error('share bonus registration failed');
-        setShareBonusGranted(true);
+        if (!shareBonusGranted && earnsBonusQuestion(result)) {
+          // 시스템 공유 시트(link/file)는 실제 전송 여부를 확인할 방법이 없어 클릭 자체를 신뢰한다.
+          const bonusResponse = await fetch('/api/share-bonus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ unlock_token: unlockToken }),
+          });
+          if (!bonusResponse.ok) throw new Error('share bonus registration failed');
+          setShareBonusGranted(true);
+        }
       }
       if (result === 'download') alert('카카오 공유를 준비하지 못해 이미지를 저장하고 서비스 주소를 복사했어요.');
     } catch {
