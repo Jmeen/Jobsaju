@@ -21,6 +21,7 @@ import {
   formatSeoulDate,
   parseAndValidatePremiumReport,
 } from './reportQuality.js';
+import { handleGuardianAnalyticsRequest } from './guardianAnalytics.js';
 
 /**
  * 직장인 이직사주 - Cloudflare Workers 기반 AI API 프록시 & 해금 게이트웨이
@@ -386,6 +387,9 @@ export default {
 
       return new Response("OK", { status: 200 });
     }
+
+    const guardianAnalyticsResponse = await handleGuardianAnalyticsRequest(request, env);
+    if (guardianAnalyticsResponse) return guardianAnalyticsResponse;
 
     // --- 프론트엔드가 카카오 웹훅 도착 여부를 짧은 간격으로 확인하는 폴링 API ---
     if (request.method === "GET" && new URL(request.url).pathname === "/api/share-bonus/status") {
