@@ -38,6 +38,23 @@ test('unlockToken을 넘기면 카카오 웹훅으로 그대로 돌아올 server
   assert.deepEqual(template.serverCallbackArgs, { unlock_token: 'unlock-abc-123' });
 });
 
+test('shareSessionId/characterId를 넘기면 카카오 웹훅으로 그대로 돌아올 serverCallbackArgs에 함께 실린다', () => {
+  const template = buildKakaoFeedTemplate({
+    imageUrl: 'https://example.com/card.png',
+    serviceUrl: 'https://example.com',
+    shareHook: '나는 잔류형이래. 너는 지금 옮겨도 될까?',
+    unlockToken: 'unlock-abc-123',
+    shareSessionId: 'session-1',
+    characterId: '甲寅',
+  });
+
+  assert.deepEqual(template.serverCallbackArgs, {
+    unlock_token: 'unlock-abc-123',
+    share_session_id: 'session-1',
+    character_id: '甲寅',
+  });
+});
+
 test('description을 넘기면 기본 안내 문구 대신 개인화된 문구를 카드 본문으로 쓴다', () => {
   const template = buildKakaoFeedTemplate({
     imageUrl: 'https://example.com/card.png',
@@ -91,6 +108,15 @@ test('카카오 공유 시도 시 unlockToken이 kakaoShare 호출까지 그대�
     deps({ kakaoShare: async value => { receivedUnlockToken = value.unlockToken; } }),
   );
   assert.equal(receivedUnlockToken, 'unlock-abc-123');
+});
+
+test('카카오 공유 시도 시 shareSessionId/characterId가 kakaoShare 호출까지 그대로 전달된다', async () => {
+  let received: { shareSessionId?: string; characterId?: string } = {};
+  await shareCareerResult(
+    { ...input, shareSessionId: 'session-1', characterId: '甲寅' },
+    deps({ kakaoShare: async value => { received = { shareSessionId: value.shareSessionId, characterId: value.characterId }; } }),
+  );
+  assert.deepEqual(received, { shareSessionId: 'session-1', characterId: '甲寅' });
 });
 
 test('안드로이드/데스크톱에서는 업로드 후 Kakao 피드를 먼저 시도한다', async () => {

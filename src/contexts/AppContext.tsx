@@ -22,6 +22,18 @@ import { preloadKakaoSdk } from '../utils/kakaoSdk';
 import { getCharacterAsset } from '../utils/characterAssets';
 import { buildShareHook, earnsBonusQuestion } from '../utils/shareIncentive';
 import { buildCheckoutPresentation } from '../utils/checkoutPresentation';
+import {
+  buildCharacterShareUrl,
+  getOrCreateOutgoingShareSessionId,
+  loadIncomingShareAttribution,
+  resetOutgoingShareSessionId,
+  resolveShareAttribution,
+  saveIncomingShareAttribution,
+  trackShareEvent,
+} from '../utils/shareTracking';
+import type { ShareAttribution, ShareMedium } from '../utils/shareTracking';
+// @ts-ignore
+import FREE_CHARACTERS from '../../free_engine_characters.js';
 
 
 export { STORAGE_KEY } from '../utils/session';
@@ -156,6 +168,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 카카오톡 공유는 실제로 "보내기"를 눌러야 카카오 웹훅이 도착하므로, 도착할 때까지 백그라운드로 확인한다.
   const [isShareConfirming, setIsShareConfirming] = useState(false);
   const [unlockToken, setUnlockToken] = useState('local-developer-unlock-token');
+
+  // === 공유 유입 attribution (친구가 보낸 카톡/링크로 들어온 경우) ===
+  const [shareAttribution, setShareAttribution] = useState<ShareAttribution | null>(() => loadIncomingShareAttribution());
+  // 사주 계산 완료 콜백(아래 loading 이펙트)에서 최신 값을 읽기 위한 ref — 그 이펙트의 의존성 배열은
+  // step 변화에만 반응해야 하므로(shareAttribution이 바뀔 때마다 로딩 연출을 재시작하면 안 된다) ref로 우회한다.
+  const shareAttributionRef = useRef<ShareAttribution | null>(shareAttribution);
+  useEffect(() => { shareAttributionRef.current = shareAttribution; }, [shareAttribution]);
+  // 완료 이벤트는 세션당 한 번만 — "다른 생년월일로 다시 보기"로 여러 번 재계산해도 중복 집계되지 않게 한다.
+  const shareCompletionTrackedRef = useRef(false);
+
+  // === 공유 유입 attribution 캡처 — URL에 fromCharacter/shareSessionId가 있으면(친구가 보낸 링크)
+  // 세션에 저장해두고 랜딩 이벤트를 한 번 남긴다. 없으면 이전에 저장해둔 값(sessionStorage)을 그대로 쓴다.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const fromUrl = resolveShareAttribution(window.location.search);
+    if (!fromUrl) return;
+    const friend = FREE_CHARACTERS.find((c: any) => c.id === fromUrl.fromCharacter);
+    const enriched: ShareAttribution = { ...fromUrl, fromCharacterName: friend?.name };
+    saveIncomingShareAttribution(enriched);
+    setShareAttribution(enriched);
+    trackShareEvent('guardian_share_landing', {
+      fromCharacter: enriched.fromCharacter,
+      shareSessionId: enriched.shareSessionId,
+      utmSource: enriched.utmSource,
+      utmMedium: enriched.utmMedium,
+    });
+  }, []);
 
   // === 딥링크 (이메일/토큰 링크로 접속 시 즉시 리포트 복구) ===
   useEffect(() => {
@@ -363,6 +402,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
           setSajuResult(analysis);
           setStep('result');
+          // 새 결과가 나왔으니 이전 결과를 공유하며 만들어졌을 수 있는 outbound shareSessionId를 지운다 —
+          // "다른 생년월일로 다시 보기"로 같은 탭에서 여러 결과를 만들어도 이번 결과의 공유는 새 흐름으로 집계돼야 한다.
+          resetOutgoingShareSessionId();
+          // 공유받아 들어온 방문이 결과 생성까지 완료됐다 — "공유 흐름당 완료된 결과 수" 지표의 원천 이벤트.
+          const attribution = shareAttributionRef.current;
+          if (attribution && !shareCompletionTrackedRef.current) {
+            shareCompletionTrackedRef.current = true;
+            const newCharacterId = analysis.pillars.day.ganHanja + analysis.pillars.day.zhiHanja;
+            trackShareEvent('guardian_result_completed_from_share', {
+              characterId: newCharacterId,
+              fromCharacter: attribution.fromCharacter,
+              shareSessionId: attribution.shareSessionId,
+              utmSource: attribution.utmSource,
+              utmMedium: attribution.utmMedium,
+            });
+          }
         }).catch(() => {
           // 네트워크가 끊겨 엔진 청크를 못 받은 경우 — 결과 화면으로 넘기지 않고 안내한다.
           setDeepLinkError('사주 계산 엔진을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.');
@@ -955,9 +1010,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const shareDescription = `나의 직장인 사주: ${character.title}\n"${verdict.title}"\n👉 내 커리어 타이밍 확인하기`;
       // 백그라운드 준비가 클릭보다 늦었을 수 있으니, 여기서 한 번 더 "보장"한다 — 이미 캐시돼 있으면 즉시 반환된다.
       const { imageUrl, sharePageUrl } = await ensureShareAssets(canvas, shareHook, shareDescription);
+      // 이 세션에서 내가 만드는 공유 흐름 식별자 — 여러 번 공유해도 같은 값을 재사용해
+      // "이 공유가 만든 완료 결과 수"를 나중에 shareSessionId로 묶어 셀 수 있게 한다.
+      const shareSessionId = getOrCreateOutgoingShareSessionId();
+      const characterId = sajuResult!.pillars.day.ganHanja + sajuResult!.pillars.day.zhiHanja;
       // 개인화 랜딩 페이지가 있으면 그 URL을 공유한다 — 카카오 SDK를 못 쓰는 브라우저에서 링크만
       // 공유돼도, 그 링크를 열어보면 내 결과카드 이미지·문구가 미리보기로 뜬다. 실패했을 때만 기본 URL.
-      const shareUrl = sharePageUrl || baseServiceUrl;
+      // 두 경우 모두 attribution 쿼리(fromCharacter/shareSessionId/utm_*)를 붙인다 — 실제로 어떤 채널로
+      // 나갔는지(medium)는 아래 result가 정해진 뒤 analytics 이벤트에 정확히 남는다.
+      const shareUrl = buildCharacterShareUrl({
+        baseUrl: sharePageUrl || baseServiceUrl,
+        dayPillar: characterId,
+        shareSessionId,
+        medium: 'kakao',
+      });
       const result = await shareCareerResult({
         blob,
         serviceUrl: shareUrl,
@@ -966,6 +1032,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: shareDescription,
         preUploadedImageUrl: imageUrl || undefined,
         unlockToken,
+        shareSessionId,
+        characterId,
       });
       if (result === 'kakao') {
         // 카카오톡 공유는 실제 "보내기" 완료를 카카오 웹훅으로 확인한 뒤에만 보너스를 준다(클릭만으로는 신뢰하지 않는다).
@@ -979,6 +1047,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         if (!bonusResponse.ok) throw new Error('share bonus registration failed');
         setShareBonusGranted(true);
+      }
+      if (result !== 'cancelled') {
+        // "카카오 공유 버튼 클릭"과 "실제 발송 완료"는 다른 이벤트다 — 발송 완료는 카카오 웹훅에서
+        // guardian_share_kakao_success로 별도로 남는다. 여기서는 클릭이 어떤 채널로 이어졌는지만 남긴다.
+        const medium: ShareMedium = result;
+        trackShareEvent(medium === 'kakao' ? 'guardian_share_kakao_click' : 'guardian_share_link_copy', {
+          characterId,
+          shareSessionId,
+          utmSource: 'character_share',
+          utmMedium: medium,
+          medium,
+        });
       }
       if (result === 'download') alert('카카오 공유를 준비하지 못해 이미지를 저장하고 서비스 주소를 복사했어요.');
     } catch {
@@ -1019,7 +1099,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     savedSession,
     showManualPayModal,
     showLookupModal,
-  }), [step, currentInputStep, birthData, careerContext, birthError, wheelDayCount, wheelDays, loadingText, copy, deepLinkError, savedSession, showManualPayModal, showLookupModal]);
+    shareAttribution,
+  }), [step, currentInputStep, birthData, careerContext, birthError, wheelDayCount, wheelDays, loadingText, copy, deepLinkError, savedSession, showManualPayModal, showLookupModal, shareAttribution]);
 
   /** 진단 결과와 그 이후 */
   const reportState = useMemo(() => ({

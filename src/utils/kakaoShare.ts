@@ -14,10 +14,13 @@ export type ShareCareerInput = {
   unlockToken?: string;
   /** 카카오 리치카드 본문에 쓸 개인화된 한 줄(예: 결과 리포트의 한 줄 결론). 없으면 기본 안내 문구를 쓴다 */
   description?: string;
+  /** 공유 attribution 추적용 — 카카오 웹훅으로 그대로 돌아와 "발송 완료" analytics 이벤트에 실린다 */
+  shareSessionId?: string;
+  characterId?: string;
 };
 export type ShareCareerDependencies = {
   upload(blob: Blob): Promise<string>;
-  kakaoShare(input: { imageUrl: string; serviceUrl: string; kakaoKey: string; shareHook: string; unlockToken?: string; description?: string }): Promise<void>;
+  kakaoShare(input: { imageUrl: string; serviceUrl: string; kakaoKey: string; shareHook: string; unlockToken?: string; description?: string; shareSessionId?: string; characterId?: string }): Promise<void>;
   linkShare(serviceUrl: string, shareHook: string): Promise<boolean>;
   fileShare(blob: Blob, serviceUrl: string, shareHook: string): Promise<boolean>;
   downloadAndCopy(blob: Blob, serviceUrl: string): Promise<void>;
@@ -60,7 +63,13 @@ export async function createSharePage({ imageUrl, title, description }: { imageU
   }
 }
 
-export function buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, description }: { imageUrl: string; serviceUrl: string; shareHook: string; unlockToken?: string; description?: string }): KakaoFeedTemplate {
+export function buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, description, shareSessionId, characterId }: { imageUrl: string; serviceUrl: string; shareHook: string; unlockToken?: string; description?: string; shareSessionId?: string; characterId?: string }): KakaoFeedTemplate {
+  // 카카오 서버가 실제 전송 성공 시 이 값들을 그대로 웹훅으로 돌려준다 — 어떤 해금 토큰·공유 흐름의 공유인지 식별하는 용도.
+  const serverCallbackArgs: Record<string, string> = {};
+  if (unlockToken) serverCallbackArgs.unlock_token = unlockToken;
+  if (shareSessionId) serverCallbackArgs.share_session_id = shareSessionId;
+  if (characterId) serverCallbackArgs.character_id = characterId;
+
   return {
     objectType: 'feed' as const,
     content: {
@@ -72,17 +81,16 @@ export function buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlock
       link: { mobileWebUrl: serviceUrl, webUrl: serviceUrl },
     },
     buttons: [{ title: '내 6개월 이직운 보기', link: { mobileWebUrl: serviceUrl, webUrl: serviceUrl } }],
-    // 카카오 서버가 실제 전송 성공 시 이 값을 그대로 웹훅으로 돌려준다 — 어떤 해금 토큰의 공유인지 식별하는 용도.
-    ...(unlockToken ? { serverCallbackArgs: { unlock_token: unlockToken } } : {}),
+    ...(Object.keys(serverCallbackArgs).length ? { serverCallbackArgs } : {}),
   };
 }
 
-async function kakaoShare({ imageUrl, serviceUrl, kakaoKey, shareHook, unlockToken, description }: { imageUrl: string; serviceUrl: string; kakaoKey: string; shareHook: string; unlockToken?: string; description?: string }): Promise<void> {
+async function kakaoShare({ imageUrl, serviceUrl, kakaoKey, shareHook, unlockToken, description, shareSessionId, characterId }: { imageUrl: string; serviceUrl: string; kakaoKey: string; shareHook: string; unlockToken?: string; description?: string; shareSessionId?: string; characterId?: string }): Promise<void> {
   // 결과 화면 진입 시 preload 해두므로 보통은 이미 로드돼 있어 즉시 resolve 된다.
   await loadKakaoSdk();
   if (!window.Kakao) throw new Error('Kakao SDK가 준비되지 않았습니다.');
   if (!window.Kakao.isInitialized()) window.Kakao.init(kakaoKey);
-  window.Kakao.Share.sendDefault(buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, description }));
+  window.Kakao.Share.sendDefault(buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, description, shareSessionId, characterId }));
 }
 
 async function linkShare(serviceUrl: string, shareHook: string): Promise<boolean> {
@@ -147,7 +155,7 @@ export async function shareCareerResult(input: ShareCareerInput, deps: ShareCare
   //    업로드 fetch 없이 곧바로 Kakao.Share를 호출할 수 있다.
   if (input.kakaoKey && input.preUploadedImageUrl && canUseKakaoScheme) {
     try {
-      await deps.kakaoShare({ imageUrl: input.preUploadedImageUrl, serviceUrl: input.serviceUrl, kakaoKey: input.kakaoKey, shareHook: input.shareHook, unlockToken: input.unlockToken, description: input.description });
+      await deps.kakaoShare({ imageUrl: input.preUploadedImageUrl, serviceUrl: input.serviceUrl, kakaoKey: input.kakaoKey, shareHook: input.shareHook, unlockToken: input.unlockToken, description: input.description, shareSessionId: input.shareSessionId, characterId: input.characterId });
       return 'kakao';
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return 'cancelled';
@@ -159,7 +167,7 @@ export async function shareCareerResult(input: ShareCareerInput, deps: ShareCare
   if (input.kakaoKey && canUseKakaoScheme) {
     try {
       const imageUrl = await deps.upload(input.blob);
-      await deps.kakaoShare({ imageUrl, serviceUrl: input.serviceUrl, kakaoKey: input.kakaoKey, shareHook: input.shareHook, unlockToken: input.unlockToken, description: input.description });
+      await deps.kakaoShare({ imageUrl, serviceUrl: input.serviceUrl, kakaoKey: input.kakaoKey, shareHook: input.shareHook, unlockToken: input.unlockToken, description: input.description, shareSessionId: input.shareSessionId, characterId: input.characterId });
       return 'kakao';
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return 'cancelled';
