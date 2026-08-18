@@ -29,9 +29,14 @@ export function BirthScreen() {
 
   // 생년월일은 여섯 자리로 받는다. 타이핑 중(자릿수 미달)에도 화면이 튀지 않도록
   // 입력 문자열은 로컬에 두고, 여섯 자리가 채워졌을 때만 컨텍스트로 확정한다.
-  const [digits, setDigits] = useState(() => formatBirthDigits({
-    year: parseInt(birthData.year), month: parseInt(birthData.month), day: parseInt(birthData.day),
-  }));
+  const [digits, setDigits] = useState(() => {
+    const date = {
+      year: parseInt(birthData.year),
+      month: parseInt(birthData.month),
+      day: parseInt(birthData.day),
+    };
+    return Object.values(date).every(Number.isFinite) ? formatBirthDigits(date) : '';
+  });
   const parsed = parseBirthDigits(digits);
   const onDigits = (raw: string) => {
     const next = raw.replace(/\D/g, '').slice(0, 6);

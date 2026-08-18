@@ -93,9 +93,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // === Form Inputs State ===
   const [birthData, setBirthData] = useState({
-    year: '1993',
-    month: '8',
-    day: '12',
+    year: '',
+    month: '',
+    day: '',
     hour: '13',
     minute: '30',
     isSolar: true,
