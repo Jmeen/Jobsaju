@@ -77,7 +77,7 @@ export function buildFreeSajuResult(birthYear, birthMonth, birthDay, birthHour, 
   
   // 1. 기존 src/utils/sajuCore.ts 재사용하여 원국 계산
   const analysis = getSajuAnalysis(
-    birthYear, birthMonth, birthDay, birthHour || 12, birthMinute || 0, gender,
+    birthYear, birthMonth, birthDay, birthHour ?? 12, birthMinute ?? 0, gender,
     { isSolar, hasTime }
   );
   
@@ -93,9 +93,11 @@ export function buildFreeSajuResult(birthYear, birthMonth, birthDay, birthHour, 
   // 2. 향후 12개월 월운 계산
   const monthlyFortunes = getMonthlyFortunes(new Date(), baseZhis, 12);
   
+  // analysis 전체를 그대로 넘긴다. 예전에는 pillars·dayGan만 골라 내보내느라
+  // 결과 화면이 쓰는 scores·elementsCount·bodyStrength가 빠져 있어서
+  // 프론트가 이 API를 쓰지 못하고 같은 계산을 클라이언트에서 또 했다.
   return {
-    pillars: analysis.pillars,
-    dayGan: analysis.dayGan,
+    ...analysis,
     monthly_forecast: monthlyFortunes
   };
 }

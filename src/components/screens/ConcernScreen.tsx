@@ -1,75 +1,68 @@
-
-import { useAppFlow, useAppActions } from '../../contexts/AppContext';
-
-
-import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
-import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
-import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
-
-import { buildElementInsight, buildCharacterName } from '../../utils/reportInsights';
-import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
-
-
-
+// 목업 5번 화면 — 고민 선택.
+// 사용자가 관심사를 직접 골라 선언하게 만들어, 다음 유료 화면의 이유를 스스로 갖게 한다.
+import { useAppActions, useAppReport } from '../../contexts/AppContext';
+import { GUARDIAN_CONCERN_OPTIONS, buildGuardianConcernView } from '../../utils/guardianConcern';
+import { getGuardianCharacter } from '../../utils/guardianCharacters';
+import { GuardianImage } from '../guardian/GuardianImage';
 
 export function ConcernScreen() {
-  const {
-    careerContext,
-  } = useAppFlow();
-  const {
-    setStep,
-    setCareerContext,
-  } = useAppActions();
+  const { guardian, guardianConcern, sajuResult } = useAppReport();
+  const { setStep, setGuardianConcern } = useAppActions();
+
+  if (!guardian || !sajuResult) return null;
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: 28 }}>
-            <h2>현 직장에서 가장 큰 고민은 무엇인가요?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>여러 항목을 선택할 수 있으며, 선택한 내용은 종합 분석에 반영됩니다.</p>
-          </div>
+    <section className="jg-screen">
+      <div className="jg-question-guide">
+        <GuardianImage guardian={guardian} eager />
+        <div className="jg-kicker">{guardian.nickname}에게 물어보기</div>
+      </div>
 
-          <div className="option-grid" style={{ marginBottom: 30 }}>
-            {[
-              "연봉 및 보상 (내가 일한 가치에 미치지 못하는 보상)",
-              "성장 가능성 (이 직무에 더 배울 것이 없거나 도태되는 느낌)",
-              "조직 문화 및 상사/동료 갈등 (인간관계 스트레스)",
-              "안정성 (회사의 경영난 및 구조조정 불안감)",
-              "워라밸 (야근이 너무 많아 삶의 균형 붕괴)"
-            ].map(concern => {
-              const isSelected = careerContext.main_concern.includes(concern);
-              const toggleConcern = () => {
-                setCareerContext((prev: any) => {
-                  const newConcerns = isSelected
-                    ? prev.main_concern.filter((c: any) => c !== concern)
-                    : [...prev.main_concern, concern];
-                  return { ...prev, main_concern: newConcerns };
-                });
-              };
+      <h1 className="jg-title">요즘 뭐가<br />제일 궁금해요?</h1>
+      <p className="jg-sub">
+        하나만 골라주세요.<br />
+        {guardian.nickname}가 지금 어떤 방향이 좋은지 살짝 알려드릴게요.
+      </p>
 
-              return (
-                <button 
-                  key={concern}
-                  className={`option-button ${isSelected ? 'selected' : ''}`}
-                  onClick={toggleConcern}
-                >
-                  {concern.split(' ')[0]} {/* 요약어 노출 */}
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 8 }}>
-                    {concern.slice(concern.indexOf('('))}
-                  </span>
-                  {isSelected && <span style={{ color: 'var(--accent-purple)' }}>✓</span>}
-                </button>
-              );
-            })}
-          </div>
+      <div className="jg-questions">
+        {GUARDIAN_CONCERN_OPTIONS.map(option => {
+          const isOpen = guardianConcern === option.type;
+          const answer = isOpen
+            ? buildGuardianConcernView(option.type, getGuardianCharacter(guardian.id), sajuResult.scores)
+            : null;
 
-          <div style={{ display: 'flex', gap: 10, marginTop: 'auto', paddingTop: 8 }}>
-            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setStep('q_status')}>이전</button>
-            <button 
-              className="btn-primary" style={{ flex: 2 }} 
-              disabled={careerContext.main_concern.length === 0}
-              onClick={() => setStep('q_desired')}
-            >다음 단계</button>
-          </div>
-        </div>
+          return (
+            <div className={`jg-question-item ${isOpen ? 'is-open' : ''}`} key={option.type}>
+              <button
+                className={`jg-question ${isOpen ? 'is-selected' : ''}`}
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => setGuardianConcern(option.type)}
+              >
+                <span className="jg-qicon" aria-hidden="true">{option.icon}</span>
+                <span>
+                  <strong>{option.label}</strong>
+                  <small>{option.hint}</small>
+                </span>
+              </button>
+
+              {answer && (
+                <div className="jg-answer">
+                  <strong>{answer.verdict}</strong>
+                  {answer.body.map(sentence => <p key={sentence}>{sentence}</p>)}
+                  <button className="jg-answer-cta" type="button" onClick={() => setStep('paywall')}>
+                    {answer.ctaLabel}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button className="jg-text-link" type="button" onClick={() => setStep('result')}>
+        내 수호신 다시 보기
+      </button>
+    </section>
   );
 }

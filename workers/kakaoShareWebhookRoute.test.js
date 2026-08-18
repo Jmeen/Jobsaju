@@ -5,9 +5,11 @@ import worker from './index.js';
 const token = 'valid-unlock-token-1234567890';
 const ADMIN_KEY = 'test-admin-key';
 
-function createKv() {
+function createKv({ registerToken = true } = {}) {
   const writes = [];
   const values = new Map();
+  // 웹훅은 실제 해금 토큰만 공유 보너스로 기록한다. 기본 픽스처는 결제가 끝난 토큰을 흉내낸다.
+  if (registerToken) values.set(`token:${token}`, JSON.stringify({ paid: true }));
   return {
     writes,
     async get(key) {
@@ -222,6 +224,22 @@ test('웹훅 인증은 통과했지만 unlock_token을 찾지 못하면 보너�
 
   assert.equal(response.status, 200);
   assert.equal(kv.writes.length, 0);
+});
+
+test('검증되지 않은 해금 토큰은 공유 보너스로 기록하지 않는다', async () => {
+  // 결제 전 클라이언트는 'local-developer-unlock-token' 상수를 공유한다.
+  // 이걸 그대로 기록하면 무료 사용자 한 명의 공유가 모든 무료 사용자에게 보너스로 보인다.
+  const kv = createKv({ registerToken: false });
+  const sharedConstant = 'local-developer-unlock-token';
+  const request = new Request(
+    `https://example.com/api/kakao-share-webhook?unlock_token=${sharedConstant}`,
+    { method: 'GET', headers: { Authorization: `KakaoAK ${ADMIN_KEY}` } },
+  );
+
+  const response = await worker.fetch(request, { SAJU_KV: kv, KAKAO_ADMIN_KEY: ADMIN_KEY }, createExecutionContext());
+
+  assert.equal(response.status, 200); // 카카오의 2XX 계약은 그대로 지킨다
+  assert.deepEqual(kv.writes, []);
 });
 
 test('공유 보너스 상태 조회는 웹훅이 아직 도착하지 않았으면 granted:false를 반환한다', async () => {

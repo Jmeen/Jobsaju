@@ -1,142 +1,159 @@
-
+// 목업 2번 화면 — "수호신을 깨워볼까요?"
+// 생년월일·시간은 목업대로 드롭다운으로 받는다. 스크롤 휠은 픽셀 위치가 곧 값이라
+// 컨테이너 여백이 조금만 달라져도 엉뚱한 날짜가 확정되는 사고가 났다.
+import { useState } from 'react';
 import { useAppFlow, useAppActions } from '../../contexts/AppContext';
-import { WheelColumn } from '../WheelColumn';
-import { CURRENT_YEAR, WHEEL_YEARS, WHEEL_MONTHS, WHEEL_HOURS, WHEEL_MINUTES, daysInMonth } from '../../utils/birthWheel';
-
-
-import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../../utils/scorePresentation';
-import { buildCharacterTypeLabel, REPORT_HEADINGS } from '../../utils/reportCopy';
-import { buildVerdictView, buildScoreBars } from '../../utils/reportViewModel';
-
-import { buildElementInsight, buildCharacterName } from '../../utils/reportInsights';
-import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
-
-
-
+import {
+  BIRTH_HOURS_12,
+  BIRTH_MINUTES,
+  formatBirthDigits,
+  parseBirthDigits,
+  toHour24,
+  toMeridiemHour,
+  withCurrentValue,
+} from '../../utils/birthWheel';
+import type { Meridiem } from '../../utils/birthWheel';
 
 export function BirthScreen() {
-  const {
-    birthData,
-    wheelDayCount,
-    wheelDays,
-    birthError,
-  } = useAppFlow();
-  const {
-    setStep,
-    setBirthData,
-  } = useAppActions();
+  const { birthData, birthError } = useAppFlow();
+  const { setStep, setBirthData } = useAppActions();
+
+  const update = (patch: Record<string, unknown>) => setBirthData({ ...birthData, ...patch });
+
+  const { meridiem, hour12 } = toMeridiemHour(parseInt(birthData.hour));
+  const setHour = (nextMeridiem: Meridiem, nextHour12: number) =>
+    update({ hour: String(toHour24(nextMeridiem, nextHour12)) });
+
+  // 예전 입력이 목록 밖 값(37분 등)이어도 선택이 비지 않게 끼워 넣는다.
+  const minutes = withCurrentValue(BIRTH_MINUTES, parseInt(birthData.minute));
+
+  // 생년월일은 여섯 자리로 받는다. 타이핑 중(자릿수 미달)에도 화면이 튀지 않도록
+  // 입력 문자열은 로컬에 두고, 여섯 자리가 채워졌을 때만 컨텍스트로 확정한다.
+  const [digits, setDigits] = useState(() => formatBirthDigits({
+    year: parseInt(birthData.year), month: parseInt(birthData.month), day: parseInt(birthData.day),
+  }));
+  const parsed = parseBirthDigits(digits);
+  const onDigits = (raw: string) => {
+    const next = raw.replace(/\D/g, '').slice(0, 6);
+    setDigits(next);
+    const date = parseBirthDigits(next);
+    if (date) update({ year: String(date.year), month: String(date.month), day: String(date.day) });
+  };
+  const digitsError = digits.length === 6 && !parsed
+    ? '생년월일을 다시 확인해 주세요. 연·월·일을 두 자리씩 입력하면 돼요.'
+    : null;
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: 28 }}>
-            <h2>출생 정보 입력</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>정통 만세력 계산을 위해 태어난 일시를 입력해 주세요.</p>
-          </div>
+    <section className="jg-screen">
+      <h1 className="jg-title">수호신을 깨워볼까요?</h1>
+      <p className="jg-sub">
+        태어난 날과 시간을 알려주세요.<br />
+        입력한 정보는 당신의 직장생활 수호신을 찾는 데만 사용해요.
+      </p>
 
-          <div className="glass-card" style={{ padding: '20px 16px', marginBottom: 20 }}>
-            {/* 성별 및 양음력 선택 (가로 2단 나란히 배치로 공간 극대화) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: 12, marginBottom: 6 }}>성별 (대운용)</label>
-                <div className="tab-group" style={{ marginBottom: 0, padding: 3 }}>
-                  <button 
-                    className={`tab-button ${birthData.gender === 1 ? 'active' : ''}`}
-                    style={{ padding: '8px 4px', fontSize: 13 }}
-                    onClick={() => setBirthData({ ...birthData, gender: 1 })}
-                  >남성</button>
-                  <button 
-                    className={`tab-button ${birthData.gender === 0 ? 'active' : ''}`}
-                    style={{ padding: '8px 4px', fontSize: 13 }}
-                    onClick={() => setBirthData({ ...birthData, gender: 0 })}
-                  >여성</button>
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: 12, marginBottom: 6 }}>양력 / 음력</label>
-                <div className="tab-group" style={{ marginBottom: 0, padding: 3 }}>
-                  <button 
-                    className={`tab-button ${birthData.isSolar ? 'active' : ''}`}
-                    style={{ padding: '8px 4px', fontSize: 13 }}
-                    onClick={() => setBirthData({ ...birthData, isSolar: true })}
-                  >양력</button>
-                  <button 
-                    className={`tab-button ${!birthData.isSolar ? 'active' : ''}`}
-                    style={{ padding: '8px 4px', fontSize: 13 }}
-                    onClick={() => setBirthData({ ...birthData, isSolar: false })}
-                  >음력</button>
-                </div>
-              </div>
-            </div>
-
-            {/* 생년월일 */}
-            <div className="form-group">
-              <label className="form-label">생년월일</label>
-              <div className="wheel-row">
-                <WheelColumn
-                  values={WHEEL_YEARS}
-                  value={parseInt(birthData.year) || CURRENT_YEAR}
-                  onChange={v => setBirthData((prev: any) => ({ ...prev, year: String(v) }))}
-                  formatValue={v => `${v}년`}
-                  ariaLabel="출생 연도"
-                />
-                <WheelColumn
-                  values={WHEEL_MONTHS}
-                  value={parseInt(birthData.month) || 1}
-                  onChange={v => setBirthData((prev: any) => ({ ...prev, month: String(v) }))}
-                  formatValue={v => `${v}월`}
-                  ariaLabel="출생 월"
-                />
-                <WheelColumn
-                  values={wheelDays}
-                  value={Math.min(parseInt(birthData.day) || 1, wheelDayCount)}
-                  onChange={v => setBirthData((prev: any) => ({ ...prev, day: String(v) }))}
-                  formatValue={v => `${v}일`}
-                  ariaLabel="출생 일"
-                />
-              </div>
-            </div>
-
-            {/* 출생시간 유무 */}
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label className="form-label" style={{ marginBottom: 0 }}>태어난 시간</label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox" checked={!birthData.hasTime}
-                    onChange={e => setBirthData({ ...birthData, hasTime: !e.target.checked })}
-                  />
-                  태어난 시간 모름 (삼주 분석)
-                </label>
-              </div>
-
-              {birthData.hasTime && (
-                <div className="wheel-row wheel-row-2">
-                  <WheelColumn
-                    values={WHEEL_HOURS}
-                    value={parseInt(birthData.hour) || 0}
-                    onChange={v => setBirthData((prev: any) => ({ ...prev, hour: String(v) }))}
-                    formatValue={v => `${v}시`}
-                    ariaLabel="출생 시"
-                  />
-                  <WheelColumn
-                    values={WHEEL_MINUTES}
-                    value={parseInt(birthData.minute) || 0}
-                    onChange={v => setBirthData((prev: any) => ({ ...prev, minute: String(v) }))}
-                    formatValue={v => `${v}분`}
-                    ariaLabel="출생 분"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {birthError && (
-            <p style={{ color: '#e08a7a', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{birthError}</p>
-          )}
-          <div style={{ marginTop: 'auto', paddingTop: 8 }}>
-            <button className="btn-primary" disabled={!!birthError} onClick={() => setStep('q_status')}>다음 단계</button>
-          </div>
+      <div className="jg-birth-card">
+        <span className="jg-birth-label">성별</span>
+        <div className="jg-toggle-row">
+          <button
+            type="button"
+            className={`jg-toggle ${birthData.gender === 0 ? 'is-on' : ''}`}
+            aria-pressed={birthData.gender === 0}
+            onClick={() => update({ gender: 0 })}
+          >여성</button>
+          <button
+            type="button"
+            className={`jg-toggle ${birthData.gender === 1 ? 'is-on' : ''}`}
+            aria-pressed={birthData.gender === 1}
+            onClick={() => update({ gender: 1 })}
+          >남성</button>
         </div>
+
+        <span className="jg-birth-label">달력</span>
+        <div className="jg-toggle-row">
+          <button
+            type="button"
+            className={`jg-toggle ${birthData.isSolar ? 'is-on' : ''}`}
+            aria-pressed={birthData.isSolar}
+            onClick={() => update({ isSolar: true })}
+          >양력</button>
+          <button
+            type="button"
+            className={`jg-toggle ${!birthData.isSolar ? 'is-on' : ''}`}
+            aria-pressed={!birthData.isSolar}
+            onClick={() => update({ isSolar: false })}
+          >음력</button>
+        </div>
+
+        <span className="jg-birth-label">생년월일 6자리</span>
+        <input
+          className="jg-digits"
+          type="text"
+          inputMode="numeric"
+          autoComplete="bday"
+          maxLength={6}
+          placeholder="______"
+          aria-label="생년월일 여섯 자리"
+          value={digits}
+          onChange={e => onDigits(e.target.value)}
+        />
+        <p className="jg-digits-echo">
+          {parsed
+            ? `${parsed.year}년 ${parsed.month}월 ${parsed.day}일`
+            : '연·월·일을 두 자리씩 붙여서 입력해 주세요.'}
+        </p>
+
+        <span className="jg-birth-label">태어난 시간</span>
+        <div className="jg-time-row">
+          <select
+            className="jg-select" aria-label="오전 오후"
+            value={meridiem}
+            disabled={!birthData.hasTime}
+            onChange={e => setHour(e.target.value as Meridiem, hour12)}
+          >
+            <option value="am">오전</option>
+            <option value="pm">오후</option>
+          </select>
+          <select
+            className="jg-select" aria-label="출생 시"
+            value={String(hour12)}
+            disabled={!birthData.hasTime}
+            onChange={e => setHour(meridiem, parseInt(e.target.value))}
+          >
+            {BIRTH_HOURS_12.map(hour => <option key={hour} value={String(hour)}>{hour}시</option>)}
+          </select>
+          <select
+            className="jg-select" aria-label="출생 분"
+            value={birthData.minute}
+            disabled={!birthData.hasTime}
+            onChange={e => update({ minute: e.target.value })}
+          >
+            {minutes.map(minute => <option key={minute} value={String(minute)}>{minute}분</option>)}
+          </select>
+        </div>
+
+        <label className="jg-unknown">
+          <input
+            type="checkbox"
+            checked={!birthData.hasTime}
+            onChange={event => update({ hasTime: !event.target.checked })}
+          />
+          태어난 시간을 잘 몰라요
+        </label>
+      </div>
+
+      {(digitsError || birthError) && <p className="jg-error">{digitsError || birthError}</p>}
+
+      <button
+        className="jg-btn"
+        type="button"
+        disabled={Boolean(digitsError || birthError || !parsed)}
+        onClick={() => setStep('summon')}
+      >
+        수호신 깨우기
+      </button>
+      <button className="jg-text-link" type="button" onClick={() => setStep('landing')}>
+        이전으로
+      </button>
+    </section>
   );
 }

@@ -45,19 +45,19 @@ export function ManualPayModal() {
   return (
     <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+          background: 'rgba(47,55,50,0.45)', display: 'flex', justifyContent: 'center', alignItems: 'center',
           zIndex: 100, padding: 20
         }}>
           <div className="glass-card" style={{
-            width: '100%', maxWidth: 400, background: '#120d21', border: '1px solid var(--border-neon-bright)',
-            boxShadow: '0 0 30px rgba(168,85,247,0.3)', padding: 24
+            width: '100%', maxWidth: 400, background: 'var(--jg-page, #faf8f2)', border: '1px solid var(--jg-line, #ddd8cd)',
+            boxShadow: '0 18px 50px rgba(31,48,38,.18)', padding: 24, borderRadius: 20
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <h3 
                   style={{ 
                     fontSize: 18, 
-                    color: '#fff', 
+                    color: 'var(--jg-ink, #2f3732)', 
                     margin: 0, 
                     cursor: 'pointer',
                     userSelect: 'none',
@@ -176,7 +176,7 @@ export function ManualPayModal() {
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: 14, borderRadius: 12, border: '1px solid rgba(255,255,255,0.04)', marginBottom: 10, textAlign: 'left' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>최종 결제 금액</span>
-                    <span style={{ fontSize: 16, fontWeight: 'bold', color: appliedCoupon ? '#4ade80' : '#fff' }}>
+                    <span style={{ fontSize: 16, fontWeight: 'bold', color: appliedCoupon ? '#3f8f5f' : 'var(--jg-ink, #2f3732)' }}>
                       {checkout.originalLabel && (
                         <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontSize: 12, marginRight: 6 }}>
                           {checkout.originalLabel}

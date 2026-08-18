@@ -11,7 +11,8 @@
     "check": "npm run test && npm run lint && npm run build",
     "eval:personalization": "node --test src/evals/personalizationCases.test.ts src/evals/personalizationScorer.test.ts && node src/evals/runPersonalizationEval.ts",
     "eval:personalization:heldout": "node src/evals/runPersonalizationEval.ts held-out",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "assets:guardians": "node scripts/build-guardian-assets.cjs"
   },
   "dependencies": {
     "@fullstackfamily/manseryeok": "latest",
@@ -27,6 +28,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
+    "sharp": "^0.35.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "wrangler": "^4.123.0"

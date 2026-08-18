@@ -27,15 +27,15 @@ export function LookupModal() {
 
   return (
     <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+          position: 'fixed', inset: 0, background: 'rgba(47,55,50,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16
         }}>
           <div className="glass-card" style={{
-            width: '100%', maxWidth: 420, background: '#120d21', border: '1px solid var(--border-neon-bright)',
-            boxShadow: '0 0 30px rgba(168,85,247,0.3)', padding: 24
+            width: '100%', maxWidth: 420, background: 'var(--jg-page, #faf8f2)', border: '1px solid var(--jg-line, #ddd8cd)',
+            boxShadow: '0 18px 50px rgba(31,48,38,.18)', padding: 24, borderRadius: 20
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 18, color: '#fff' }}>구매한 리포트 찾기</h3>
+              <h3 style={{ fontSize: 18, color: 'var(--jg-ink, #2f3732)' }}>구매한 리포트 찾기</h3>
               <button
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 18, cursor: 'pointer' }}
                 onClick={() => { setShowLookupModal(false); setLookupSentMessage(null); setLookupError(null); }}

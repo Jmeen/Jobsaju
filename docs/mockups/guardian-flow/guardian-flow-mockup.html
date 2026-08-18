@@ -51,17 +51,15 @@
     #jobsaju-guardian-flow .jg-ganzhi { display:block; margin-top:7px; color:var(--jg-green); font-size:12px; }
     #jobsaju-guardian-flow .jg-arrival { margin:6px 0 0; color:var(--jg-muted); text-align:center; font-size:13px; line-height:1.55; }
     #jobsaju-guardian-flow .jg-quote { margin:13px 0 16px; color:var(--jg-muted); text-align:center; font-size:14px; line-height:1.65; word-break:keep-all; }
-    #jobsaju-guardian-flow .jg-mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    #jobsaju-guardian-flow .jg-mini { padding:12px; border-radius:14px; background:var(--jg-card); }
-    #jobsaju-guardian-flow .jg-mini span { display:block; color:var(--jg-green); font-size:10px; margin-bottom:5px; }
-    #jobsaju-guardian-flow .jg-mini p { margin:0; font-size:12px; line-height:1.45; }
+    #jobsaju-guardian-flow .jg-result-why { margin:0 0 2px; padding:14px 15px; border-radius:16px; background:var(--jg-card); }
+    #jobsaju-guardian-flow .jg-result-why strong { display:block; margin-bottom:7px; color:var(--jg-green); font-size:12px; font-weight:500; }
+    #jobsaju-guardian-flow .jg-result-why p { margin:0; color:var(--jg-ink); font-size:12px; line-height:1.6; word-break:keep-all; }
+    #jobsaju-guardian-flow .jg-result-why em { display:block; margin-top:7px; color:var(--jg-muted); font-size:11px; line-height:1.55; font-style:normal; word-break:keep-all; }
     #jobsaju-guardian-flow .jg-btn { width:100%; margin-top:16px; padding:14px 16px; border:0; border-radius:15px; background:var(--jg-green); color:var(--jg-phone); font:inherit; font-size:14px; font-weight:500; cursor:pointer; }
     #jobsaju-guardian-flow .jg-btn-secondary { background:var(--jg-green-soft); color:var(--jg-green); }
+    #jobsaju-guardian-flow .jg-btn-guardian { margin-top:10px; border:1px solid var(--jg-guardian-accent); background:var(--jg-guardian-soft); color:var(--jg-green); }
+    #jobsaju-guardian-flow .jg-result-options { margin:7px 0 0; color:var(--jg-muted); text-align:center; font-size:10px; }
     #jobsaju-guardian-flow .jg-text-link { appearance:none; display:block; margin:13px auto 0; padding:7px; border:0; background:transparent; color:var(--jg-green); font:inherit; font-size:12px; cursor:pointer; }
-    #jobsaju-guardian-flow .jg-small-guardian { width:168px; height:168px; object-fit:contain; display:block; margin:4px auto 4px; }
-    #jobsaju-guardian-flow .jg-why { margin-top:17px; padding:18px; border-radius:18px; background:var(--jg-card); }
-    #jobsaju-guardian-flow .jg-why strong { display:block; color:var(--jg-green); margin-bottom:9px; font-size:14px; }
-    #jobsaju-guardian-flow .jg-why p { margin:0; font-size:14px; line-height:1.75; word-break:keep-all; }
     #jobsaju-guardian-flow .jg-questions { display:grid; gap:10px; margin-top:22px; }
     #jobsaju-guardian-flow .jg-question-item { overflow:hidden; border-radius:16px; }
     #jobsaju-guardian-flow .jg-question-item.is-open { border:1px solid var(--jg-guardian-accent); background:var(--jg-guardian-soft); }
@@ -191,15 +189,14 @@
         <button class="jg-step" type="button" data-step="birth" aria-pressed="false"><span class="jg-step-num">2</span><span>출생 입력</span></button>
         <button class="jg-step" type="button" data-step="summon" aria-pressed="false"><span class="jg-step-num">3</span><span>수호신 소환</span></button>
         <button class="jg-step" type="button" data-step="0" aria-pressed="false"><span class="jg-step-num">4</span><span>결과 발표</span></button>
-        <button class="jg-step" type="button" data-step="1" aria-pressed="false"><span class="jg-step-num">5</span><span>사주 근거</span></button>
-        <button class="jg-step" type="button" data-step="2" aria-pressed="false"><span class="jg-step-num">6</span><span>고민 선택</span></button>
-        <button class="jg-step" type="button" data-step="4" aria-pressed="false"><span class="jg-step-num">7</span><span>유료 전환</span></button>
-        <button class="jg-step" type="button" data-step="5" aria-pressed="false"><span class="jg-step-num">8</span><span>결제 후 입력</span></button>
+        <button class="jg-step" type="button" data-step="2" aria-pressed="false"><span class="jg-step-num">5</span><span>고민 선택</span></button>
+        <button class="jg-step" type="button" data-step="4" aria-pressed="false"><span class="jg-step-num">6</span><span>유료 전환</span></button>
+        <button class="jg-step" type="button" data-step="5" aria-pressed="false"><span class="jg-step-num">7</span><span>결제 후 입력</span></button>
       </nav>
 
       <div class="jg-phone" aria-live="polite">
         <div class="jg-status"><span>9:41</span><span>● ● ●</span></div>
-        <div class="jg-brand is-hidden" data-brand>내 커리어 수호신</div>
+        <div class="jg-brand is-hidden" data-brand>내 수호신</div>
 
         <section class="jg-screen is-active jg-landing" data-screen="landing">
           <p class="jg-landing-pre">직장인마다 하나씩 있다는</p>
@@ -216,7 +213,7 @@
 
         <section class="jg-screen" data-screen="birth">
           <h3 class="jg-title">수호신을 깨워볼까요?</h3>
-          <p class="jg-sub">태어난 날과 시간을 알려주세요.<br>입력한 정보는 수호신을 찾는 데만 사용해요.</p>
+          <p class="jg-sub">태어난 날과 시간을 알려주세요.<br>입력한 정보는 당신의 직장생활 수호신을 찾는 데만 사용해요.</p>
           <div class="jg-birth-card">
             <span class="jg-birth-label" style="margin-top:0">성별</span><div class="jg-toggle-row"><div class="jg-toggle is-on">여성</div><div class="jg-toggle">남성</div></div>
             <span class="jg-birth-label">달력</span><div class="jg-toggle-row"><div class="jg-toggle is-on">양력</div><div class="jg-toggle">음력</div></div>
@@ -236,42 +233,37 @@
         </section>
 
         <section class="jg-screen" data-screen="0">
-          <div class="jg-kicker" style="text-align:center">드디어 당신의 수호신을 만났어요</div>
-          <p class="jg-arrival">오늘부터 당신의 직장생활을 지켜줄 친구예요</p>
+          <div class="jg-kicker" style="text-align:center">당신의 수호신이 도착했어요</div>
+          <p class="jg-arrival">오늘부터 당신과 함께 출근할 친구예요</p>
           <img class="jg-guardian" src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="운주머니를 찬 파란 아기 호랑이 수호신">
-          <h3 class="jg-result-name">새싹호랑이<span class="jg-ganzhi">갑인 甲寅 · 커리어 수호신</span></h3>
+          <h3 class="jg-result-name">새싹호랑이<span class="jg-ganzhi">갑인 甲寅 · 목(木) 기운의 수호신</span></h3>
           <p class="jg-quote">“새 길은 내가 열어볼게!<br>근데… 꼬리가 왜 이렇게 떨리지?”</p>
-          <div class="jg-mini-grid">
-            <div class="jg-mini"><span>내가 지켜줄게</span><p>새로운 환경에서 기회를 찾고 먼저 길을 열어요.</p></div>
-            <div class="jg-mini"><span>근데 사실은…</span><p>결정적인 순간이 오면 누구보다 긴장해요.</p></div>
+          <div class="jg-result-why">
+            <strong>왜 새싹호랑이일까요?</strong>
+            <p>갑인(甲寅)은 새로운 길을 열고 성장하는 힘이 강해요.<br>그런데 중요한 결정을 앞두면 생각보다 긴장도 많이 하는 타입이에요.</p>
+            <em>그래서 당신의 수호신은,<br>앞장서면서도 속으론 살짝 긴장하는 새싹호랑이예요.</em>
           </div>
           <button class="jg-btn" type="button">내 수호신 자랑하기</button>
-          <button class="jg-text-link" type="button" data-next="1">왜 나는 새싹호랑이일까요? →</button>
-        </section>
-
-        <section class="jg-screen" data-screen="1">
-          <img class="jg-small-guardian" src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="새싹호랑이">
-          <h3 class="jg-title">새싹호랑이가 나온 이유</h3>
-          <div class="jg-why"><strong>갑인(甲寅)의 기운을 타고났어요.</strong><p>새로운 길을 먼저 열고 성장하려는 힘이 강해요.<br>다만 중요한 결정을 앞두면 생각보다 긴장을 많이 하는 편이에요.</p></div>
-          <button class="jg-btn jg-btn-secondary" type="button" data-next="2">내 커리어 고민 이어보기 →</button>
+          <button class="jg-btn jg-btn-guardian" type="button" data-next="2">새싹호랑이에게 고민 물어보기 →</button>
+          <p class="jg-result-options">직업운 · 이직운 · 잘 맞는 일</p>
         </section>
 
         <section class="jg-screen" data-screen="2">
           <div class="jg-question-guide"><img src="../../../design-assets/characters/jobsaju-60-guardians-v2.4-production/51_갑인_호랑이.png" alt="새싹호랑이"><div class="jg-kicker">새싹호랑이에게 물어보기</div></div>
-          <h3 class="jg-title">요즘 회사에서<br>뭐가 제일 고민이에요?</h3>
+          <h3 class="jg-title">요즘 뭐가<br>제일 궁금해요?</h3>
           <p class="jg-sub">하나만 골라주세요.<br>새싹호랑이가 지금 어떤 방향이 좋은지 살짝 알려드릴게요.</p>
           <div class="jg-questions">
             <div class="jg-question-item">
-              <button class="jg-question" type="button"><span class="jg-qicon">🚪</span><span><strong>이직할까?</strong><small>지금 움직일까, 조금 더 기다릴까</small></span></button>
+              <button class="jg-question" type="button"><span class="jg-qicon">🧭</span><span><strong>요즘 내 직업운</strong><small>지금 커리어 흐름과 앞으로의 방향</small></span></button>
+              <div class="jg-answer"><strong>새로운 흐름이 열리고 있어요 ↑</strong><p>지금은 익숙한 방식에 머물기보다 다음 가능성을 살펴볼 때예요.<br>작은 시도부터 시작하면 방향이 더 선명해져요.</p><button class="jg-answer-cta" type="button" data-next="4">직업운 흐름 · 6개월 타이밍 보기 →</button></div>
+            </div>
+            <div class="jg-question-item">
+              <button class="jg-question" type="button"><span class="jg-qicon">🚪</span><span><strong>이직해도 될까?</strong><small>움직일 시기와 조심할 점</small></span></button>
               <div class="jg-answer"><strong>움직여볼 만해요 ↑</strong><p>새로운 환경을 찾는 힘이 올라와 있어요.<br>다만 조건만 보고 급하게 움직이는 건 조심해야 해요.</p><button class="jg-answer-cta" type="button" data-next="4">이직 점수 · 좋은 시기까지 보기 →</button></div>
             </div>
             <div class="jg-question-item">
-              <button class="jg-question" type="button"><span class="jg-qicon">💰</span><span><strong>연봉 협상할까?</strong><small>지금 말해도 될까, 얼마나 요구할까</small></span></button>
-              <div class="jg-answer"><strong>조건을 꺼내볼 만해요 ↑</strong><p>내 가치를 말로 정리할 힘이 올라와 있어요.<br>다만 원하는 조건의 우선순위를 먼저 정해보세요.</p><button class="jg-answer-cta" type="button" data-next="4">협상 점수 · 좋은 시기까지 보기 →</button></div>
-            </div>
-            <div class="jg-question-item">
-              <button class="jg-question" type="button"><span class="jg-qicon">🪑</span><span><strong>지금 회사에 남을까?</strong><small>더 버틸 가치가 있을까, 떠날 준비를 할까</small></span></button>
-              <div class="jg-answer"><strong>남는 이유를 따져봐요 →</strong><p>지금 자리를 지키는 선택도 가능해요.<br>다만 버티는 동안 무엇을 얻을지 먼저 정해야 해요.</p><button class="jg-answer-cta" type="button" data-next="4">잔류 점수 · 좋은 시기까지 보기 →</button></div>
+              <button class="jg-question" type="button"><span class="jg-qicon">🌱</span><span><strong>나는 무슨 일이 맞을까?</strong><small>잘 맞는 역할 · 회사 · 일하는 환경</small></span></button>
+              <div class="jg-answer"><strong>새 길을 만드는 일이 잘 맞아요 →</strong><p>정답이 정해진 일보다 가능성을 발견하고 키우는 역할에서 힘이 나요.<br>재량이 있고 성장 여지가 있는 환경을 살펴보세요.</p><button class="jg-answer-cta" type="button" data-next="4">맞는 역할 · 회사 환경 자세히 보기 →</button></div>
             </div>
           </div>
         </section>
@@ -393,7 +385,7 @@
         root.querySelectorAll('.jg-step').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.step === String(index))));
         const brand = root.querySelector('[data-brand]');
         brand.classList.toggle('is-hidden', String(index) === 'landing');
-        brand.textContent = '내 커리어 수호신';
+        brand.textContent = '내 수호신';
         const summon = root.querySelector('.jg-summon');
         summon.classList.remove('is-revealing', 'is-ready');
         root.querySelector('[data-summon-copy]').innerHTML = '태어난 날의 기운을<br>읽는 중…';

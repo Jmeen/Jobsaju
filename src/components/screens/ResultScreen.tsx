@@ -145,23 +145,6 @@ export function ResultScreen() {
 
             return (
               <>
-                {/* [SECTION 1] Character Hero */}
-                <section className="creature-hero" style={{ marginTop: 24, marginBottom: 40, textAlign: 'center' }}>
-                  <div style={{ fontSize: 128, marginBottom: 8, lineHeight: 1 }}>{myChar.emoji}</div>
-                  <strong style={{ fontSize: 30, color: '#fff', display: 'block', marginBottom: 10, lineHeight: 1.3 }}>{myChar.core_type}</strong>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 14 }}>{sajuResult.dayGan.char}{sajuResult.dayGan.element} · {myChar.name}</span>
-                  <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.6, wordBreak: 'keep-all', margin: '0 auto', maxWidth: 280 }}>
-                    {myChar.identity.split('. ')[0]}.
-                  </p>
-                  <div style={{ marginTop: 24, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    {myChar.keywords.map((kw: string) => (
-                      <span key={kw} style={{ background: 'rgba(255,255,255,0.08)', padding: '6px 12px', borderRadius: 20, fontSize: 13, color: '#e5e7eb' }}>
-                        {kw}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-
                 {/* [SECTION 2] Current Career Verdict */}
                 <section style={{ marginBottom: 40, background: 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(236,72,153,0.12))', padding: '28px 22px', borderRadius: 20, textAlign: 'center', border: '1px solid rgba(168,85,247,0.4)', boxShadow: '0 8px 30px rgba(168,85,247,0.18)' }}>
                   <span style={{ fontSize: 12, color: 'var(--accent-purple)', fontWeight: 700, letterSpacing: 0.5, display: 'block', marginBottom: 10 }}>지금의 결론</span>
@@ -255,7 +238,7 @@ export function ResultScreen() {
               const dominantMode = buildTopScore(sajuResult.scores).axis as DominantMode;
               const pw = PAYWALL_COPY[dominantMode];
               return (
-              <div className="unlock-overlay" style={{ position: 'relative', background: 'transparent' }}>
+              <div id="guardian-paywall" className="unlock-overlay" style={{ position: 'relative', background: 'transparent' }}>
                 <div className="unlock-card paywall-teaser" style={{ padding: '0 20px', background: 'transparent', border: 'none' }}>
 
                   {/* 무료 결과 → Paywall bridge 문장 */}

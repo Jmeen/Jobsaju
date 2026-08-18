@@ -4,6 +4,9 @@
 
 -- Primary: Share Inbound Completion Rate
 -- Share landing visitor session -> completed guardian result.
+-- NOT YET LIVE: neither guardian_share_landing_view nor guardian_result_complete_from_share
+-- is emitted by the client yet (Plan 2). Until then this returns NULL, which means
+-- "not instrumented" and must not be read as "no inbound completions".
 SELECT
   1.0 * COUNT(DISTINCT CASE
     WHEN event_name = 'guardian_result_complete_from_share' THEN visitor_session_id
@@ -45,6 +48,7 @@ WHERE occurred_at >= ?1 AND occurred_at < ?2;
 
 -- Growth: Completed Guardians per Attempted Share
 -- Uses the share sheet opening as the denominator when the channel cannot confirm delivery.
+-- NOT YET LIVE: the numerator event is not emitted yet (Plan 2); the denominator already is.
 SELECT
   1.0 * COUNT(DISTINCT CASE
     WHEN event_name = 'guardian_result_complete_from_share' THEN visitor_session_id

@@ -20,6 +20,14 @@ import { buildShareCardModel, canvasToPngBlob, drawShareCard } from '../utils/sh
 import { createSharePage, SHARE_BENEFIT_COPY, shareCareerResult, upload as uploadShareCardImage } from '../utils/kakaoShare';
 import { preloadKakaoSdk } from '../utils/kakaoSdk';
 import { getCharacterAsset } from '../utils/characterAssets';
+import { fetchFreeResult } from '../utils/freeResultApi';
+import { clearPaidSession, loadPaidSession, savePaidSession } from '../utils/paidSession';
+import { buildShareUrl, resolveShareInbound } from '../utils/shareInbound';
+import type { ShareInbound } from '../utils/shareInbound';
+import { buildGuardianShareText, drawGuardianShareCard, loadGuardianImage } from '../utils/guardianShareCard';
+import type { PaidSession } from '../utils/paidSession';
+import { getGuardianAsset, guardianIdFromPillar } from '../utils/guardianAssets';
+import type { GuardianConcernType } from '../utils/guardianConcern';
 import { buildShareHook, earnsBonusQuestion } from '../utils/shareIncentive';
 import { buildCheckoutPresentation } from '../utils/checkoutPresentation';
 import {
@@ -38,7 +46,7 @@ export { STORAGE_KEY } from '../utils/session';
 const SERVICE_URL = 'jobsaju.kr';
 
 function guardianIdFor(result: SajuCoreResult): string {
-  return result.pillars.day.ganHanja + result.pillars.day.zhiHanja;
+  return guardianIdFromPillar(result.pillars.day.ganHanja, result.pillars.day.zhiHanja);
 }
 
 // 리포트 가격은 utils/pricing.ts 의 A/B 변형이 결정한다 (?p=6900 / ?p=8900)
@@ -77,9 +85,11 @@ export function useAppActions() {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   // === UI Step State ===
+  // 목업(docs/mockups/guardian-flow)의 화면 순서 그대로다.
+  // 직무·목표·상황 입력은 결제 전 3단계가 아니라 결제 후 'personalize' 한 화면으로 간다.
   const [step, setStep] = useState<
-    'intro' | 'birth' | 'q_status' | 'q_concern' | 'q_desired' | 'loading' | 'result'
-  >('intro');
+    'landing' | 'birth' | 'summon' | 'result' | 'concern' | 'paywall' | 'personalize'
+  >('landing');
 
   // === Form Inputs State ===
   const [birthData, setBirthData] = useState({
@@ -123,6 +133,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }));
   const restoringSavedSessionRef = useRef(false);
   const reportedResultSessionIdsRef = useRef(new Set<string>());
+  // 결과 화면에서 고르는 고민 유형. 고르기 전에는 null이라 선택지만 보여준다.
+  const [guardianConcern, setGuardianConcern] = useState<GuardianConcernType | null>(null);
+  // 일주에서 정해지는 60갑자 수호신 — 캐릭터 원문과 아트워크를 함께 들고 있다.
+  const guardian = useMemo(
+    () => (sajuResult ? getGuardianAsset(guardianIdFor(sajuResult)) : null),
+    [sajuResult],
+  );
+
+  // 이미 결제한 리포트를 메일/토큰 링크로 다시 열어보는 경우다.
+  // 새 진단이 아니므로 guardian_result_view 분모에 넣으면 share_rate·paid_conversion_rate가
+  // 재열람 횟수만큼 희석된다 — 저장 세션 복원과 같은 이유로 집계에서 제외한다.
+  const revisitingPurchasedReportRef = useRef(false);
+  // 결제는 끝났는데 리포트를 아직 못 만든 구간이 있다. 그 사이 새로고침하면
+  // 메모리의 ref만으로는 결제 사실을 잃어버려, 이미 낸 사람에게 처음부터 다시 하라고 하게 된다.
+  // 리포트 생성이 끝나면 지운다.
+  const paidSessionRef = useRef<PaidSession | null>(loadPaidSession());
+  // 결제 후 입력 화면에서 새로고침한 경우다. 사주를 다시 계산한 뒤 그 화면으로 되돌린다.
+  const resumePersonalizeRef = useRef(Boolean(paidSessionRef.current));
+
+  // 공유 링크로 들어온 문맥. 입력 단계에서 쿼리가 사라져도 세션에 남아 결과 완료까지 간다.
+  const [shareInbound] = useState<ShareInbound | null>(() =>
+    (typeof window === 'undefined' ? null : resolveShareInbound(window.location.search)));
+  // 수호신 공유 카드는 결과 화면이 아니라 여기서 만든다 — 화면에 캔버스를 띄우지 않는다.
+  const guardianCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // === 이메일 기반 리포트 조회 모달 상태 ===
   const [showLookupModal, setShowLookupModal] = useState(false);
@@ -207,11 +241,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               setCareerContext(prev => ({ ...prev, ...data.user_context }));
             }
             // 저장된 birth_data가 있으면 사주를 다시 계산해 결과 화면을 정상적으로 채운다
-            // ('loading' 스텝이 sajuResult를 만들고 나서 'result'로 넘어간다).
+            // ('summon' 스텝이 sajuResult를 만들고, 소환 연출이 끝나면 'result'로 넘어간다).
             // 옛 토큰처럼 birth_data가 없는 경우엔 리포트 텍스트만이라도 볼 수 있게 알려준다.
             if (data.user_context?.birth_data) {
               setBirthData((prev: typeof birthData) => ({ ...prev, ...data.user_context.birth_data }));
-              setStep('loading');
+              // 재열람이므로 새 result_session_id를 발급하지도, 결과 조회로 집계하지도 않는다.
+              restoringSavedSessionRef.current = true;
+              revisitingPurchasedReportRef.current = true;
+              setStep('summon');
             } else {
               setDeepLinkError('이 링크는 사주 원본 데이터가 없어 리포트를 온전히 복구할 수 없습니다. "이메일로 리포트 다시 찾기"를 이용해 주세요.');
             }
@@ -315,11 +352,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setFollowUps(savedSession.followUps ?? (savedSession.followUp ? [savedSession.followUp] : []));
     setShareBonusGranted(savedSession.shareBonusGranted ?? false);
     setUnlockToken(savedSession.unlockToken ?? 'local-developer-unlock-token');
-    setStep('loading'); // 저장된 출생정보로 사주를 다시 계산해 결과 화면으로 이동
+    setStep('summon'); // 저장된 출생정보로 사주를 다시 계산해 결과 화면으로 이동
   };
-
-  const inputSteps = ['birth', 'q_status', 'q_concern', 'q_desired'] as const;
-  const currentInputStep = inputSteps.indexOf(step as (typeof inputSteps)[number]);
 
   // 선택된 연/월/양력여부에 따라 '일' 휠의 선택지가 달라진다 (예: 2월은 28~29일까지만)
   const wheelDayCount = daysInMonth(
@@ -364,18 +398,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // === Screen 6. Analysis Loading Text Sequence ===
   const [loadingText, setLoadingText] = useState('태어난 날의 하늘 우주 배치 확인 중...');
   useEffect(() => {
-    if (step === 'loading') {
+    if (step === 'summon') {
+      // 만세력 엔진(gzip 약 100KB)이 처음 필요해지는 지점이다.
+      // 로딩 연출이 2.4초 돌아가는 동안 받아두면 사용자가 기다리는 시간은 늘지 않는다.
       // 만세력 엔진(gzip 약 100KB)이 처음 필요해지는 지점이다.
       // 로딩 연출이 2.4초 돌아가는 동안 받아두면 사용자가 기다리는 시간은 늘지 않는다.
       const enginePromise = import('../utils/sajuCore');
+      const hourVal = birthData.hasTime ? parseInt(birthData.hour) : 12;
+      const minVal = birthData.hasTime ? parseInt(birthData.minute) : 0;
+
+      // 무료 결과의 정식 경로는 백엔드다. 연출과 나란히 던져두고 t3에서 받는다 —
+      // 서버·클라이언트가 같은 sajuCore를 쓰므로 어느 쪽으로 계산해도 결과는 같다.
+      const controller = new AbortController();
+      const freeResultPromise = fetchFreeResult({
+        year: parseInt(birthData.year),
+        month: parseInt(birthData.month),
+        day: parseInt(birthData.day),
+        hour: birthData.hasTime ? hourVal : null,
+        minute: birthData.hasTime ? minVal : null,
+        gender: birthData.gender,
+        isSolar: birthData.isSolar,
+      }, { signal: controller.signal });
+
       const t1 = setTimeout(() => setLoadingText('이동·직장·재물 기운 추출 중...'), 800);
       const t2 = setTimeout(() => setLoadingText('현재 직장 고민 상황과 결합 분석 중...'), 1600);
       const t3 = setTimeout(() => {
-        // 사주 계산 코어 돌리기
-        const hourVal = birthData.hasTime ? parseInt(birthData.hour) : 12;
-        const minVal = birthData.hasTime ? parseInt(birthData.minute) : 0;
-        void enginePromise.then(({ getSajuAnalysis }) => {
-          const analysis = getSajuAnalysis(
+        void (async () => {
+          // 서버가 못 주면(오프라인·장애) 같은 계산을 클라이언트에서 돌려 결과 화면을 살린다.
+          const fromServer = await freeResultPromise;
+          const analysis = fromServer?.sajuResult ?? (await enginePromise).getSajuAnalysis(
             parseInt(birthData.year),
             parseInt(birthData.month),
             parseInt(birthData.day),
@@ -397,12 +448,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               shareId: null,
             }));
           }
+          // 앞선 진단에서 고른 유형이 새 결과에 남아 있으면 안 된다.
+          setGuardianConcern(null);
           setSajuResult(analysis);
-          setStep('result');
-        }).catch(() => {
-          // 네트워크가 끊겨 엔진 청크를 못 받은 경우 — 결과 화면으로 넘기지 않고 안내한다.
+          // 여기서 화면을 넘기지 않는다 — 소환 연출이 끝난 뒤 사용자가 직접 만나러 간다.
+        })().catch(() => {
+          // 서버도 실패하고 엔진 청크도 못 받은 경우 — 결과 화면으로 넘기지 않고 안내한다.
           setDeepLinkError('사주 계산 엔진을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.');
-          setStep('intro');
+          setStep('landing');
         });
       }, 2400);
 
@@ -410,6 +463,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(t1);
         clearTimeout(t2);
         clearTimeout(t3);
+        controller.abort();
       };
     }
   }, [step, birthData.day, birthData.gender, birthData.hasTime, birthData.hour, birthData.isSolar, birthData.minute, birthData.month, birthData.year]);
@@ -417,6 +471,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (step !== 'result' || !sajuResult || reportedResultSessionIdsRef.current.has(analyticsIds.resultSessionId)) return;
     reportedResultSessionIdsRef.current.add(analyticsIds.resultSessionId);
+    if (revisitingPurchasedReportRef.current) {
+      // 결제분 재열람은 소진 처리만 하고 넘어간다. 이후 이 탭에서 새로 진단하면
+      // 새 result_session_id가 발급되므로 정상적으로 다시 집계된다.
+      revisitingPurchasedReportRef.current = false;
+      return;
+    }
     void trackGuardianEvent({
       eventId: getGuardianResultViewEventId(analyticsIds.resultSessionId),
       eventName: 'guardian_result_view',
@@ -426,6 +486,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       guardianId: guardianIdFor(sajuResult),
     });
   }, [step, sajuResult, analyticsIds.resultSessionId, analyticsIds.visitorSessionId]);
+
+  // 공유 링크 유입을 한 번만 기록한다. Primary KPI의 분모다.
+  const reportedLandingRef = useRef(false);
+  useEffect(() => {
+    if (!shareInbound || reportedLandingRef.current) return;
+    reportedLandingRef.current = true;
+    void trackGuardianEvent({
+      eventId: crypto.randomUUID(),
+      eventName: 'guardian_share_landing_view',
+      occurredAt: new Date().toISOString(),
+      visitorSessionId: analyticsIds.visitorSessionId,
+      shareId: shareInbound.shareId,
+      fromGuardianId: shareInbound.fromGuardianId,
+      utmSource: 'guardian_share',
+    });
+  }, [shareInbound, analyticsIds.visitorSessionId]);
+
+  // 공유로 들어온 사람이 자기 결과까지 완료했는가 — Primary KPI의 분자다.
+  // 결과 세션마다 한 번만 보낸다.
+  const completedFromShareRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!shareInbound || step !== 'result' || !sajuResult) return;
+    if (completedFromShareRef.current.has(analyticsIds.resultSessionId)) return;
+    completedFromShareRef.current.add(analyticsIds.resultSessionId);
+    void trackGuardianEvent({
+      eventId: crypto.randomUUID(),
+      eventName: 'guardian_result_complete_from_share',
+      occurredAt: new Date().toISOString(),
+      visitorSessionId: analyticsIds.visitorSessionId,
+      resultSessionId: analyticsIds.resultSessionId,
+      shareId: shareInbound.shareId,
+      guardianId: guardianIdFor(sajuResult),
+      fromGuardianId: shareInbound.fromGuardianId,
+      utmSource: 'guardian_share',
+    });
+  }, [shareInbound, step, sajuResult, analyticsIds.resultSessionId, analyticsIds.visitorSessionId]);
+
+  // 궁합 블록이 실제로 보였는지 — 공유 허브가 노출됐다는 신호다.
+  const reportedMatchRef = useRef(new Set<string>());
+  const trackMatchSectionView = () => {
+    if (!sajuResult || reportedMatchRef.current.has(analyticsIds.resultSessionId)) return;
+    reportedMatchRef.current.add(analyticsIds.resultSessionId);
+    void trackGuardianEvent({
+      eventId: crypto.randomUUID(),
+      eventName: 'guardian_match_section_view',
+      occurredAt: new Date().toISOString(),
+      visitorSessionId: analyticsIds.visitorSessionId,
+      resultSessionId: analyticsIds.resultSessionId,
+      guardianId: guardianIdFor(sajuResult),
+    });
+  };
+
+  // 결제만 끝난 채 새로고침된 세션을 복구한다.
+  // 저장된 출생정보가 없으면 되살릴 수 없으므로 결제 대기 표시를 지우고 일반 흐름으로 둔다.
+  useEffect(() => {
+    if (!resumePersonalizeRef.current) return;
+    if (!savedSession?.birthData?.year) {
+      resumePersonalizeRef.current = false;
+      paidSessionRef.current = null;
+      clearPaidSession();
+      return;
+    }
+    restoreSavedSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 복구 계산이 끝나면 결과가 아니라 결제 후 입력 화면으로 보낸다.
+  useEffect(() => {
+    if (!resumePersonalizeRef.current || !sajuResult) return;
+    resumePersonalizeRef.current = false;
+    setStep('personalize');
+  }, [sajuResult]);
 
   // === 결제 후 AI 리포트 생성 대기 문구 순환 (소요 시간이 길어 진행감을 계속 보여줘야 한다) ===
   useEffect(() => {
@@ -692,8 +824,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // === 해금 시 AI API 통신 (또는 초정밀 Fallback 로드) ===
   const handleUnlock = async (email: string) => {
-    if (!email || !email.includes('@')) {
-      alert("올바른 이메일 주소를 입력해 주세요.");
+    // 결제 모달이 넘겨주는 값만 받는다. alert는 브라우저를 막아버려 화면 안 오류로 보여준다.
+    if (typeof email !== 'string' || !email.includes('@')) {
+      setUnlockError('올바른 이메일 주소를 입력해 주세요.');
       return;
     }
 
@@ -732,17 +865,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    setIsAILoading(true);
+    // 결제까지가 여기 몫이다. 직무·목표·상황은 결제 후 personalize 화면에서 받는다.
+    paidSessionRef.current = { paymentId: finalPaymentId, email: email.trim() };
+    savePaidSession(paidSessionRef.current);
+    setCareerContext(prev => ({ ...prev, email: email.trim() }));
+    setShowManualPayModal(false);
+    setStep('personalize');
+  };
 
+  // 결제 후 입력 화면에서 호출된다. 입력을 건너뛰면 빈 객체가 들어온다.
+  const submitPersonalization = async (patch: Record<string, string>): Promise<boolean> => {
+    const paid = paidSessionRef.current;
+    if (!paid) {
+      setUnlockError('결제 정보를 찾지 못했습니다. 고객센터로 문의해 주시면 바로 도와드릴게요.');
+      return false;
+    }
+    const context = { ...careerContext, ...patch };
+    setCareerContext(context);
+    setIsAILoading(true);
+    setUnlockError(null);
+
+    const finalPaymentId = paid.paymentId;
     try {
       // Create request payload
       const payload = {
         payment_id: finalPaymentId,
         birth: birthData,
         career_context: {
-          email: email.trim(),
-          worry_text: careerContext.current_status,
-          job_title: careerContext.current_job,
+          email: paid.email,
+          worry_text: context.desired_answer,
+          job_title: context.current_job,
+          career_goal: context.career_goal,
           years_of_experience: 5 // Defaulting, you might want to derive this
         }
       };
@@ -783,7 +936,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAiReport({ ...finalData, source: 'ai' });
       setIsUnlocked(true);
       setUnlockToken(finalPaymentId);
-      setShowManualPayModal(false);
+      // 리포트가 나왔으니 결제 대기 상태는 지운다.
+      paidSessionRef.current = null;
+      clearPaidSession();
+      setStep('result');
       if (sajuResult) {
         void trackGuardianEvent({
           eventId: crypto.randomUUID(),
@@ -801,9 +957,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.warn("AI 백엔드 연결 실패:", error);
       setUnlockError(error.message || '리포트 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       notifyReportReady(false);
+      return false;
     } finally {
       setIsAILoading(false);
     }
+    return true;
   };
 
   // === 이메일 주소로 구매한 해금 리포트 열람 링크 발송 요청 ===
@@ -965,6 +1123,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     link.click();
   };
 
+  /**
+   * 수호신 공유. 기존 커리어 점수 카드가 아니라 수호신 카드를 만들어 보낸다.
+   * 화면에 캔버스를 두지 않고 여기서 오프스크린으로 그린다 —
+   * 예전에는 유료 결과 화면에만 있는 캔버스에 의존해 무료 화면에서 버튼이 먹지 않았다.
+   */
+  const handleGuardianShare = async () => {
+    if (!sajuResult || !guardian || isShareLoading) return;
+
+    const shareId = ensureShareId(analyticsIds.shareId);
+    const shareAnalyticsIds = { ...analyticsIds, shareId };
+    if (shareId !== analyticsIds.shareId) setAnalyticsIds(shareAnalyticsIds);
+    const guardianId = guardian.id;
+
+    void trackGuardianEvent({
+      eventId: crypto.randomUUID(),
+      eventName: 'guardian_share_click',
+      occurredAt: new Date().toISOString(),
+      visitorSessionId: shareAnalyticsIds.visitorSessionId,
+      resultSessionId: shareAnalyticsIds.resultSessionId,
+      shareId,
+      guardianId,
+    });
+
+    setIsShareLoading(true);
+    try {
+      const canvas = guardianCardCanvasRef.current ?? document.createElement('canvas');
+      guardianCardCanvasRef.current = canvas;
+      const image = await loadGuardianImage(guardian.imageUrl);
+      drawGuardianShareCard(canvas, guardian, image);
+      const blob = await canvasToPngBlob(canvas);
+
+      const { hook, description } = buildGuardianShareText(guardian);
+      const baseServiceUrl = import.meta.env.VITE_PUBLIC_SERVICE_URL || window.location.origin;
+      const { imageUrl, sharePageUrl } = await ensureShareAssets(canvas, hook, description);
+      // 받는 사람이 보낸 수호신 문맥을 이어받도록 귀속값을 URL에 싣는다.
+      const shareUrl = buildShareUrl(sharePageUrl || baseServiceUrl, guardianId, shareId);
+
+      const result = await shareCareerResult({
+        blob,
+        serviceUrl: shareUrl,
+        kakaoKey: import.meta.env.VITE_KAKAO_JS_KEY || '',
+        shareHook: hook,
+        description,
+        preUploadedImageUrl: imageUrl || undefined,
+        unlockToken,
+        shareId,
+        resultSessionId: shareAnalyticsIds.resultSessionId,
+        visitorSessionId: shareAnalyticsIds.visitorSessionId,
+        guardianId,
+      });
+
+      const channel = result === 'kakao' ? 'kakao'
+        : result === 'link' ? 'web_link'
+        : result === 'file' ? 'web_file'
+        : 'download';
+      void trackGuardianEvent({
+        eventId: crypto.randomUUID(),
+        eventName: 'guardian_share_sheet_opened',
+        occurredAt: new Date().toISOString(),
+        visitorSessionId: shareAnalyticsIds.visitorSessionId,
+        resultSessionId: shareAnalyticsIds.resultSessionId,
+        shareId, guardianId, shareChannel: channel,
+      });
+
+      if (result === 'kakao') {
+        // 실제 전송은 카카오 웹훅으로만 확인된다.
+        if (!shareBonusGranted) pollShareBonusStatus(unlockToken);
+      } else if (earnsBonusQuestion(result) && !shareBonusGranted) {
+        const bonusResponse = await fetch('/api/share-bonus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unlock_token: unlockToken }),
+        });
+        if (bonusResponse.ok) setShareBonusGranted(true);
+      }
+      if (result === 'download') alert('카카오 공유를 준비하지 못해 이미지를 저장하고 서비스 주소를 복사했어요.');
+    } catch {
+      alert('공유 카드를 준비하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsShareLoading(false);
+    }
+  };
+
   // 카카오톡 공유는 사용자가 채팅방을 골라 실제로 "보내기"를 눌러야 카카오 서버가 웹훅을 보낸다.
   // 그 전까진 보너스를 줄 수 없으므로, 도착할 때까지 백그라운드에서 짧은 간격으로 확인한다.
   const pollShareBonusStatus = (token: string) => {
@@ -1069,7 +1310,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setShareBonusGranted(true);
         }
       }
-      if (result === 'download') alert('카카오 공유를 준비하지 못해 이미지를 저장하고 서비스 주소를 복사했어요.');
+      if (result === 'download') {
+        // 다운로드 폴백도 공유 시도이므로 집계에 넣는다.
+        // 빠지면 completed_guardians_per_attempted_share의 분모가 과소 계상된다.
+        void trackGuardianEvent({
+          eventId: crypto.randomUUID(), eventName: 'guardian_share_sheet_opened', occurredAt: new Date().toISOString(),
+          visitorSessionId: shareAnalyticsIds.visitorSessionId, resultSessionId: shareAnalyticsIds.resultSessionId,
+          shareId: shareAnalyticsIds.shareId, guardianId, shareChannel: 'download',
+        });
+        alert('카카오 공유를 준비하지 못해 이미지를 저장하고 서비스 주소를 복사했어요.');
+      }
     } catch {
       alert('공유 카드를 준비하지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -1096,7 +1346,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /** 입력 단계 진행 상태 */
   const flowState = useMemo(() => ({
     step,
-    currentInputStep,
     birthData,
     careerContext,
     birthError,
@@ -1108,11 +1357,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     savedSession,
     showManualPayModal,
     showLookupModal,
-  }), [step, currentInputStep, birthData, careerContext, birthError, wheelDayCount, wheelDays, loadingText, copy, deepLinkError, savedSession, showManualPayModal, showLookupModal]);
+  }), [step, birthData, careerContext, birthError, wheelDayCount, wheelDays, loadingText, copy, deepLinkError, savedSession, showManualPayModal, showLookupModal]);
 
   /** 진단 결과와 그 이후 */
   const reportState = useMemo(() => ({
     sajuResult,
+    guardian,
+    guardianConcern,
+    shareInbound,
     isUnlocked,
     aiReport,
     unlockToken,
@@ -1126,7 +1378,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lookupError,
     lookupSentMessage,
     reportHistory,
-  }), [sajuResult, isUnlocked, aiReport, unlockToken, followUps, followUpError, isFollowUpLoading, shareBonusGranted, isShareLoading, isShareConfirming, isLookupLoading, lookupError, lookupSentMessage, reportHistory]);
+  }), [sajuResult, guardian, guardianConcern, shareInbound, isUnlocked, aiReport, unlockToken, followUps, followUpError, isFollowUpLoading, shareBonusGranted, isShareLoading, isShareConfirming, isLookupLoading, lookupError, lookupSentMessage, reportHistory]);
 
   /** 결제·쿠폰 */
   const checkoutState = useMemo(() => ({
@@ -1149,11 +1401,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   handlersRef.current = {
     restoreSavedSession,
     handleUnlock,
+    submitPersonalization,
     handleEmailLookup,
     handleSelectPastReport,
     handleFollowUpSubmit,
     handleDownloadCard,
     handleShareResult,
+    handleGuardianShare,
+    trackMatchSectionView,
     handleApplyCoupon,
     pollShareBonusStatus,
   };
@@ -1165,6 +1420,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setBirthData,
       setCareerContext,
       setSajuResult,
+      setGuardianConcern,
       setIsUnlocked,
       setIsAILoading,
       setUnlockLoadingText,
@@ -1198,11 +1454,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       summaryCardCanvasRef,
       restoreSavedSession: stable('restoreSavedSession'),
       handleUnlock: stable('handleUnlock'),
+      submitPersonalization: stable('submitPersonalization'),
       handleEmailLookup: stable('handleEmailLookup'),
       handleSelectPastReport: stable('handleSelectPastReport'),
       handleFollowUpSubmit: stable('handleFollowUpSubmit'),
       handleDownloadCard: stable('handleDownloadCard'),
       handleShareResult: stable('handleShareResult'),
+      handleGuardianShare: stable('handleGuardianShare'),
+      trackMatchSectionView: stable('trackMatchSectionView'),
       handleApplyCoupon: stable('handleApplyCoupon'),
       pollShareBonusStatus: stable('pollShareBonusStatus'),
     };

@@ -164,16 +164,16 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+      background: 'rgba(47,55,50,0.45)', display: 'flex', justifyContent: 'center', alignItems: 'center',
       zIndex: 200, padding: 20
     }}>
       <div className="glass-card" style={{
         width: '100%', maxWidth: 480, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
-        background: '#120d21', border: '1px solid var(--border-neon-bright)',
+        background: 'var(--jg-page, #faf8f2)', border: '1px solid var(--jg-line, #ddd8cd)',
         boxShadow: '0 0 30px rgba(168,85,247,0.3)', padding: 24, borderRadius: 16
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 20, color: '#fff', margin: 0 }}>
+          <h3 style={{ fontSize: 20, color: 'var(--jg-ink, #2f3732)', margin: 0 }}>
             {title}
           </h3>
           <button 

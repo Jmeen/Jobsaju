@@ -46,7 +46,8 @@ function createAnalyticsDb() {
 const validEvent = () => ({
   eventId: UUID_A,
   eventName: 'guardian_result_view',
-  occurredAt: '2026-08-17T00:00:00.000Z',
+  // 서버 시각 창 검증이 걸려 있으므로 고정 날짜를 쓰면 시간이 지나며 테스트가 썩는다.
+  occurredAt: new Date().toISOString(),
   visitorSessionId: UUID_B,
   resultSessionId: UUID_C,
   guardianId: '甲子',
@@ -85,6 +86,69 @@ test('rejects non-canonical occurredAt values so lexical KPI windows remain chro
     );
     assert.equal(response.status, 400, `expected ${occurredAt} to be rejected`);
   }
+});
+
+test('rejects occurredAt outside the server clock window so KPI ranges cannot be poisoned', async () => {
+  const now = Date.parse('2026-08-17T12:00:00.000Z');
+  const at = offsetMs => new Date(now + offsetMs).toISOString();
+
+  const rejected = [
+    at(-25 * 60 * 60 * 1000), // 창보다 오래된 과거
+    at(60 * 60 * 1000),       // 미래로 한 시간
+    at(365 * 24 * 60 * 60 * 1000),
+  ];
+  for (const occurredAt of rejected) {
+    const response = await handleGuardianAnalyticsRequest(
+      makeRequest({ ...validEvent(), occurredAt }), { DB: createAnalyticsDb() }, { now, buckets: new Map() },
+    );
+    assert.equal(response.status, 400, `expected ${occurredAt} to be rejected`);
+  }
+
+  const accepted = [at(0), at(-23 * 60 * 60 * 1000), at(10 * 60 * 1000)];
+  for (const occurredAt of accepted) {
+    const response = await handleGuardianAnalyticsRequest(
+      makeRequest({ ...validEvent(), occurredAt }), { DB: createAnalyticsDb() }, { now, buckets: new Map() },
+    );
+    assert.equal(response.status, 202, `expected ${occurredAt} to be accepted`);
+  }
+});
+
+test('rate limits a single client so the public D1 write path cannot be flooded', async () => {
+  const db = createAnalyticsDb();
+  const buckets = new Map();
+  const now = Date.now();
+  const send = (id, at = now) => handleGuardianAnalyticsRequest(
+    new Request('https://example.com/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.7' },
+      body: JSON.stringify({ ...validEvent(), eventId: id }),
+    }),
+    { DB: db },
+    { now: at, buckets },
+  );
+
+  const uuid = index => `${String(index).padStart(8, '0')}-1111-4111-8111-111111111111`;
+  for (let index = 0; index < 60; index += 1) {
+    assert.equal((await send(uuid(index))).status, 202, `event ${index} should be accepted`);
+  }
+
+  const throttled = await send(uuid(60));
+  assert.equal(throttled.status, 429);
+  assert.equal(throttled.headers.get('Retry-After'), '60');
+  assert.equal(db.rows.length, 60);
+
+  // 다른 발신지는 영향을 받지 않고, 창이 지나면 다시 열린다.
+  const otherClient = await handleGuardianAnalyticsRequest(
+    new Request('https://example.com/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '198.51.100.4' },
+      body: JSON.stringify({ ...validEvent(), eventId: uuid(61) }),
+    }),
+    { DB: db },
+    { now, buckets },
+  );
+  assert.equal(otherClient.status, 202);
+  assert.equal((await send(uuid(62), now + 61_000)).status, 202);
 });
 
 test('rejects guardian_share_confirmed from the unauthenticated browser analytics route', async () => {
@@ -132,13 +196,14 @@ test('rethrows non-unique database failures', async () => {
 
 test('normalizes every omitted optional field to null before binding to D1', async () => {
   const db = createAnalyticsDb();
+  const event = validEvent();
 
-  await recordGuardianAnalyticsEvent({ DB: db }, validEvent());
+  await recordGuardianAnalyticsEvent({ DB: db }, event);
 
   assert.deepEqual(db.rows[0], {
     event_id: UUID_A,
     event_name: 'guardian_result_view',
-    occurred_at: '2026-08-17T00:00:00.000Z',
+    occurred_at: event.occurredAt,
     visitor_session_id: UUID_B,
     result_session_id: UUID_C,
     share_id: null,

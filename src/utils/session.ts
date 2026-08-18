@@ -30,4 +30,3 @@ export function loadSavedSession(): SavedSession | null {
   }
 }
 
-// === 출생 정보용 스크롤 휠 피커 (공간 절약형 3줄 컴팩트 모드) ===

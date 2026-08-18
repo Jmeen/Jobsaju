@@ -21,8 +21,12 @@ import {
   formatSeoulDate,
   parseAndValidatePremiumReport,
 } from './reportQuality.js';
-import { handleGuardianAnalyticsRequest, recordGuardianAnalyticsEvent } from './guardianAnalytics.js';
-import guardianCharacters from '../free_engine_characters.js';
+import {
+  GUARDIAN_IDS,
+  UUID_V4_PATTERN,
+  handleGuardianAnalyticsRequest,
+  recordGuardianAnalyticsEvent,
+} from './guardianAnalytics.js';
 
 /**
  * 직장인 이직사주 - Cloudflare Workers 기반 AI API 프록시 & 해금 게이트웨이
@@ -41,8 +45,6 @@ const FALLBACK_FLASH_MODELS = [
 const REPORT_VERSION = 'copy-v2';
 const reportCacheKey = (token) => `report:${REPORT_VERSION}:${token}`;
 const EMAIL_HISTORY_LIMIT = 20;
-const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const GUARDIAN_IDS = new Set(guardianCharacters.map(({ id }) => id));
 
 async function kakaoResourceEventId(resourceId) {
   const digest = new Uint8Array(await crypto.subtle.digest(
@@ -397,7 +399,11 @@ export default {
 
       const unlockToken = typeof callbackArgs.unlock_token === 'string' ? callbackArgs.unlock_token : null;
 
-      if (unlockToken && env.SAJU_KV) {
+      // 결제 전 클라이언트는 'local-developer-unlock-token'이라는 고정 상수를 들고 다닌다.
+      // 검증 없이 기록하면 무료 사용자 한 명의 공유가 같은 상수를 쓰는 모든 무료 사용자에게
+      // 보너스 획득으로 표시된다(실제 추가 질문은 /api/followup이 막지만 UI가 어긋난다).
+      // /api/share-bonus와 동일하게 실제 해금 토큰만 기록한다.
+      if (unlockToken && env.SAJU_KV && await verifyUnlockToken(env, unlockToken)) {
         await env.SAJU_KV.put(`share-bonus:${unlockToken}`, new Date().toISOString());
       }
 
@@ -1042,9 +1048,9 @@ ${q}
 [사용자 커리어 컨텍스트]
 - 생성 기준일: ${generatedAt}
 - 기준 시간대: Asia/Seoul
-- 성별: ${user_context.gender}
-- 현재 상황: ${user_context.current_status}
-- 핵심 고민: ${user_context.main_concern}
+- 성별: ${user_context.gender || '기재 안 함'}
+- 현재 상황: ${user_context.current_status || '기재 안 함'}
+- 핵심 고민: ${(Array.isArray(user_context.main_concern) ? user_context.main_concern.join(', ') : user_context.main_concern) || '기재 안 함'}
 - 현재 직무 및 연차: ${user_context.current_job || '기재 안 함'}
 - 최종 커리어 목표: ${user_context.career_goal || '기재 안 함'}
 - 구체적 정황이나 고민: ${user_context.desired_answer || '기재 안 함'}
