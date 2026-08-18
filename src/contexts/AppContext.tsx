@@ -99,7 +99,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     hour: '13',
     minute: '30',
     isSolar: true,
-    gender: 1, // 1: 남성, 0: 여성
+    gender: null as number | null, // 1: 남성, 0: 여성, null: 아직 선택하지 않음
     hasTime: true
   });
 
@@ -392,6 +392,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (Number.isNaN(h) || h < 0 || h > 23) return '시는 0~23 사이로 입력해 주세요.';
       if (Number.isNaN(min) || min < 0 || min > 59) return '분은 0~59 사이로 입력해 주세요.';
     }
+    if (birthData.gender !== 0 && birthData.gender !== 1) return '성별을 선택해 주세요.';
     return null;
   })();
 
@@ -399,6 +400,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loadingText, setLoadingText] = useState('태어난 날의 하늘 우주 배치 확인 중...');
   useEffect(() => {
     if (step === 'summon') {
+      const gender = birthData.gender;
+      if (gender !== 0 && gender !== 1) {
+        setStep('birth');
+        return;
+      }
       // 만세력 엔진(gzip 약 100KB)이 처음 필요해지는 지점이다.
       // 로딩 연출이 2.4초 돌아가는 동안 받아두면 사용자가 기다리는 시간은 늘지 않는다.
       // 만세력 엔진(gzip 약 100KB)이 처음 필요해지는 지점이다.
@@ -416,7 +422,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         day: parseInt(birthData.day),
         hour: birthData.hasTime ? hourVal : null,
         minute: birthData.hasTime ? minVal : null,
-        gender: birthData.gender,
+        gender,
         isSolar: birthData.isSolar,
       }, { signal: controller.signal });
 
@@ -432,7 +438,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             parseInt(birthData.day),
             hourVal,
             minVal,
-            birthData.gender,
+            gender,
             {
               applyTimeCorrection: true,
               isSolar: birthData.isSolar,

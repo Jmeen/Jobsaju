@@ -57,7 +57,7 @@ export function BirthScreen() {
       </p>
 
       <div className="jg-birth-card">
-        <span className="jg-birth-label">성별</span>
+        <span className="jg-birth-label">성별 (필수)</span>
         <div className="jg-toggle-row">
           <button
             type="button"
