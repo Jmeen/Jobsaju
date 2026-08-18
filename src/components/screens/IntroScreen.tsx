@@ -16,6 +16,7 @@ export function IntroScreen() {
   const {
     savedSession,
     copy,
+    shareAttribution,
   } = useAppFlow();
   const {
     isUnlocked,
@@ -30,6 +31,14 @@ export function IntroScreen() {
   return (
     <div className="intro-screen">
           <div className="intro-brand"><span>커리어 사주</span></div>
+          {shareAttribution && (
+            <div style={{ margin: '0 20px 16px', padding: '12px 16px', borderRadius: 12, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)', textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: 13, color: '#e5e7eb', lineHeight: 1.5 }}>
+                친구의 캐릭터는 {shareAttribution.fromCharacterName || '멋진 캐릭터'}예요<br />
+                당신의 캐릭터는 누구일까요?
+              </p>
+            </div>
+          )}
           <div className="intro-content">
             <span className="eyebrow">{copy.eyebrow}</span>
             <h1>{copy.headline.map((line: any, i: any) => (

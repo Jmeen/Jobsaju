@@ -8,6 +8,7 @@ import {
 } from './followUpPolicy.js';
 import { handleShareCardRequest } from './shareCard.js';
 import { handleSharePageRequest } from './sharePage.js';
+import { handleShareAnalyticsRequest, recordShareEvent } from './shareAnalytics.js';
 import { handleAdminPageRequest } from './adminPage.js';
 import {
   evaluateCoupon,
@@ -310,6 +311,9 @@ export default {
     const sharePageResponse = await handleSharePageRequest(request, env);
     if (sharePageResponse) return sharePageResponse;
 
+    const shareAnalyticsResponse = await handleShareAnalyticsRequest(request, env);
+    if (shareAnalyticsResponse) return shareAnalyticsResponse;
+
     // 쿠폰 관리자 페이지 — 뼈대 HTML만 내려주고, 실제 인증은 페이지 안 fetch가 /api/admin/coupons*로 한다.
     const adminPageResponse = handleAdminPageRequest(request);
     if (adminPageResponse) return adminPageResponse;
@@ -364,16 +368,26 @@ export default {
         return new Response("Unauthorized", { status: 401 });
       }
 
-      let unlockToken = new URL(request.url).searchParams.get("unlock_token");
-      if (!unlockToken && request.method === "POST") {
+      const webhookUrl = new URL(request.url);
+      let unlockToken = webhookUrl.searchParams.get("unlock_token");
+      // share_session_id/character_id는 카카오 공유 시점에 serverCallbackArgs로 실어 보낸 값이 그대로
+      // 돌아온 것 — "카카오 공유 버튼 클릭"과 별개로 "실제 발송 완료"를 analytics에서 구분하는 데 쓴다.
+      let shareSessionId = webhookUrl.searchParams.get("share_session_id");
+      let characterId = webhookUrl.searchParams.get("character_id");
+      if (request.method === "POST" && (!unlockToken || !shareSessionId || !characterId)) {
         try {
           const contentType = request.headers.get("Content-Type") || "";
           if (contentType.includes("application/json")) {
             const body = await request.json();
-            unlockToken = body?.unlock_token || null;
+            unlockToken = unlockToken || body?.unlock_token || null;
+            shareSessionId = shareSessionId || body?.share_session_id || null;
+            characterId = characterId || body?.character_id || null;
           } else {
             const body = await request.text();
-            unlockToken = new URLSearchParams(body).get("unlock_token");
+            const parsedBody = new URLSearchParams(body);
+            unlockToken = unlockToken || parsedBody.get("unlock_token");
+            shareSessionId = shareSessionId || parsedBody.get("share_session_id");
+            characterId = characterId || parsedBody.get("character_id");
           }
         } catch {
           // 바디 파싱에 실패해도 아래에서 2XX만 정상 응답하면 된다 (문서 요구사항: 3초 내 2XX).
@@ -383,6 +397,9 @@ export default {
       if (unlockToken && env.SAJU_KV) {
         await env.SAJU_KV.put(`share-bonus:${unlockToken}`, new Date().toISOString());
       }
+
+      // analytics 실패는 절대 이 응답에 영향을 주지 않는다(recordShareEvent 내부에서 이미 삼킨다).
+      await recordShareEvent(env, { event: 'guardian_share_kakao_success', shareSessionId, characterId, medium: 'kakao' });
 
       return new Response("OK", { status: 200 });
     }
