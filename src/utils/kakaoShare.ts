@@ -69,6 +69,16 @@ export async function createSharePage({ imageUrl, title, description }: { imageU
 }
 
 export function buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, shareId, resultSessionId, visitorSessionId, guardianId, description }: Omit<ShareCareerInput, 'blob' | 'kakaoKey'> & { imageUrl: string }): KakaoFeedTemplate {
+  // 카카오 서버가 실제 전송 성공 시 이 값들을 그대로 웹훅으로 돌려준다. unlockToken은 결제 전
+  // 무료 사용자에게는 없을 수 있으므로, share_id 등의 analytics id는 unlockToken 유무와
+  // 무관하게 독립적으로 실어야 무료 사용자의 공유도 guardian_share_confirmed로 집계된다.
+  const serverCallbackArgs: Record<string, string> = {};
+  if (unlockToken) serverCallbackArgs.unlock_token = unlockToken;
+  if (shareId) serverCallbackArgs.share_id = shareId;
+  if (resultSessionId) serverCallbackArgs.result_session_id = resultSessionId;
+  if (visitorSessionId) serverCallbackArgs.visitor_session_id = visitorSessionId;
+  if (guardianId) serverCallbackArgs.guardian_id = guardianId;
+
   return {
     objectType: 'feed' as const,
     content: {
@@ -80,16 +90,7 @@ export function buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlock
       link: { mobileWebUrl: serviceUrl, webUrl: serviceUrl },
     },
     buttons: [{ title: '내 6개월 이직운 보기', link: { mobileWebUrl: serviceUrl, webUrl: serviceUrl } }],
-    // 카카오 서버가 실제 전송 성공 시 이 값을 그대로 웹훅으로 돌려준다 — 어떤 해금 토큰의 공유인지 식별하는 용도.
-    ...(unlockToken ? {
-      serverCallbackArgs: {
-        unlock_token: unlockToken,
-        ...(shareId ? { share_id: shareId } : {}),
-        ...(resultSessionId ? { result_session_id: resultSessionId } : {}),
-        ...(visitorSessionId ? { visitor_session_id: visitorSessionId } : {}),
-        ...(guardianId ? { guardian_id: guardianId } : {}),
-      },
-    } : {}),
+    ...(Object.keys(serverCallbackArgs).length ? { serverCallbackArgs } : {}),
   };
 }
 
