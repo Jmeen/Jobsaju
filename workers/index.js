@@ -74,7 +74,7 @@ function parseEmailHistory(rawText) {
 }
 
 function buildReportLabel(userContext) {
-  const parts = [userContext?.current_job, userContext?.career_goal].filter(Boolean);
+  const parts = [userContext?.current_job || userContext?.job_title, userContext?.career_goal || userContext?.goal].filter(Boolean);
   return parts.length ? parts.join(' → ') : 'AI 커리어 리포트';
 }
 
@@ -179,8 +179,8 @@ async function sendLookupEmail(env, { email, history, origin }) {
   const linksHtml = history.map(({ token, createdAt, label }) => {
     const payloadStr = encodeSecurePayload({ token, email });
     const reportUrl = `${baseUrl}/?p=${encodeURIComponent(payloadStr)}`;
-    const dateLabel = createdAt ? new Date(createdAt).toLocaleDateString('ko-KR') : '';
-    return `<div style="margin-bottom:10px;"><a href="${reportUrl}" style="color:#7c3aed;font-weight:bold;text-decoration:none;">${label || 'AI 커리어 리포트'}${dateLabel ? ` (${dateLabel})` : ''} 열람하기 →</a></div>`;
+    const dateLabel = createdAt ? new Date(createdAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : '날짜 미상';
+    return `<div style="margin-bottom:10px;"><a href="${reportUrl}" style="color:#7c3aed;font-weight:bold;text-decoration:none;">[${dateLabel}] ${label || 'AI 커리어 리포트'} 열람하기 →</a></div>`;
   }).join('');
 
   const title = '[직장인 이직사주] 리포트 다시보기 링크';

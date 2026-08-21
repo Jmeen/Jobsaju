@@ -112,9 +112,8 @@ export function ResultScreen() {
                   onClick={() => handleSelectPastReport(entry.unlock_token)}
                   disabled={isLookupLoading}
                 >
-                  <strong>{entry.label}</strong>
+                  <strong>{entry.created_at ? `${new Date(entry.created_at).toLocaleDateString('ko-KR')} · ` : ''}{entry.label}</strong>
                   {idx === 0 && <span className="is-latest">· 최신</span>}
-                  {entry.created_at && <small>{new Date(entry.created_at).toLocaleDateString('ko-KR')}</small>}
                 </button>
               );
             })}

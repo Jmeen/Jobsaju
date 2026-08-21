@@ -3,6 +3,7 @@ import { getSajuAnalysis, calculateShiShen, normalizeGanZhi } from '../src/utils
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { buildGeminiRequest } from './geminiTransport.js';
 import { validateAndRepairPaidReport } from './paidReportValidator.js';
+import { archivePaidReport } from './reportArchive.js';
 import characters from '../free_engine_characters.js';
 
 const SYSTEM_PROMPT = `
@@ -195,6 +196,18 @@ export async function handlePaidReportRequest(request, env) {
         const row = await env.DB.prepare('SELECT status, report_json, generation_attempt FROM paid_reports WHERE payment_id = ?').bind(payment_id).first();
         if (row) {
           if (row.status === 'completed') {
+            // D1에만 남아 있던 완료본도 재시도 시 이메일 다시보기 색인을 복구한다.
+            try {
+              await archivePaidReport({
+                kv: env.SAJU_KV,
+                paymentId: payment_id,
+                responsePayload: row.report_json,
+                careerContext: career_context,
+                birth,
+              });
+            } catch (err) {
+              console.error('Completed paid report email archive error:', err);
+            }
             return new Response(row.report_json, { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
           } else if (row.status === 'generating') {
             return new Response(JSON.stringify({ error: 'Generating...' }), { status: 202, headers: { 'Access-Control-Allow-Origin': '*' } });
@@ -381,6 +394,20 @@ export async function handlePaidReportRequest(request, env) {
       }
     } else if (env.SAJU_KV) {
       await env.SAJU_KV.put(`paidreport:${payment_id}`, responsePayload, { expirationTtl: 86400 * 30 }); // 30 days
+    }
+
+    // D1의 영구 보관과 함께 이메일 다시보기 및 토큰 딥링크 복구용 색인을 보관한다.
+    try {
+      await archivePaidReport({
+        kv: env.SAJU_KV,
+        paymentId: payment_id,
+        responsePayload,
+        careerContext: career_context,
+        birth,
+      });
+    } catch (err) {
+      // 색인 저장 오류가 이미 완성된 리포트 응답을 막으면 안 된다.
+      console.error('Paid report email archive error:', err);
     }
 
     return new Response(responsePayload, { status: 200, headers: { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" } });
