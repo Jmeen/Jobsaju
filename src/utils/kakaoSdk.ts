@@ -17,16 +17,20 @@ export function loadKakaoSdk(): Promise<void> {
   if (pending) return pending;
 
   pending = new Promise<void>((resolve, reject) => {
+    // preload가 네트워크/차단기로 한 번 실패하면 이전 script 태그가 남는다.
+    // 그 태그를 그대로 재사용하면 load/error 이벤트가 다시 오지 않아 공유가 영구 대기한다.
     const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
-    const script = existing || document.createElement('script');
+    if (existing) existing.remove();
+    const script = document.createElement('script');
     script.addEventListener('load', () => resolve(), { once: true });
-    script.addEventListener('error', () => reject(new Error('카카오 SDK를 불러오지 못했습니다.')), { once: true });
-    if (!existing) {
-      script.id = SCRIPT_ID;
-      script.src = KAKAO_SDK_SRC;
-      script.async = true;
-      document.head.appendChild(script);
-    }
+    script.addEventListener('error', () => {
+      script.remove();
+      reject(new Error('카카오 SDK를 불러오지 못했습니다.'));
+    }, { once: true });
+    script.id = SCRIPT_ID;
+    script.src = KAKAO_SDK_SRC;
+    script.async = true;
+    document.head.appendChild(script);
   });
   // 실패한 약속을 캐시해두면 재시도가 영영 막힌다 — 다음 호출에서 다시 시도할 수 있게 비운다.
   pending.catch(() => { pending = null; });
