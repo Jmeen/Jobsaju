@@ -3,11 +3,12 @@ import guardianCharacters from '../free_engine_characters.js';
 const MAX_BODY_BYTES = 4 * 1024;
 export const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const GUARDIAN_IDS = new Set(guardianCharacters.map(({ id }) => id));
-const SHARE_CHANNELS = new Set(['kakao', 'web_link', 'web_file', 'download']);
+const SHARE_CHANNELS = new Set(['kakao', 'copy', 'web_link', 'web_file', 'download']);
 
 export const GUARDIAN_EVENT_NAMES = new Set([
   'guardian_result_view', 'guardian_match_section_view',
   'guardian_share_click', 'guardian_share_sheet_opened', 'guardian_share_confirmed',
+  'guardian_share_link_copy',
   'guardian_share_landing_view', 'guardian_result_complete_from_share',
   'paid_conversion',
 ]);

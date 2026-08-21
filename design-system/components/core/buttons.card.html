@@ -1,0 +1,19 @@
+<!-- @dsCard group="Components" viewport="700x260" name="Buttons" subtitle="Primary / Secondary / Guardian variants" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="../../_ds_bundle.js"></script>
+<div id="root" style="padding:16px;background:var(--color-page);font-family:var(--font-body);display:flex;flex-direction:column;gap:10px;max-width:320px"></div>
+<script type="text/babel" data-presets="react">
+const { Button, TextLink, Badge, CollectionBadge } = window.JobSajuDesignSystem_b79c07;
+function Demo(){
+  return (<>
+    <Button variant="primary">내 수호신 뽑아보기</Button>
+    <Button variant="secondary">이전으로</Button>
+    <Button variant="guardian" element="wood">새싹호랑이에게 물어보기 →</Button>
+    <Button variant="primary" disabled>공유 카드를 만드는 중…</Button>
+    <TextLink>다른 고민 먼저 보기</TextLink>
+    <div style={{display:'flex',gap:6}}><Badge>연봉</Badge><Badge tone="brand">무료</Badge></div>
+    <CollectionBadge sequence={51} element="wood" />
+  </>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>

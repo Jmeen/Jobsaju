@@ -1,0 +1,37 @@
+:root{
+--color-page:#faf8f2;
+--color-surface:#faf8f2;
+--color-card:#f3f0e7;
+--color-card-strong:#ede8da;
+--color-ink:#2f3732;
+--color-muted:#858b83;
+--color-line:#ddd8cd;
+--color-lock:#4a3b31;
+--color-danger:#b4544a;
+--color-brand:#66866e;
+--color-brand-soft:#e8eee8;
+--color-brand-pressed:#e5f1ea;
+
+/* 오행 5색 — 캐릭터 이름/배지/CTA/공유 카드 tint 전용. 본문 UI 크롬에는 쓰지 않는다. */
+--color-element-wood-accent:#7fae9a;
+--color-element-wood-soft:#eef6f1;
+--color-element-wood-pressed:#e5f1ea;
+--color-element-fire-accent:#e99a88;
+--color-element-fire-soft:#fff1ec;
+--color-element-fire-pressed:#fbe8e1;
+--color-element-earth-accent:#c6a86b;
+--color-element-earth-soft:#f7f1e3;
+--color-element-earth-pressed:#f1e8d4;
+--color-element-metal-accent:#c7b27a;
+--color-element-metal-soft:#f8f5eb;
+--color-element-metal-pressed:#f0eadc;
+--color-element-water-accent:#7893ae;
+--color-element-water-soft:#eef3f8;
+--color-element-water-pressed:#e4ebf3;
+
+/* 공유 카드 전용 — 본 화면보다 대비를 한 단 더 세게 */
+--color-share-bg:#faf8f2;
+--color-share-ink:#2f3732;
+--color-share-muted:#858b83;
+--color-share-brand:#66866e;
+}

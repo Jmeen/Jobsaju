@@ -13,6 +13,8 @@ export type GuardianAsset = {
   /** 60갑자 순번 (甲子=1 ~ 癸亥=60). 아트워크 파일명과 같다. */
   sequence: number;
   imageUrl: string;
+  /** 랜딩 캐러셀처럼 작게 그리는 자리에서 쓰는 224px 판. 60마리를 한 화면에 태울 때 필요하다. */
+  thumbUrl: string;
   /** 화면에 쓰는 별명 (예: 새싹호랑이). */
   nickname: string;
   /** 캐릭터 대사처럼 쓰는 한 줄 카피. */
@@ -60,6 +62,11 @@ export function guardianImageUrl(sequence: number): string {
   return `/guardians/${String(sequence).padStart(2, '0')}.webp`;
 }
 
+/** 작게 그리는 자리용. 원본(640px)은 장당 47KB라 60마리를 한 번에 태울 수 없다(총 2.8MB). */
+export function guardianThumbUrl(sequence: number): string {
+  return `/guardians/thumb/${String(sequence).padStart(2, '0')}.webp`;
+}
+
 /**
  * 아트워크를 못 받았을 때 대신 그릴 이모지 그림.
  * 수호신 자리가 통째로 비면 결과 화면이 무너지므로, 캐릭터 이모지를 SVG로 감싸 채운다.
@@ -83,11 +90,6 @@ export function guardianElement(id: string): GuardianElement {
   return ELEMENT_BY_GAN_INDEX[Math.floor(ganIndex / 2)];
 }
 
-/** 랜딩 마퀴에 흐르는 대표 20종 — 목업에 실린 순서를 그대로 쓴다. */
-export const LANDING_MARQUEE_SEQUENCES: readonly string[] = [
-  1, 26, 10, 20, 52, 15, 25, 28, 40, 55, 50, 53, 51, 35, 6, 9, 17, 37, 47, 59,
-].map(guardianIdBySequence);
-
 export function getGuardianAsset(id: string): GuardianAsset {
   const resolvedId = isGuardianId(id) ? id : FALLBACK_GUARDIAN_ID;
   const sequence = SEQUENCE_BY_ID.get(resolvedId) as number;
@@ -97,6 +99,7 @@ export function getGuardianAsset(id: string): GuardianAsset {
     id: resolvedId,
     sequence,
     imageUrl: guardianImageUrl(sequence),
+    thumbUrl: guardianThumbUrl(sequence),
     nickname: profile?.nickname ?? resolvedId,
     copy: profile?.copy ?? '',
     ganzhiKo: profile?.ganzhiKo ?? '',

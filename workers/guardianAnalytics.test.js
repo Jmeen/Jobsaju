@@ -245,3 +245,41 @@ test('writes omitted optional fields through a real local Miniflare D1 binding',
     await miniflare.dispose();
   }
 });
+
+test('링크 복사 공유 이벤트와 copy 채널을 받아 저장한다', async () => {
+  const db = createAnalyticsDb();
+
+  const response = await handleGuardianAnalyticsRequest(makeRequest({
+    ...validEvent(),
+    eventName: 'guardian_share_link_copy',
+    shareId: UUID_A,
+    shareChannel: 'copy',
+  }), { DB: db });
+
+  assert.equal(response.status, 202);
+  assert.equal(db.rows[0].event_name, 'guardian_share_link_copy');
+  assert.equal(db.rows[0].share_channel, 'copy');
+});
+
+test('카카오와 링크 복사가 share_channel로 갈라져 저장된다', async () => {
+  const db = createAnalyticsDb();
+
+  for (const [eventId, shareChannel] of [[UUID_A, 'kakao'], [UUID_B, 'copy']]) {
+    await handleGuardianAnalyticsRequest(makeRequest({
+      ...validEvent(), eventId, eventName: 'guardian_share_click', shareId: UUID_C, shareChannel,
+    }), { DB: db });
+  }
+
+  assert.deepEqual(db.rows.map(row => row.share_channel), ['kakao', 'copy']);
+});
+
+test('모르는 공유 채널은 거부한다', async () => {
+  const db = createAnalyticsDb();
+
+  const response = await handleGuardianAnalyticsRequest(makeRequest({
+    ...validEvent(), eventName: 'guardian_share_link_copy', shareChannel: 'telegram',
+  }), { DB: db });
+
+  assert.equal(response.status, 400);
+  assert.equal(db.rows.length, 0);
+});

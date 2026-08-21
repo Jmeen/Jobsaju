@@ -1,19 +1,31 @@
 // 공유 링크로 들어온 사람의 문맥을 읽고 결과 완료까지 들고 간다.
-// 공유 URL: /?fromGuardian=甲寅&utm_source=guardian_share&shareId=<UUID>
+// 공유 URL: /?fromGuardian=甲寅&utm_source=guardian_share&utm_medium=kakao&shareSessionId=<UUID>
 //
 // 귀속값은 입력 단계를 지나 결과 완료 이벤트까지 살아 있어야 하므로 sessionStorage에 둔다.
 // 잘못되거나 없는 값은 오류로 만들지 않고 그냥 일반 랜딩으로 떨어뜨린다.
+//
+// URL 파라미터 이름은 shareSessionId이지만, 내부 필드와 D1 컬럼은 계속 share_id를 쓴다.
+// 같은 값을 가리키는 다른 이름일 뿐이고, 이미 쌓인 분석 데이터와 쿼리를 깨지 않기 위해서다.
+// 예전 링크가 쓰던 shareId 파라미터도 계속 받아준다 — 이미 카톡방에 떠 있는 링크가 있다.
 import { isGuardianId } from './guardianAssets.ts';
+import type { GuardianShareMedium } from './guardianShare.ts';
 
 const STORAGE_KEY = 'jobsaju_share_inbound_v1';
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MEDIUMS: readonly GuardianShareMedium[] = ['kakao', 'copy'];
 
 export type ShareInbound = {
   /** 보낸 사람의 수호신 id. 배너와 fromGuardianId 이벤트 필드에 쓴다. */
   fromGuardianId: string;
-  /** 원본 공유 흐름 id. 없을 수도 있다. */
+  /** 원본 공유 흐름 id(URL에서는 shareSessionId). 없을 수도 있다. */
   shareId: string | null;
+  /** 어떤 경로로 공유된 링크인지. 카카오와 링크 복사를 나눠 보기 위해 결과 완료까지 들고 간다. */
+  medium: GuardianShareMedium | null;
 };
+
+function normalizeMedium(value: string | null): GuardianShareMedium | null {
+  return MEDIUMS.find(medium => medium === value) ?? null;
+}
 
 /** 쿼리에서 공유 유입 문맥을 읽는다. fromGuardian이 유효한 60갑자일 때만 성립한다. */
 export function parseShareInbound(search: string): ShareInbound | null {
@@ -27,10 +39,11 @@ export function parseShareInbound(search: string): ShareInbound | null {
   const fromGuardianId = params.get('fromGuardian');
   if (!fromGuardianId || !isGuardianId(fromGuardianId)) return null;
 
-  const rawShareId = params.get('shareId');
+  const rawShareId = params.get('shareSessionId') ?? params.get('shareId');
   return {
     fromGuardianId,
     shareId: rawShareId && UUID_V4.test(rawShareId) ? rawShareId : null,
+    medium: normalizeMedium(params.get('utm_medium')),
   };
 }
 
@@ -57,7 +70,11 @@ export function loadShareInbound(): ShareInbound | null {
     const parsed = JSON.parse(raw);
     if (typeof parsed?.fromGuardianId !== 'string' || !isGuardianId(parsed.fromGuardianId)) return null;
     const shareId = typeof parsed?.shareId === 'string' && UUID_V4.test(parsed.shareId) ? parsed.shareId : null;
-    return { fromGuardianId: parsed.fromGuardianId, shareId };
+    return {
+      fromGuardianId: parsed.fromGuardianId,
+      shareId,
+      medium: normalizeMedium(typeof parsed?.medium === 'string' ? parsed.medium : null),
+    };
   } catch {
     return null;
   }
@@ -74,17 +91,4 @@ export function resolveShareInbound(search: string): ShareInbound | null {
     return fresh;
   }
   return loadShareInbound();
-}
-
-/** 공유할 때 붙이는 URL. 받는 사람이 보낸 사람의 수호신 문맥을 이어받는다. */
-export function buildShareUrl(baseUrl: string, fromGuardianId: string, shareId: string): string {
-  try {
-    const url = new URL(baseUrl);
-    url.searchParams.set('fromGuardian', fromGuardianId);
-    url.searchParams.set('utm_source', 'guardian_share');
-    url.searchParams.set('shareId', shareId);
-    return url.toString();
-  } catch {
-    return baseUrl;
-  }
 }

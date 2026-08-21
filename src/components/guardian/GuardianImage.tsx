@@ -8,18 +8,22 @@ type Props = {
   className?: string;
   alt?: string;
   eager?: boolean;
+  /** 작게 그리는 자리(랜딩 캐러셀 등)에서 켠다. 224px 판을 대신 받는다. */
+  thumb?: boolean;
 };
 
-export function GuardianImage({ guardian, className, alt, eager }: Props) {
+export function GuardianImage({ guardian, className, alt, eager, thumb }: Props) {
   const [failed, setFailed] = useState(false);
 
   // 수호신이 바뀌면 앞선 실패 상태를 끌고 가지 않는다.
   useEffect(() => { setFailed(false); }, [guardian.imageUrl]);
 
+  const src = thumb ? guardian.thumbUrl : guardian.imageUrl;
+
   return (
     <img
       className={className}
-      src={failed ? guardianEmojiFallbackUrl(guardian.animalEmoji) : guardian.imageUrl}
+      src={failed ? guardianEmojiFallbackUrl(guardian.animalEmoji) : src}
       alt={alt ?? `${guardian.nickname} 수호신`}
       loading={eager ? 'eager' : 'lazy'}
       decoding="async"

@@ -1,0 +1,291 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "components/core/**",
+              "components/guardian/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:BM DOHYEON|Nanum Gothic))/i]",
+        "message": "Font not provided by the design system. Available: BM DOHYEON, Nanum Gothic."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|tone|key|ref|className|style|children)$/]",
+        "message": "<Badge> doesn't accept that prop. Declared props: children, tone."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:muted|brand)$/]",
+        "message": "<Badge> tone must be one of 'muted' | 'brand'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|variant|element|disabled|onClick|type|key|ref|className|style|children)$/]",
+        "message": "<Button> doesn't accept that prop. Declared props: children, variant, element, disabled, onClick, type."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:primary|secondary|guardian)$/]",
+        "message": "<Button> variant must be one of 'primary' | 'secondary' | 'guardian'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='element'] > Literal[value!=/^(?:wood|fire|earth|metal|water)$/]",
+        "message": "<Button> element must be one of 'wood' | 'fire' | 'earth' | 'metal' | 'water'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='type'] > Literal[value!=/^(?:button|submit)$/]",
+        "message": "<Button> type must be one of 'button' | 'submit'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Card'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|tone|style|key|ref|className|style|children)$/]",
+        "message": "<Card> doesn't accept that prop. Declared props: children, tone, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Card'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:card|strong|brand-soft)$/]",
+        "message": "<Card> tone must be one of 'card' | 'strong' | 'brand-soft'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ChemistryBlock'] > JSXAttribute > JSXIdentifier[name!=/^(?:guardian|assetBase|isSharing|onShare|onView|key|ref|className|style|children)$/]",
+        "message": "<ChemistryBlock> doesn't accept that prop. Declared props: guardian, assetBase, isSharing, onShare, onView."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ChemistryScore'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|score|key|ref|className|style|children)$/]",
+        "message": "<ChemistryScore> doesn't accept that prop. Declared props: label, score."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ChemistryShareCard'] > JSXAttribute > JSXIdentifier[name!=/^(?:a|b|score|relation|size|aspect|key|ref|className|style|children)$/]",
+        "message": "<ChemistryShareCard> doesn't accept that prop. Declared props: a, b, score, relation, size, aspect."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ChemistryShareCard'] > JSXAttribute[name.name='aspect'] > Literal[value!=/^(?:square|story)$/]",
+        "message": "<ChemistryShareCard> aspect must be one of 'square' | 'story'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CollectionBadge'] > JSXAttribute > JSXIdentifier[name!=/^(?:sequence|total|element|key|ref|className|style|children)$/]",
+        "message": "<CollectionBadge> doesn't accept that prop. Declared props: sequence, total, element."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CollectionBadge'] > JSXAttribute[name.name='element'] > Literal[value!=/^(?:wood|fire|earth|metal|water)$/]",
+        "message": "<CollectionBadge> element must be one of 'wood' | 'fire' | 'earth' | 'metal' | 'water'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Guardian'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|sequence|imageUrl|nickname|copy|ganzhiKo|animal|animalEmoji|element|elementLabel|key|ref|className|style|children)$/]",
+        "message": "<Guardian> doesn't accept that prop. Declared props: id, sequence, imageUrl, nickname, copy, ganzhiKo, animal, animalEmoji, element, elementLabel."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ScoreItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:icon|label|value|locked|key|ref|className|style|children)$/]",
+        "message": "<ScoreItem> doesn't accept that prop. Declared props: icon, label, value, locked."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ShareCard'] > JSXAttribute > JSXIdentifier[name!=/^(?:guardian|size|key|ref|className|style|children)$/]",
+        "message": "<ShareCard> doesn't accept that prop. Declared props: guardian, size."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "Badge": {
+        "replaces": []
+      },
+      "Button": {
+        "replaces": []
+      },
+      "Card": {
+        "replaces": []
+      },
+      "ChemistryBlock": {
+        "replaces": []
+      },
+      "ChemistryScore": {
+        "replaces": []
+      },
+      "ChemistryShareCard": {
+        "replaces": []
+      },
+      "CollectionBadge": {
+        "replaces": []
+      },
+      "Guardian": {
+        "replaces": []
+      },
+      "ScoreItem": {
+        "replaces": []
+      },
+      "ShareCard": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--color-brand",
+      "--color-brand-pressed",
+      "--color-brand-soft",
+      "--color-card",
+      "--color-card-strong",
+      "--color-danger",
+      "--color-element-earth-accent",
+      "--color-element-earth-pressed",
+      "--color-element-earth-soft",
+      "--color-element-fire-accent",
+      "--color-element-fire-pressed",
+      "--color-element-fire-soft",
+      "--color-element-metal-accent",
+      "--color-element-metal-pressed",
+      "--color-element-metal-soft",
+      "--color-element-water-accent",
+      "--color-element-water-pressed",
+      "--color-element-water-soft",
+      "--color-element-wood-accent",
+      "--color-element-wood-pressed",
+      "--color-element-wood-soft",
+      "--color-ink",
+      "--color-line",
+      "--color-lock",
+      "--color-muted",
+      "--color-page",
+      "--color-share-bg",
+      "--color-share-brand",
+      "--color-share-ink",
+      "--color-share-muted",
+      "--color-surface",
+      "--font-body",
+      "--font-display",
+      "--leading-loose",
+      "--leading-normal",
+      "--leading-tight",
+      "--radius-blob",
+      "--radius-lg",
+      "--radius-md",
+      "--radius-pill",
+      "--radius-sm",
+      "--radius-xl",
+      "--screen-max-width",
+      "--shadow-float",
+      "--shadow-guardian",
+      "--shadow-phone",
+      "--shadow-pouch",
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--space-8",
+      "--text-body",
+      "--text-body-sm",
+      "--text-caption",
+      "--text-display-lg",
+      "--text-display-md",
+      "--text-guardian-name",
+      "--text-label",
+      "--text-lead",
+      "--text-micro"
+    ],
+    "tokenKinds": {
+      "--color-page": "color",
+      "--color-surface": "color",
+      "--color-card": "color",
+      "--color-card-strong": "color",
+      "--color-ink": "color",
+      "--color-muted": "color",
+      "--color-line": "color",
+      "--color-lock": "color",
+      "--color-danger": "color",
+      "--color-brand": "color",
+      "--color-brand-soft": "color",
+      "--color-brand-pressed": "color",
+      "--color-element-wood-accent": "color",
+      "--color-element-wood-soft": "color",
+      "--color-element-wood-pressed": "color",
+      "--color-element-fire-accent": "color",
+      "--color-element-fire-soft": "color",
+      "--color-element-fire-pressed": "color",
+      "--color-element-earth-accent": "color",
+      "--color-element-earth-soft": "color",
+      "--color-element-earth-pressed": "color",
+      "--color-element-metal-accent": "color",
+      "--color-element-metal-soft": "color",
+      "--color-element-metal-pressed": "color",
+      "--color-element-water-accent": "color",
+      "--color-element-water-soft": "color",
+      "--color-element-water-pressed": "color",
+      "--color-share-bg": "color",
+      "--color-share-ink": "color",
+      "--color-share-muted": "color",
+      "--color-share-brand": "color",
+      "--font-display": "font",
+      "--font-body": "font",
+      "--text-display-lg": "font",
+      "--text-display-md": "font",
+      "--text-guardian-name": "font",
+      "--text-lead": "font",
+      "--text-body": "font",
+      "--text-body-sm": "font",
+      "--text-label": "font",
+      "--text-caption": "font",
+      "--text-micro": "font",
+      "--leading-tight": "font",
+      "--leading-normal": "font",
+      "--leading-loose": "font",
+      "--space-1": "spacing",
+      "--space-2": "spacing",
+      "--space-3": "spacing",
+      "--space-4": "spacing",
+      "--space-5": "spacing",
+      "--space-6": "spacing",
+      "--space-7": "spacing",
+      "--space-8": "spacing",
+      "--radius-sm": "radius",
+      "--radius-md": "radius",
+      "--radius-lg": "radius",
+      "--radius-xl": "radius",
+      "--radius-pill": "radius",
+      "--radius-blob": "radius",
+      "--shadow-guardian": "shadow",
+      "--shadow-float": "shadow",
+      "--shadow-pouch": "shadow",
+      "--shadow-phone": "shadow",
+      "--screen-max-width": "spacing"
+    },
+    "fontFamilies": [
+      "BM DOHYEON",
+      "Nanum Gothic"
+    ]
+  }
+}

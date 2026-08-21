@@ -1,0 +1,13 @@
+<!-- @dsCard group="Guardian" viewport="760x520" name="Chemistry Share Card" subtitle="궁합 비교 공유 카드 — 1:1 · 9:16, 단체방/친구 태그 확산용" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="../../_ds_bundle.js"></script>
+<div id="root" style="padding:16px;background:#efece0;font-family:var(--font-body);display:flex;gap:16px;justify-content:center;align-items:flex-end;flex-wrap:wrap"></div>
+<script type="text/babel" data-presets="react">
+const { ChemistryShareCard } = window.JobSajuDesignSystem_b79c07;
+const a = { id:'甲寅', sequence:51, imageUrl:'../../assets/guardians/51.webp', nickname:'새싹호랑이', element:'wood' };
+const b = { id:'己亥', sequence:36, imageUrl:'../../assets/guardians/36.webp', nickname:'간식어딨돼지', element:'earth' };
+ReactDOM.createRoot(document.getElementById('root')).render(<>
+  <ChemistryShareCard a={a} b={b} score={85} relation="서로의 빈틈을 채우는 조합" size={220} aspect="square" />
+  <ChemistryShareCard a={a} b={b} score={85} relation="서로의 빈틈을 채우는 조합" size={160} aspect="story" />
+</>);
+</script>

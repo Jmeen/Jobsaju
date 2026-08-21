@@ -1,0 +1,13 @@
+<!-- @dsCard group="Guardian" viewport="760x520" name="Share Card" subtitle="60종 공통 공유 카드 — 1:1 · 9:16, 오행별 tint" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="../../_ds_bundle.js"></script>
+<div id="root" style="padding:16px;background:#efece0;font-family:var(--font-body);display:flex;gap:16px;justify-content:center;align-items:flex-end;flex-wrap:wrap"></div>
+<script type="text/babel" data-presets="react">
+const { ShareCard } = window.JobSajuDesignSystem_b79c07;
+const wood = { id:'甲寅', sequence:51, imageUrl:'../../assets/guardians/51.webp', nickname:'새싹호랑이', copy:'새 길은 내가 연다며 앞장서지만, 꼬리는 이미 바짝 긴장한 채다.', element:'wood' };
+const fire = { id:'丙寅', sequence:3, imageUrl:'../../assets/guardians/03.webp', nickname:'센척호랑이', copy:'일단 크게 나서긴 하는데, 꼬리는 이미 방구석에 가고 싶어 한다.', element:'fire' };
+ReactDOM.createRoot(document.getElementById('root')).render(<>
+  <ShareCard guardian={wood} size={220} aspect="square" />
+  <ShareCard guardian={fire} size={160} aspect="story" hookLine="내 이직/협상 타이밍이 궁금하면" />
+</>);
+</script>

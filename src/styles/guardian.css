@@ -73,14 +73,14 @@ body {
   min-height: 100dvh;
   color: var(--jg-ink);
   background: var(--jg-page);
-  font-family: Pretendard, 'Noto Sans KR', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
-.jg-app[data-element='wood']  { --jg-guardian-accent:#7fae9a; --jg-guardian-soft:#eef6f1; --jg-guardian-pressed:#e5f1ea; }
-.jg-app[data-element='fire']  { --jg-guardian-accent:#e99a88; --jg-guardian-soft:#fff1ec; --jg-guardian-pressed:#fbe8e1; }
-.jg-app[data-element='earth'] { --jg-guardian-accent:#c6a86b; --jg-guardian-soft:#f7f1e3; --jg-guardian-pressed:#f1e8d4; }
-.jg-app[data-element='metal'] { --jg-guardian-accent:#c7b27a; --jg-guardian-soft:#f8f5eb; --jg-guardian-pressed:#f0eadc; }
-.jg-app[data-element='water'] { --jg-guardian-accent:#7893ae; --jg-guardian-soft:#eef3f8; --jg-guardian-pressed:#e4ebf3; }
+[data-element='wood']  { --jg-guardian-accent:#7fae9a; --jg-guardian-soft:#eef6f1; --jg-guardian-pressed:#e5f1ea; }
+[data-element='fire']  { --jg-guardian-accent:#e99a88; --jg-guardian-soft:#fff1ec; --jg-guardian-pressed:#fbe8e1; }
+[data-element='earth'] { --jg-guardian-accent:#c6a86b; --jg-guardian-soft:#f7f1e3; --jg-guardian-pressed:#f1e8d4; }
+[data-element='metal'] { --jg-guardian-accent:#c7b27a; --jg-guardian-soft:#f8f5eb; --jg-guardian-pressed:#f0eadc; }
+[data-element='water'] { --jg-guardian-accent:#7893ae; --jg-guardian-soft:#eef3f8; --jg-guardian-pressed:#e4ebf3; }
 
 .jg-app * { box-sizing: border-box; }
 
@@ -109,35 +109,85 @@ body {
   background: transparent; color: var(--jg-green); font: inherit; font-size: 12px; cursor: pointer;
 }
 
+/* --- 타이포그래피 ---
+   Display(BM DOHYEON)를 쓰는 자리는 디자인 시스템에서 정한 세 곳뿐이다:
+   랜딩 헤드라인, 랜딩에 흐르는 수호신 이름, 결과 화면의 수호신 이름.
+   화면 타이틀(.jg-title)과 나머지 본문은 전부 Body(Pretendard)로 둔다 —
+   Display를 본문까지 넓히면 캐릭터 이름이 갖는 특별함이 사라진다. */
+.jg-landing h1,
+.jg-carousel-name,
+.jg-result-name {
+  font-family: var(--font-display);
+}
+
+/* 수호신 이름 아래 붙는 간지·오행 줄은 캡션이다. 디자인 시스템의 Body 카드에 실려 있는
+   문장이므로, 이름을 감싼 h1에서 Display를 물려받지 않도록 되돌린다. */
+.jg-ganzhi {
+  font-family: var(--font-body);
+}
+
 /* --- 1. 랜딩 --- */
-.jg-landing { position: relative; min-height: 600px; overflow: hidden; padding-top: 34px; text-align: center; }
-.jg-landing-pre { margin: 18px 0 0; color: var(--jg-green); font-size: 9.5px; letter-spacing: .05em; opacity: .8; }
-.jg-landing h1 { margin: 8px auto 0; max-width: 315px; color: var(--jg-ink); font-size: 28px; line-height: 1.32; font-weight: 500; word-break: keep-all; }
-.jg-landing-lead { margin: 18px auto 0; max-width: 285px; color: var(--jg-muted); font-size: 13px; line-height: 1.7; word-break: keep-all; }
-.jg-guardian-cluster { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: end; gap: 8px; width: 286px; margin: 30px auto 0; }
-.jg-guardian-sample { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 5px; }
-.jg-guardian-sample img { width: 84px; height: 102px; object-fit: contain; filter: drop-shadow(0 7px 10px rgba(47,55,50,.08)); }
-.jg-guardian-sample span { color: #667069; font-size: 9.5px; font-weight: 500; white-space: nowrap; }
-.jg-mystery {
-  display: grid; place-items: center; width: 72px; height: 90px; border-radius: 45% 45% 42% 42%;
-  background: linear-gradient(180deg, #dfe8e1, #cbd7ce); color: var(--jg-green); font-size: 27px; font-weight: 500;
-  box-shadow: 0 12px 25px rgba(47,55,50,.14);
+/* 캐러셀이 화면 폭을 꽉 채워 흘러야 양옆 카드가 걸쳐 보인다. 그래서 이 화면만
+   좌우 패딩을 캐러셀 바깥 요소로 옮긴다(.jg-screen의 22px는 여기서 0으로). */
+.jg-landing { position: relative; min-height: 600px; padding: 22px 0 26px; text-align: center; }
+.jg-landing > *:not(.jg-carousel) { padding-left: 22px; padding-right: 22px; }
+.jg-landing h1 { margin: 20px auto 0; max-width: 315px; color: var(--jg-ink); font-size: 28px; line-height: 1.32; font-weight: 400; word-break: keep-all; }
+.jg-landing-sub { margin: 12px auto 0; max-width: 290px; color: var(--jg-muted); font-size: 12.5px; line-height: 1.6; word-break: keep-all; }
+
+/* --- 수호신 캐러셀 --- */
+.jg-carousel { margin-top: 20px; }
+.jg-carousel-track {
+  display: flex; gap: 10px; overflow-x: auto; padding: 4px 0 2px;
+  scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
-.jg-marquee {
-  width: 100%; overflow-x: auto; margin-top: 13px; cursor: grab;
-  mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
-  scrollbar-width: none; touch-action: pan-x;
+.jg-carousel-track::-webkit-scrollbar { display: none; }
+.jg-carousel-track:focus-visible { outline: 2px solid var(--jg-green); outline-offset: 3px; border-radius: 18px; }
+/* 첫 장과 마지막 장도 가운데에 설 수 있도록 양끝에 여백을 만든다.
+   이 여백이 곧 양옆 카드가 걸쳐 보이는 폭이다. */
+.jg-carousel-track::before,
+.jg-carousel-track::after { content: ''; flex: 0 0 calc((100% - 224px) / 2); }
+
+.jg-carousel-card {
+  flex: 0 0 224px; scroll-snap-align: center;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 12px 16px; border-radius: 20px; background: var(--jg-card);
+  /* 가운데가 아닌 카드는 물러나 있어야 "다음 장이 있다"로만 읽히고 시선을 뺏지 않는다. */
+  opacity: .45; transform: scale(.9); transition: opacity .35s ease, transform .35s ease;
 }
-.jg-marquee::-webkit-scrollbar { display: none; }
-.jg-marquee.is-dragging { cursor: grabbing; }
-.jg-marquee-track { display: flex; width: max-content; gap: 9px; padding: 2px 34px; }
-.jg-marquee-chip {
-  display: flex; align-items: center; gap: 5px; height: 38px; padding: 3px 11px 3px 5px;
-  border-radius: 999px; background: var(--jg-card); color: var(--jg-muted); font-size: 9px; white-space: nowrap;
+.jg-carousel-card.is-current { opacity: 1; transform: scale(1); }
+
+.jg-carousel-portrait { position: relative; display: grid; place-items: center; width: 104px; height: 104px; }
+/* 오행 후광 — 카드가 넘어갈 때마다 색이 바뀌어서 "다른 마리"라는 게 색으로도 읽힌다. */
+.jg-carousel-portrait::before {
+  content: ''; position: absolute; width: 140px; height: 140px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--jg-guardian-accent) 32%, transparent) 0%, transparent 70%);
 }
-.jg-marquee-chip img { width: 31px; height: 31px; object-fit: contain; }
-.jg-landing-cta { margin-top: 26px; }
-.jg-landing-note { margin: 8px 0 0; color: var(--jg-muted); font-size: 9px; }
+.jg-carousel-portrait img { position: relative; width: 104px; height: 104px; object-fit: contain; filter: drop-shadow(0 15px 18px rgba(55,86,65,.16)); }
+.jg-carousel-name { margin: 10px 0 0; font-size: 16px; font-weight: 400; color: var(--jg-ink); }
+.jg-carousel-copy { margin: 6px 0 0; color: var(--jg-muted); font-size: 12px; line-height: 1.5; word-break: keep-all; }
+
+.jg-carousel-count { margin: 13px 0 0; color: var(--jg-muted); font-size: 10.5px; letter-spacing: .04em; opacity: .75; }
+
+.jg-carousel-dots { display: flex; justify-content: center; gap: 5px; margin-top: 10px; }
+.jg-carousel-dot {
+  width: 5px; height: 5px; padding: 0; border: 0; border-radius: 999px;
+  background: var(--jg-line); cursor: pointer; transition: width .3s, background .3s;
+}
+.jg-carousel-dot.is-on { width: 16px; background: var(--jg-green); }
+
+@media (prefers-reduced-motion: reduce) {
+  .jg-carousel-card { transition: none; }
+  .jg-carousel-dot { transition: none; }
+  .jg-carousel-track { scroll-behavior: auto; }
+}
+
+/* --- 랜딩 CTA ---
+   첫 화면의 액션은 하나여야 한다. 버튼 위아래 여백을 넉넉히 줘서 시선이 여기 멈추게 하고,
+   재방문자용 링크는 한참 아래에서 흐리게 받는다. */
+.jg-landing-cta { margin-top: 28px; }
+.jg-landing-note { margin: 9px 0 0; color: var(--jg-muted); font-size: 10px; }
+.jg-landing-minor { margin-top: 30px; opacity: .55; }
+.jg-landing-minor .jg-text-link { margin-top: 2px; font-size: 11px; }
 
 /* --- 2. 출생 입력 --- */
 .jg-birth-card { margin-top: 18px; padding: 17px; border-radius: 18px; background: var(--jg-card); }
@@ -198,7 +248,7 @@ body {
 /* --- 4. 결과 발표 --- */
 .jg-guardian { display: block; width: 270px; max-width: 100%; height: 270px; object-fit: contain; margin: 2px auto -4px; filter: drop-shadow(0 15px 18px rgba(55,86,65,.16)); }
 .jg-arrival { margin: 6px 0 0; color: var(--jg-muted); text-align: center; font-size: 13px; line-height: 1.55; }
-.jg-result-name { text-align: center; font-size: 27px; font-weight: 500; margin: 0; }
+.jg-result-name { text-align: center; font-size: 27px; font-weight: 400; margin: 0; }
 .jg-ganzhi { display: block; margin-top: 7px; color: var(--jg-green); font-size: 12px; }
 .jg-quote { margin: 13px 0 16px; color: var(--jg-muted); text-align: center; font-size: 14px; line-height: 1.65; word-break: keep-all; }
 .jg-result-why { margin: 0 0 2px; padding: 14px 15px; border-radius: 16px; background: var(--jg-card); }
@@ -234,6 +284,19 @@ body {
 .jg-chemistry-text small { display: block; margin-top: 1px; color: var(--jg-muted); font-size: 11px; word-break: keep-all; }
 .jg-chemistry-score { color: var(--jg-muted); font-size: 11px; white-space: nowrap; }
 .jg-chemistry-ask { margin: 12px 0 0; color: var(--jg-ink); text-align: center; font-size: 13px; line-height: 1.5; }
+
+/* 공유 CTA — 카카오톡이 Primary, 링크 복사가 Secondary.
+   카카오 브랜드 컬러를 쓰는 이유는 눈에 띄어서가 아니라, 누르면 카카오톡이 열린다는 걸
+   글을 읽기 전에 알려주기 위해서다. */
+.jg-btn-kakao { background: #fee500; color: #191600; font-weight: 600; }
+.jg-btn-kakao[disabled] { opacity: .55; }
+
+.jg-toast {
+  margin: 10px 0 0; padding: 9px 12px; border-radius: 11px;
+  background: var(--jg-green-soft); color: var(--jg-green);
+  text-align: center; font-size: 12px; line-height: 1.5; word-break: keep-all;
+}
+.jg-toast.is-error { background: #fbeee9; color: #a8543a; }
 
 /* --- 5. 고민 선택 --- */
 .jg-question-guide { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 0 0 5px; text-align: center; }

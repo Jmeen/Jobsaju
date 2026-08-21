@@ -22,9 +22,16 @@ import { preloadKakaoSdk } from '../utils/kakaoSdk';
 import { getCharacterAsset } from '../utils/characterAssets';
 import { fetchFreeResult } from '../utils/freeResultApi';
 import { clearPaidSession, loadPaidSession, savePaidSession } from '../utils/paidSession';
-import { buildShareUrl, resolveShareInbound } from '../utils/shareInbound';
+import { resolveShareInbound } from '../utils/shareInbound';
+import {
+  buildGuardianShareQuery,
+  buildGuardianShareUrl,
+  copyGuardianShareLink,
+  sendGuardianKakaoShare,
+  type GuardianShareFeedback,
+} from '../utils/guardianShare';
 import type { ShareInbound } from '../utils/shareInbound';
-import { buildGuardianShareText, drawGuardianShareCard, loadGuardianImage } from '../utils/guardianShareCard';
+import { drawGuardianShareCard, ensureShareCardFonts, loadGuardianImage } from '../utils/guardianShareCard';
 import type { PaidSession } from '../utils/paidSession';
 import { getGuardianAsset, guardianIdFromPillar } from '../utils/guardianAssets';
 import type { GuardianConcernType } from '../utils/guardianConcern';
@@ -37,6 +44,7 @@ import {
   getVisitorSessionId,
   trackGuardianEvent,
   type GuardianAnalyticsIds,
+  type GuardianEventName,
 } from '../utils/guardianAnalytics';
 
 
@@ -157,6 +165,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (typeof window === 'undefined' ? null : resolveShareInbound(window.location.search)));
   // 수호신 공유 카드는 결과 화면이 아니라 여기서 만든다 — 화면에 캔버스를 띄우지 않는다.
   const guardianCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // R2에 미리 올려둔 수호신 카드 URL. 카카오 리치카드는 절대 URL 이미지만 받는다.
+  const guardianCardImageUrlRef = useRef<string | null>(null);
 
   // === 이메일 기반 리포트 조회 모달 상태 ===
   const [showLookupModal, setShowLookupModal] = useState(false);
@@ -505,6 +515,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       visitorSessionId: analyticsIds.visitorSessionId,
       shareId: shareInbound.shareId,
       fromGuardianId: shareInbound.fromGuardianId,
+      shareChannel: shareInbound.medium,
       utmSource: 'guardian_share',
     });
   }, [shareInbound, analyticsIds.visitorSessionId]);
@@ -525,6 +536,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       shareId: shareInbound.shareId,
       guardianId: guardianIdFor(sajuResult),
       fromGuardianId: shareInbound.fromGuardianId,
+      shareChannel: shareInbound.medium,
       utmSource: 'guardian_share',
     });
   }, [shareInbound, step, sajuResult, analyticsIds.resultSessionId, analyticsIds.visitorSessionId]);
@@ -789,6 +801,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
   }, [step, isUnlocked, sajuResult, aiReport]);
+
+  // === 수호신 공유 카드 사전 준비 ===
+  // 카카오 리치카드는 절대 URL 이미지만 받는다. 클릭한 다음에 그리고 올리기 시작하면
+  // iOS에서 사용자 제스처 컨텍스트가 끊겨 카카오톡이 열리지 않는다. 화면에 도착한 지금 만들어 둔다.
+  // 유료 리포트 화면에는 자체 공유 카드가 따로 있으므로, 무료 수호신 화면일 때만 준비한다.
+  useEffect(() => {
+    if (step !== 'result' || !guardian || (isUnlocked && aiReport)) return;
+
+    let cancelled = false;
+    guardianCardImageUrlRef.current = null;
+    void (async () => {
+      try {
+        const canvas = guardianCardCanvasRef.current ?? document.createElement('canvas');
+        guardianCardCanvasRef.current = canvas;
+        const [image] = await Promise.all([loadGuardianImage(guardian.imageUrl), ensureShareCardFonts()]);
+        if (cancelled) return;
+        drawGuardianShareCard(canvas, guardian, image);
+        const blob = await canvasToPngBlob(canvas);
+        const imageUrl = await uploadShareCardImage(blob);
+        // 이 사이 수호신이 바뀌었다면 남의 카드가 캐시에 남지 않게 버린다.
+        if (!cancelled) guardianCardImageUrlRef.current = imageUrl;
+      } catch {
+        // 실패해도 공유 클릭 시점에 한 번 더 시도한다.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [step, guardian, isUnlocked, aiReport]);
 
   // === 쿠폰 적용 핸들러 ===
   // 코드 자체를 프론트에 하드코딩하지 않는다 — 서버(SAJU_KV의 coupon:<CODE> 레코드)에 실시간으로
@@ -1129,87 +1168,142 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     link.click();
   };
 
+  // === 수호신 공유 ===
+  // 목적은 URL 전달이 아니라 루프다: 결과 확인 → 공유 → 친구 유입 → 친구 결과 완료 → 재공유.
+  // 경로는 카카오톡과 링크 복사 두 가지만 둔다. 시스템 공유 시트(navigator.share)는 쓰지 않는다 —
+  // 어느 앱으로 갔는지 알 수 없어 medium 구분이 무너지고, 카카오톡에 리치카드 대신 링크만 꽂힌다.
+
   /**
-   * 수호신 공유. 기존 커리어 점수 카드가 아니라 수호신 카드를 만들어 보낸다.
-   * 화면에 캔버스를 두지 않고 여기서 오프스크린으로 그린다 —
-   * 예전에는 유료 결과 화면에만 있는 캔버스에 의존해 무료 화면에서 버튼이 먹지 않았다.
+   * 이번 공유 흐름의 익명 id를 확정한다. 두 버튼이 같은 id를 공유해야
+   * 카카오 공유와 링크 복사가 하나의 공유 흐름으로 묶여 재공유까지 추적된다.
    */
-  const handleGuardianShare = async () => {
-    if (!sajuResult || !guardian || isShareLoading) return;
-
+  const ensureGuardianShareIds = (): GuardianAnalyticsIds & { shareId: string } => {
     const shareId = ensureShareId(analyticsIds.shareId);
-    const shareAnalyticsIds = { ...analyticsIds, shareId };
-    if (shareId !== analyticsIds.shareId) setAnalyticsIds(shareAnalyticsIds);
-    const guardianId = guardian.id;
+    const next = { ...analyticsIds, shareId };
+    if (shareId !== analyticsIds.shareId) setAnalyticsIds(next);
+    return next;
+  };
 
-    void trackGuardianEvent({
-      eventId: crypto.randomUUID(),
-      eventName: 'guardian_share_click',
-      occurredAt: new Date().toISOString(),
-      visitorSessionId: shareAnalyticsIds.visitorSessionId,
-      resultSessionId: shareAnalyticsIds.resultSessionId,
-      shareId,
-      guardianId,
-    });
+  // 공유 링크의 기준 주소는 개인화 미리보기 페이지가 아니라 앱 진입점이다.
+  // 미리보기 페이지를 거치면 그 페이지의 CTA가 귀속 쿼리를 떨어뜨려 친구의 결과 완료가 집계되지 않는다.
+  const guardianShareBaseUrl = () => import.meta.env.VITE_PUBLIC_SERVICE_URL || window.location.origin;
 
-    setIsShareLoading(true);
+  /**
+   * 카카오 리치카드에 박을 800×800 카드 이미지 URL을 보장한다.
+   * 결과 화면 진입 시 백그라운드로 이미 올려뒀으면 즉시 돌려준다 — 그래야 클릭 시점에
+   * 네트워크를 기다리지 않고, iOS에서 사용자 제스처 컨텍스트가 끊기지 않는다.
+   */
+  const ensureGuardianCardImageUrl = async (): Promise<string | null> => {
+    if (guardianCardImageUrlRef.current) return guardianCardImageUrlRef.current;
+    if (!guardian) return null;
     try {
       const canvas = guardianCardCanvasRef.current ?? document.createElement('canvas');
       guardianCardCanvasRef.current = canvas;
-      const image = await loadGuardianImage(guardian.imageUrl);
+      const [image] = await Promise.all([loadGuardianImage(guardian.imageUrl), ensureShareCardFonts()]);
       drawGuardianShareCard(canvas, guardian, image);
       const blob = await canvasToPngBlob(canvas);
-
-      const { hook, description } = buildGuardianShareText(guardian);
-      const baseServiceUrl = import.meta.env.VITE_PUBLIC_SERVICE_URL || window.location.origin;
-      const { imageUrl, sharePageUrl } = await ensureShareAssets(canvas, hook, description);
-      // 받는 사람이 보낸 수호신 문맥을 이어받도록 귀속값을 URL에 싣는다.
-      const shareUrl = buildShareUrl(sharePageUrl || baseServiceUrl, guardianId, shareId);
-
-      const result = await shareCareerResult({
-        blob,
-        serviceUrl: shareUrl,
-        kakaoKey: import.meta.env.VITE_KAKAO_JS_KEY || '',
-        shareHook: hook,
-        description,
-        preUploadedImageUrl: imageUrl || undefined,
-        unlockToken,
-        shareId,
-        resultSessionId: shareAnalyticsIds.resultSessionId,
-        visitorSessionId: shareAnalyticsIds.visitorSessionId,
-        guardianId,
-      });
-
-      const channel = result === 'kakao' ? 'kakao'
-        : result === 'link' ? 'web_link'
-        : result === 'file' ? 'web_file'
-        : 'download';
-      void trackGuardianEvent({
-        eventId: crypto.randomUUID(),
-        eventName: 'guardian_share_sheet_opened',
-        occurredAt: new Date().toISOString(),
-        visitorSessionId: shareAnalyticsIds.visitorSessionId,
-        resultSessionId: shareAnalyticsIds.resultSessionId,
-        shareId, guardianId, shareChannel: channel,
-      });
-
-      if (result === 'kakao') {
-        // 실제 전송은 카카오 웹훅으로만 확인된다.
-        if (!shareBonusGranted) pollShareBonusStatus(unlockToken);
-      } else if (earnsBonusQuestion(result) && !shareBonusGranted) {
-        const bonusResponse = await fetch('/api/share-bonus', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ unlock_token: unlockToken }),
-        });
-        if (bonusResponse.ok) setShareBonusGranted(true);
-      }
-      if (result === 'download') alert('카카오 공유를 준비하지 못해 이미지를 저장하고 서비스 주소를 복사했어요.');
+      const imageUrl = await uploadShareCardImage(blob);
+      guardianCardImageUrlRef.current = imageUrl;
+      return imageUrl;
     } catch {
-      alert('공유 카드를 준비하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      return null;
+    }
+  };
+
+  const trackGuardianShare = (
+    eventName: GuardianEventName,
+    ids: GuardianAnalyticsIds & { shareId: string },
+    guardianId: string,
+    shareChannel: 'kakao' | 'copy',
+  ) => {
+    void trackGuardianEvent({
+      eventId: crypto.randomUUID(),
+      eventName,
+      occurredAt: new Date().toISOString(),
+      visitorSessionId: ids.visitorSessionId,
+      resultSessionId: ids.resultSessionId,
+      shareId: ids.shareId,
+      guardianId,
+      shareChannel,
+    });
+  };
+
+  /**
+   * 카카오톡 공유. 사용자 정의 템플릿으로 보낸다 — 수호신 카드는 정사각형이라
+   * 기본 피드 레이아웃에 맞춰 크롭되면 캐릭터가 잘린다.
+   * 공유 대상 Picker는 기본값이라 친구·채팅방·단톡방을 모두 고를 수 있다.
+   */
+  const handleGuardianKakaoShare = async (): Promise<GuardianShareFeedback> => {
+    if (!sajuResult || !guardian || isShareLoading) return { ok: false, message: null };
+
+    const ids = ensureGuardianShareIds();
+    const guardianId = guardian.id;
+    trackGuardianShare('guardian_share_click', ids, guardianId, 'kakao');
+
+    setIsShareLoading(true);
+    try {
+      const imageUrl = await ensureGuardianCardImageUrl();
+      if (!imageUrl) throw new Error('공유 카드 이미지를 준비하지 못했습니다.');
+
+      const urlInput = {
+        baseUrl: guardianShareBaseUrl(),
+        guardianId,
+        shareSessionId: ids.shareId,
+        medium: 'kakao' as const,
+      };
+      await sendGuardianKakaoShare({
+        kakaoKey: import.meta.env.VITE_KAKAO_JS_KEY || '',
+        templateId: import.meta.env.VITE_KAKAO_GUARDIAN_TEMPLATE_ID || '',
+        guardian,
+        imageUrl,
+        shareUrl: buildGuardianShareUrl(urlInput),
+        shareQuery: buildGuardianShareQuery(urlInput),
+        shareSessionId: ids.shareId,
+        // 카카오가 실제 전송에 성공했을 때만 그대로 돌려주는 값이다.
+        // guardian_share_confirmed(= 진짜 발송)는 오직 이 웹훅으로만 기록된다.
+        // 개인정보는 넣지 않는다 — 전부 익명 UUID와 수호신 id뿐이다.
+        serverCallbackArgs: {
+          share_id: ids.shareId,
+          result_session_id: ids.resultSessionId,
+          visitor_session_id: ids.visitorSessionId,
+          guardian_id: guardianId,
+          ...(isUnlocked ? { unlock_token: unlockToken } : {}),
+        },
+      });
+
+      trackGuardianShare('guardian_share_sheet_opened', ids, guardianId, 'kakao');
+      // 공유 보너스(추가 질문)는 결제한 사람에게만 있는 혜택이라, 해금된 경우에만 확인한다.
+      if (isUnlocked && !shareBonusGranted) pollShareBonusStatus(unlockToken);
+      return { ok: true, message: null };
+    } catch {
+      // 카카오 SDK 실패·카카오톡 미설치가 결과 화면 전체를 깨뜨리면 안 된다. 링크 복사로 안내한다.
+      return { ok: false, message: '카카오톡 공유를 열 수 없어요. 아래 “링크 복사”로 공유할 수 있어요.' };
     } finally {
       setIsShareLoading(false);
     }
+  };
+
+  /** 링크 복사. 카카오와 같은 귀속 구조를 쓰되 utm_medium=copy로 갈라 집계한다. */
+  const handleGuardianLinkCopy = async (): Promise<GuardianShareFeedback> => {
+    if (!guardian) return { ok: false, message: null };
+
+    const ids = ensureGuardianShareIds();
+    const guardianId = guardian.id;
+    trackGuardianShare('guardian_share_click', ids, guardianId, 'copy');
+
+    const shareUrl = buildGuardianShareUrl({
+      baseUrl: guardianShareBaseUrl(),
+      guardianId,
+      shareSessionId: ids.shareId,
+      medium: 'copy',
+    });
+    if (!(await copyGuardianShareLink(shareUrl))) {
+      return { ok: false, message: '링크를 복사하지 못했어요. 주소창의 주소를 직접 복사해 주세요.' };
+    }
+
+    // 복사에 성공했을 때만 집계한다 — 클립보드가 막힌 환경의 실패까지 공유로 세면 K가 부풀려진다.
+    trackGuardianShare('guardian_share_link_copy', ids, guardianId, 'copy');
+    return { ok: true, message: '링크를 복사했어요!' };
   };
 
   // 카카오톡 공유는 사용자가 채팅방을 골라 실제로 "보내기"를 눌러야 카카오 서버가 웹훅을 보낸다.
@@ -1413,7 +1507,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     handleFollowUpSubmit,
     handleDownloadCard,
     handleShareResult,
-    handleGuardianShare,
+    handleGuardianKakaoShare,
+    handleGuardianLinkCopy,
     trackMatchSectionView,
     handleApplyCoupon,
     pollShareBonusStatus,
@@ -1466,7 +1561,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       handleFollowUpSubmit: stable('handleFollowUpSubmit'),
       handleDownloadCard: stable('handleDownloadCard'),
       handleShareResult: stable('handleShareResult'),
-      handleGuardianShare: stable('handleGuardianShare'),
+      handleGuardianKakaoShare: stable('handleGuardianKakaoShare'),
+      handleGuardianLinkCopy: stable('handleGuardianLinkCopy'),
       trackMatchSectionView: stable('trackMatchSectionView'),
       handleApplyCoupon: stable('handleApplyCoupon'),
       pollShareBonusStatus: stable('pollShareBonusStatus'),

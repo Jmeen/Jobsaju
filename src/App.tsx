@@ -17,6 +17,7 @@ const PersonalizeScreen = lazy(() => import('./components/screens/PersonalizeScr
 const ResultScreen = lazy(() => import('./components/screens/ResultScreen').then(m => ({ default: m.ResultScreen })));
 const ManualPayModal = lazy(() => import('./components/modals/ManualPayModal').then(m => ({ default: m.ManualPayModal })));
 const LookupModal = lazy(() => import('./components/modals/LookupModal').then(m => ({ default: m.LookupModal })));
+import './styles/typography.css';
 import './index.css';
 import './styles/guardian.css';
 

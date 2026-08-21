@@ -106,3 +106,11 @@ test('일간 두 개가 오행 하나를 이룬다', () => {
   assert.equal(guardianElement('癸亥'), 'water');
   assert.equal(getGuardianAsset('癸亥').elementLabel, '수(水)');
 });
+
+test('작게 그리는 자리를 위한 썸네일 경로가 함께 나온다', () => {
+  // 원본은 장당 47KB라 랜딩 캐러셀에 60마리를 태우면 2.8MB가 나간다.
+  const tiger = getGuardianAsset('甲寅');
+
+  assert.equal(tiger.imageUrl, `/guardians/${String(tiger.sequence).padStart(2, '0')}.webp`);
+  assert.equal(tiger.thumbUrl, `/guardians/thumb/${String(tiger.sequence).padStart(2, '0')}.webp`);
+});

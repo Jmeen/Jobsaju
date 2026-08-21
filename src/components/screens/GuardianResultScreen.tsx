@@ -8,7 +8,7 @@ import { GuardianImage } from '../guardian/GuardianImage';
 
 export function GuardianResultScreen() {
   const { guardian, isShareLoading } = useAppReport();
-  const { setStep, handleGuardianShare, trackMatchSectionView } = useAppActions();
+  const { setStep, handleGuardianKakaoShare, handleGuardianLinkCopy, trackMatchSectionView } = useAppActions();
 
   if (!guardian) return null;
   const reason = buildGuardianReason(getGuardianCharacter(guardian.id), guardian.nickname);
@@ -38,7 +38,8 @@ export function GuardianResultScreen() {
       <ChemistryBlock
         guardian={guardian}
         isSharing={isShareLoading}
-        onShare={handleGuardianShare}
+        onKakaoShare={handleGuardianKakaoShare}
+        onCopyLink={handleGuardianLinkCopy}
         onView={trackMatchSectionView}
       />
 

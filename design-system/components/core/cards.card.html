@@ -1,0 +1,16 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Cards & Score Grid" subtitle="Card tones, score grid, chemistry score" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="../../_ds_bundle.js"></script>
+<div id="root" style="padding:16px;background:var(--color-page);font-family:var(--font-body);max-width:340px;display:flex;flex-direction:column;gap:10px"></div>
+<script type="text/babel" data-presets="react">
+const { Card, ScoreGrid, ChemistryScore } = window.JobSajuDesignSystem_b79c07;
+function Demo(){
+  return (<>
+    <Card>기본 카드 — 안내 문구, 폼 묶음에 사용</Card>
+    <Card tone="brand-soft">오행 강조 박스</Card>
+    <ScoreGrid items={[{icon:'🚪',label:'이직',value:'82점',locked:true},{icon:'💰',label:'협상',value:'74점',locked:true},{icon:'🪑',label:'잔류',value:'55점',locked:true}]} />
+    <ChemistryScore label="직장 케미" score={92} />
+  </>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>

@@ -1,0 +1,21 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css");
+@font-face{font-family:"BM DOHYEON";src:url("https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff2") format("woff2"),url("https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff") format("woff");font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:"Nanum Gothic";src:url("../assets/fonts/NanumGothic.otf") format("opentype");font-weight:400 800;font-style:normal;font-display:swap;}
+:root{
+--font-display:"BM DOHYEON","Nanum Gothic",system-ui,sans-serif;
+--font-body:"Pretendard","Nanum Gothic","Noto Sans KR",system-ui,sans-serif;
+
+--text-display-lg:28px;   /* 랜딩 h1 */
+--text-display-md:24px;   /* 화면 타이틀 */
+--text-guardian-name:27px;/* 수호신 발표 이름 */
+--text-lead:15px;         /* 소환 카피, 강조 문단 */
+--text-body:14px;         /* 대사/quote */
+--text-body-sm:13px;      /* 서브카피 */
+--text-label:12px;        /* 폼 라벨, 카드 본문 */
+--text-caption:11px;      /* 캡션, 배지 */
+--text-micro:9.5px;       /* 마퀴 라벨, 최소 캡션 */
+
+--leading-tight:1.3;
+--leading-normal:1.55;
+--leading-loose:1.7;
+}

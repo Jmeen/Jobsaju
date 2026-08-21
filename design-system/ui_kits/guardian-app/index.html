@@ -1,0 +1,312 @@
+<!-- @dsCard group="Guardian App" viewport="390x740" name="Guardian Flow" subtitle="랜딩 → 출생입력 → 소환 → 결과 → 고민 → 유료전환 클릭스루" -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>내 수호신 — Guardian Flow UI Kit</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;background:#efece0;font-family:var(--font-body)}
+  .frame{max-width:390px;margin:0 auto;min-height:100vh;background:var(--color-page)}
+  @keyframes jg-tease-in{from{opacity:0;transform:translateY(4px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes jg-pouch-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-6deg)}75%{transform:rotate(6deg)}}
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js?v=20260819b"></script>
+</head>
+<body>
+<div id="root" class="frame"></div>
+<script type="module">
+  const mod = await import('../../components/guardian/guardianData.js');
+  window.__guardianData = mod;
+  window.dispatchEvent(new Event('guardian-data-ready'));
+</script>
+<script type="text/babel" data-presets="react">
+const { Button, TextLink, Card, ScreenShell, ScoreGrid, ChemistryScore, Badge, CollectionBadge, GuardianPortrait, GuardianNameplate, ChemistryBlock, ShareCard } = window.JobSajuDesignSystem_b79c07;
+
+const CONCERN_OPTIONS = [
+  { type:'career_flow', icon:'🧭', label:'요즘 내 직업운', hint:'지금 커리어 흐름과 앞으로의 방향' },
+  { type:'job_change', icon:'🚪', label:'이직해도 될까?', hint:'움직일 시기와 조심할 점' },
+  { type:'work_fit', icon:'🌱', label:'나는 무슨 일이 맞을까?', hint:'잘 맞는 역할 · 회사 · 일하는 환경' },
+];
+
+function useGuardianData(){
+  const [ready, setReady] = React.useState(!!window.__guardianData);
+  React.useEffect(() => {
+    if (ready) return;
+    const onReady = () => setReady(true);
+    window.addEventListener('guardian-data-ready', onReady);
+    return () => window.removeEventListener('guardian-data-ready', onReady);
+  }, [ready]);
+  return ready ? window.__guardianData : null;
+}
+
+const TEASE_SEQUENCES = [1,7,14,23,31,42,50,58];
+
+function LandingScreen({ onNext }) {
+  const data = useGuardianData();
+  const [teaseIdx, setTeaseIdx] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setTeaseIdx(i => (i + 1) % TEASE_SEQUENCES.length), 2600);
+    return () => clearInterval(t);
+  }, []);
+  if (!data) return null;
+  const tease = data.getGuardian(TEASE_SEQUENCES[teaseIdx], '../..');
+  return (
+    <ScreenShell>
+      <div style={{padding:'22px 0 0',textAlign:'center'}}>
+        <p style={{margin:'18px 0 0',color:'var(--color-brand)',fontSize:9.5,letterSpacing:'.05em',opacity:.8}}>직장인마다 하나씩 있다는</p>
+        <h1 style={{margin:'8px auto 0',maxWidth:315,fontSize:28,lineHeight:1.32,fontWeight:500,fontFamily:'var(--font-display)'}}>60마리 중<br/>내 수호신은 누구?</h1>
+        <div key={teaseIdx} style={{margin:'22px auto 0',width:286,minHeight:238,display:'flex',flexDirection:'column',alignItems:'center',animation:'jg-tease-in .45s ease-out'}}>
+          <GuardianPortrait guardian={tease} size={104} glow eager />
+          <CollectionBadge sequence={tease.sequence} element={tease.element} />
+          <p style={{margin:'12px 0 0',fontSize:15,fontWeight:500,fontFamily:'var(--font-display)'}}>{tease.nickname}</p>
+          <p style={{margin:'7px auto 0',maxWidth:270,color:'var(--color-muted)',fontSize:12.5,lineHeight:1.6}}>"{tease.copy}"</p>
+        </div>
+        <div style={{display:'flex',justifyContent:'center',gap:5,marginTop:14}}>
+          {TEASE_SEQUENCES.map((s,i) => (
+            <span key={s} style={{width:i===teaseIdx?14:5,height:5,borderRadius:999,background:i===teaseIdx?'var(--color-brand)':'var(--color-line)',transition:'width .3s'}} />
+          ))}
+        </div>
+        <div style={{marginTop:24}}>
+          <Button variant="primary" onClick={onNext}>내 수호신 뽑아보기</Button>
+          <p style={{margin:'8px 0 0',color:'var(--color-muted)',fontSize:9}}>생년월일로 정해져요 · 10초 · 무료</p>
+        </div>
+      </div>
+    </ScreenShell>
+  );
+}
+
+const HOURS = Array.from({length:12},(_,i)=>i+1);
+const MINUTES = Array.from({length:12},(_,i)=>i*5);
+const selectStyle = {padding:'10px 6px',border:'1px solid var(--color-line)',borderRadius:12,background:'var(--color-page)',color:'var(--color-ink)',fontSize:13,textAlign:'center',boxSizing:'border-box',appearance:'none',cursor:'pointer'};
+
+function BirthScreen({ onNext, onBack }) {
+  const [gender, setGender] = React.useState(null);
+  const [solar, setSolar] = React.useState(true);
+  const [digits, setDigits] = React.useState('');
+  const [ampm, setAmpm] = React.useState(null);
+  const [hour, setHour] = React.useState('');
+  const [minute, setMinute] = React.useState('');
+  const complete = gender!==null && digits.length===6 && ampm!==null && hour!=='' && minute!=='';
+  return (
+    <ScreenShell>
+      <div style={{paddingTop:22}}>
+        <h1 style={{margin:0,fontSize:24,lineHeight:1.3,fontWeight:500}}>수호신을 깨워볼까요?</h1>
+        <p style={{margin:'9px 0 0',color:'var(--color-muted)',fontSize:13,lineHeight:1.65}}>태어난 날과 시간을 알려주세요.<br/>입력한 정보는 당신의 직장생활 수호신을 찾는 데만 사용해요.</p>
+        <Card style={{marginTop:18}}>
+          <span style={{display:'block',margin:'0 0 6px',fontSize:11,fontWeight:500}}>성별 (필수)</span>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+            {['여성','남성'].map((label,i)=>(
+              <button key={label} onClick={()=>setGender(i)} style={{padding:10,border:`1px solid ${gender===i?'var(--color-brand)':'var(--color-line)'}`,borderRadius:12,background:gender===i?'var(--color-brand-soft)':'var(--color-page)',color:gender===i?'var(--color-brand)':'var(--color-muted)',fontWeight:gender===i?500:400,fontSize:11,cursor:'pointer'}}>{label}</button>
+            ))}
+          </div>
+          <span style={{display:'block',margin:'14px 0 6px',fontSize:11,fontWeight:500}}>달력</span>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+            {[['양력',true],['음력',false]].map(([label,val])=>(
+              <button key={label} onClick={()=>setSolar(val)} style={{padding:10,border:`1px solid ${solar===val?'var(--color-brand)':'var(--color-line)'}`,borderRadius:12,background:solar===val?'var(--color-brand-soft)':'var(--color-page)',color:solar===val?'var(--color-brand)':'var(--color-muted)',fontWeight:solar===val?500:400,fontSize:11,cursor:'pointer'}}>{label}</button>
+            ))}
+          </div>
+          <span style={{display:'block',margin:'14px 0 6px',fontSize:11,fontWeight:500}}>생년월일 6자리 (필수)</span>
+          <input value={digits} onChange={e=>setDigits(e.target.value.replace(/\D/g,'').slice(0,6))} maxLength={6} placeholder="_ _ _ _ _ _" style={{width:'100%',padding:13,border:'1px solid var(--color-line)',borderRadius:12,background:'var(--color-page)',color:'var(--color-ink)',fontSize:20,letterSpacing:'.28em',textAlign:'center',boxSizing:'border-box'}} />
+          <p style={{margin:'7px 0 0',color:'var(--color-muted)',textAlign:'center',fontSize:11}}>{digits.length===6?`19${digits.slice(0,2)}년 ${digits.slice(2,4)}월 ${digits.slice(4,6)}일`:'연·월·일을 두 자리씩 붙여서 입력해 주세요.'}</p>
+          <span style={{display:'block',margin:'14px 0 6px',fontSize:11,fontWeight:500}}>태어난 시간 (필수)</span>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+            {['오전','오후'].map((label,i)=>(
+              <button key={label} onClick={()=>setAmpm(i)} style={{padding:10,border:`1px solid ${ampm===i?'var(--color-brand)':'var(--color-line)'}`,borderRadius:12,background:ampm===i?'var(--color-brand-soft)':'var(--color-page)',color:ampm===i?'var(--color-brand)':'var(--color-muted)',fontWeight:ampm===i?500:400,fontSize:11,cursor:'pointer'}}>{label}</button>
+            ))}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <select value={hour} onChange={e=>setHour(e.target.value)} style={selectStyle}>
+              <option value="" disabled>시</option>
+              {HOURS.map(h=><option key={h} value={h}>{h}시</option>)}
+            </select>
+            <select value={minute} onChange={e=>setMinute(e.target.value)} style={selectStyle}>
+              <option value="" disabled>분</option>
+              {MINUTES.map(m=><option key={m} value={m}>{String(m).padStart(2,'0')}분</option>)}
+            </select>
+          </div>
+          <p style={{margin:'7px 0 0',color:'var(--color-muted)',textAlign:'center',fontSize:11}}>모르면 대략적인 시간도 괜찮아요 · 5분 단위로 선택해요</p>
+        </Card>
+        <div style={{marginTop:16}}>
+          <Button variant="primary" disabled={!complete} onClick={onNext}>수호신 깨우기</Button>
+        </div>
+        <TextLink onClick={onBack}>이전으로</TextLink>
+      </div>
+    </ScreenShell>
+  );
+}
+
+function SummonScreen({ onNext }) {
+  const data = useGuardianData();
+  const [phase, setPhase] = React.useState('reading');
+  React.useEffect(() => {
+    const t1 = setTimeout(()=>setPhase('revealing'), 900);
+    const t2 = setTimeout(()=>setPhase('ready'), 2400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  const copy = { reading:['태어난 날의 기운을','읽는 중…'], revealing:['60마리 중 당신의 수호신을','찾는 중…'], ready:['당신의 수호신이','깨어났어요!'] }[phase];
+  if (!data) return null;
+  const guardian = data.getGuardian(51, '../..');
+  const silhouette = phase==='reading' ? 'blur(16px) grayscale(1) brightness(.35)' : phase==='revealing' ? 'blur(5px) grayscale(.5) brightness(.75)' : 'blur(0) grayscale(0) brightness(1)';
+  return (
+    <ScreenShell>
+      <div style={{minHeight:520,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
+        <div style={{position:'relative',width:150,height:150,display:'grid',placeItems:'center'}}>
+          <div style={{position:'absolute',display:'grid',placeItems:'center',width:112,height:98,borderRadius:'42% 42% 48% 48%',background:'var(--color-brand-soft)',color:'var(--color-brand)',fontSize:35,boxShadow:'var(--shadow-pouch)',opacity:phase==='reading'?1:0,transform:phase==='reading'?undefined:'scale(.85)',transition:'opacity .5s,transform .5s',animation:phase==='reading'?'jg-pouch-shake 1s ease-in-out infinite':'none'}}>🌱</div>
+          <div style={{opacity:phase==='reading'?0:1,transition:'opacity .6s'}}>
+            <div style={{filter:silhouette,transition:'filter 1.3s ease'}}><GuardianPortrait guardian={guardian} size={132} glow={phase==='ready'} eager /></div>
+          </div>
+        </div>
+        <p style={{minHeight:44,margin:'31px 0 0',fontSize:15,lineHeight:1.55,fontWeight:500}}>{copy[0]}<br/>{copy[1]}</p>
+        <div style={{marginTop:20,width:'100%',maxWidth:290,visibility:phase==='ready'?'visible':'hidden'}}>
+          <Button variant="primary" onClick={onNext}>내 수호신 만나기</Button>
+        </div>
+      </div>
+    </ScreenShell>
+  );
+}
+
+function ResultScreen({ onConcern }) {
+  const data = useGuardianData();
+  if (!data) return null;
+  const guardian = data.getGuardian(51, '../..');
+  return (
+    <ScreenShell element={guardian.element}>
+      <div style={{paddingTop:22}}>
+        <div style={{textAlign:'center',color:'var(--color-brand)',fontSize:11,fontWeight:500}}>당신의 수호신이 도착했어요</div>
+        <p style={{margin:'6px 0 0',color:'var(--color-muted)',textAlign:'center',fontSize:13}}>오늘부터 당신과 함께 출근할 친구예요</p>
+        <GuardianPortrait guardian={guardian} eager glow />
+        <GuardianNameplate guardian={guardian} />
+        <div style={{display:'flex',justifyContent:'center',marginTop:8}}><CollectionBadge sequence={guardian.sequence} element={guardian.element} /></div>
+        <p style={{margin:'13px 0 16px',color:'var(--color-muted)',textAlign:'center',fontSize:14,lineHeight:1.65}}>"{guardian.copy}"</p>
+        <Card>
+          <strong style={{display:'block',marginBottom:7,color:'var(--color-brand)',fontSize:12,fontWeight:500}}>왜 {guardian.nickname}일까요?</strong>
+          <p style={{margin:0,fontSize:12,lineHeight:1.6}}>새로운 걸 벌이는 데는 거침없지만, 마무리는 곁에서 도와줘야 빛나는 타입이에요.</p>
+        </Card>
+        <ChemistryBlock guardian={guardian} assetBase="../.." />
+        <div style={{marginTop:10}}>
+          <Button variant="guardian" element={guardian.element} onClick={onConcern}>{guardian.nickname}에게 고민 물어보기 →</Button>
+        </div>
+        <p style={{margin:'7px 0 0',color:'var(--color-muted)',textAlign:'center',fontSize:10}}>직업운 · 이직운 · 잘 맞는 일</p>
+      </div>
+    </ScreenShell>
+  );
+}
+
+function ConcernScreen({ onPaywall }) {
+  const data = useGuardianData();
+  const [open, setOpen] = React.useState(null);
+  if (!data) return null;
+  const guardian = data.getGuardian(51, '../..');
+  return (
+    <ScreenShell element={guardian.element}>
+      <div style={{paddingTop:22}}>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2,textAlign:'center'}}>
+          <GuardianPortrait guardian={guardian} size={104} eager />
+          <div style={{color:'var(--color-brand)',fontSize:11,fontWeight:500}}>{guardian.nickname}에게 물어보기</div>
+        </div>
+        <h1 style={{margin:'7px 0 0',fontSize:24,fontWeight:500,textAlign:'center'}}>요즘 뭐가<br/>제일 궁금해요?</h1>
+        <p style={{margin:'9px 0 0',color:'var(--color-muted)',fontSize:13,lineHeight:1.65,textAlign:'center'}}>하나만 골라주세요.</p>
+        <div style={{display:'grid',gap:10,marginTop:22}}>
+          {CONCERN_OPTIONS.map(opt=>{
+            const isOpen = open===opt.type;
+            return (
+              <div key={opt.type} style={{overflow:'hidden',borderRadius:16,border:isOpen?`1px solid var(--color-element-${guardian.element}-accent)`:'none',background:isOpen?`var(--color-element-${guardian.element}-soft)`:'transparent'}}>
+                <button onClick={()=>setOpen(isOpen?null:opt.type)} style={{appearance:'none',display:'flex',alignItems:'center',gap:13,width:'100%',padding:15,border:isOpen?0:'1px solid var(--color-line)',borderRadius:isOpen?'15px 15px 0 0':16,background:isOpen?'transparent':'var(--color-page)',color:'var(--color-ink)',textAlign:'left',cursor:'pointer',boxSizing:'border-box'}}>
+                  <span style={{display:'grid',placeItems:'center',width:40,height:40,borderRadius:13,background:'var(--color-brand-soft)',fontSize:18,flex:'0 0 auto'}}>{opt.icon}</span>
+                  <span><strong style={{display:'block',fontSize:14,fontWeight:500}}>{opt.label}</strong><small style={{display:'block',marginTop:3,color:'var(--color-muted)',fontSize:11}}>{opt.hint}</small></span>
+                </button>
+                {isOpen && (
+                  <div style={{padding:'0 15px 16px 68px'}}>
+                    <strong style={{display:'block',paddingTop:14,borderTop:`1px solid color-mix(in srgb, var(--color-element-${guardian.element}-accent) 34%, transparent)`,fontSize:15,fontWeight:500}}>새로운 흐름이 열리고 있어요 ↑</strong>
+                    <p style={{margin:'8px 0 0',color:'var(--color-muted)',fontSize:12,lineHeight:1.65}}>새 길은 내가 연다며 앞장서는 타입이라, 올해는 먼저 움직이는 쪽이 유리해요.</p>
+                    <button onClick={onPaywall} style={{appearance:'none',marginTop:12,padding:0,border:0,background:'transparent',color:'var(--color-brand)',fontSize:12,fontWeight:500,cursor:'pointer'}}>이직 점수 · 좋은 시기까지 보기 →</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </ScreenShell>
+  );
+}
+
+function PaywallScreen() {
+  return (
+    <ScreenShell>
+      <div style={{paddingTop:22}}>
+        <div style={{color:'var(--color-brand)',fontSize:11,fontWeight:500}}>새싹호랑이가 세 가지 길을 비교해봤어요</div>
+        <h1 style={{margin:0,fontSize:24,fontWeight:500}}>지금 나에게 가장 유리한 선택은?</h1>
+        <Card style={{marginTop:18}}>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}><strong>세 가지 선택 비교</strong><span style={{color:'var(--color-lock)',fontSize:11}}>상세 리포트에서 공개돼요</span></div>
+          <ScoreGrid items={[{icon:'🚪',label:'이직',value:'82점',locked:true},{icon:'💰',label:'협상',value:'74점',locked:true},{icon:'🪑',label:'잔류',value:'55점',locked:true}]} />
+        </Card>
+        <ul style={{margin:'18px 0 0',padding:0,listStyle:'none'}}>
+          {['왜 이런 점수가 나왔는지','나에게 맞는 회사 · 역할 · 조건','앞으로 6개월, 언제 움직이면 좋은지','실수하지 않기 위한 행동 가이드'].map(t=>(
+            <li key={t} style={{display:'flex',gap:9,margin:'10px 0',fontSize:12,lineHeight:1.45}}><span style={{color:'var(--color-brand)'}}>✓</span>{t}</li>
+          ))}
+        </ul>
+        <div style={{marginTop:18}}>
+          <Button variant="primary">내 커리어 선택 리포트 열기 · 8,900원</Button>
+        </div>
+      </div>
+    </ScreenShell>
+  );
+}
+
+function ShareCardScreen() {
+  const data = useGuardianData();
+  if (!data) return null;
+  const guardian = data.getGuardian(51, '../..');
+  return (
+    <ScreenShell>
+      <div style={{paddingTop:22,textAlign:'center'}}>
+        <div style={{color:'var(--color-brand)',fontSize:11,fontWeight:500,marginBottom:12}}>공유 카드 미리보기</div>
+        <div style={{display:'flex',justifyContent:'center'}}><ShareCard guardian={guardian} size={340} /></div>
+        <p style={{margin:'14px 0 0',color:'var(--color-muted)',fontSize:11}}>60종 모두 이 템플릿 하나 — 캐릭터·이름·문구·포인트 컬러만 바뀐다. 번호 배지가 소유욕·공유욕을 자극한다.</p>
+      </div>
+    </ScreenShell>
+  );
+}
+
+const SCREENS = ['landing','birth','summon','result','concern','paywall','sharecard'];
+const LABELS = { landing:'① 랜딩', birth:'② 출생입력', summon:'③ 소환', result:'④ 결과', concern:'⑤ 고민선택', paywall:'⑥ 유료전환', sharecard:'⑦ 공유카드' };
+
+function App() {
+  const [step, setStep] = React.useState('landing');
+  const screenProps = {
+    landing: { onNext: () => setStep('birth') },
+    birth: { onNext: () => setStep('summon'), onBack: () => setStep('landing') },
+    summon: { onNext: () => setStep('result') },
+    result: { onConcern: () => setStep('concern') },
+    concern: { onPaywall: () => setStep('paywall') },
+    paywall: {},
+    sharecard: {},
+  };
+  const Screen = { landing:LandingScreen, birth:BirthScreen, summon:SummonScreen, result:ResultScreen, concern:ConcernScreen, paywall:PaywallScreen, sharecard:ShareCardScreen }[step];
+  return (
+    <div>
+      <nav style={{display:'flex',gap:4,overflowX:'auto',padding:'10px 10px',background:'#efece0',position:'sticky',top:0,zIndex:1}}>
+        {SCREENS.map(s => (
+          <button key={s} onClick={()=>setStep(s)} style={{flex:'0 0 auto',padding:'6px 10px',borderRadius:999,border:0,background:step===s?'var(--color-brand)':'var(--color-card)',color:step===s?'#faf8f2':'var(--color-muted)',fontSize:11,cursor:'pointer',fontFamily:'var(--font-body)'}}>{LABELS[s]}</button>
+        ))}
+      </nav>
+      <Screen {...screenProps[step]} />
+    </div>
+  );
+}
+
+function Root(){
+  const ready = useGuardianData();
+  if (!ready) return <div style={{padding:40,textAlign:'center',color:'var(--color-muted)'}}>불러오는 중…</div>;
+  return <App />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+</script>
+</body>
+</html>

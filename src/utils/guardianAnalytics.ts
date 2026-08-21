@@ -1,6 +1,7 @@
 export type GuardianEventName =
   | 'guardian_result_view' | 'guardian_match_section_view'
   | 'guardian_share_click' | 'guardian_share_sheet_opened' | 'guardian_share_confirmed'
+  | 'guardian_share_link_copy'
   | 'guardian_share_landing_view' | 'guardian_result_complete_from_share'
   | 'paid_conversion';
 
@@ -19,7 +20,7 @@ export type GuardianEventInput = {
   shareId?: string | null;
   guardianId?: string | null;
   fromGuardianId?: string | null;
-  shareChannel?: 'kakao' | 'web_link' | 'web_file' | 'download' | null;
+  shareChannel?: 'kakao' | 'copy' | 'web_link' | 'web_file' | 'download' | null;
   utmSource?: 'guardian_share' | null;
 };
 

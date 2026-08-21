@@ -9,8 +9,12 @@ const sharp = require('sharp');
 
 const SRC = path.join(__dirname, '..', 'design-assets', 'characters', 'jobsaju-60-guardians-v2.4-production');
 const OUT = path.join(__dirname, '..', 'public', 'guardians');
+const THUMB_OUT = path.join(OUT, 'thumb');
 const EXPECTED = 60;
-const SIZE = 640; // 기존 public/creatures와 같은 규격
+const SIZE = 640; // 결과·소환 화면의 주인공 크기
+// 랜딩 캐러셀은 60마리를 전부 태운다. 카드가 104px로 그리는데 640px을 내려받으면
+// 랜딩 하나에 2.8MB가 나간다. 2x 화면까지 감당할 만큼만 따로 굽는다.
+const THUMB_SIZE = 224;
 
 async function main() {
   const files = fs.readdirSync(SRC).filter(name => /^\d{2}_.*\.png$/.test(name)).sort();
@@ -19,19 +23,32 @@ async function main() {
   }
 
   fs.mkdirSync(OUT, { recursive: true });
+  fs.mkdirSync(THUMB_OUT, { recursive: true });
   let totalBytes = 0;
+  let thumbBytes = 0;
 
   for (const file of files) {
     const no = file.slice(0, 2);
+    const source = sharp(path.join(SRC, file));
+    const transparent = { r: 0, g: 0, b: 0, alpha: 0 };
+
     const dest = path.join(OUT, `${no}.webp`);
-    await sharp(path.join(SRC, file))
-      .resize(SIZE, SIZE, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    await source.clone()
+      .resize(SIZE, SIZE, { fit: 'contain', background: transparent })
       .webp({ quality: 82 })
       .toFile(dest);
     totalBytes += fs.statSync(dest).size;
+
+    const thumbDest = path.join(THUMB_OUT, `${no}.webp`);
+    await source.clone()
+      .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'contain', background: transparent })
+      .webp({ quality: 78 })
+      .toFile(thumbDest);
+    thumbBytes += fs.statSync(thumbDest).size;
   }
 
   console.log(`converted=${files.length} totalKB=${Math.round(totalBytes / 1024)} avgKB=${Math.round(totalBytes / files.length / 1024)}`);
+  console.log(`thumbs=${files.length} totalKB=${Math.round(thumbBytes / 1024)} avgKB=${Math.round(thumbBytes / files.length / 1024)}`);
 }
 
 main().catch(error => {
