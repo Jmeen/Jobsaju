@@ -109,6 +109,19 @@ body {
   background: transparent; color: var(--jg-green); font: inherit; font-size: 12px; cursor: pointer;
 }
 
+/* 화면에는 보이지 않되, 잠긴 정보의 안내는 스크린리더에 남긴다. */
+.jg-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* --- 타이포그래피 ---
    Display(BM DOHYEON)를 쓰는 자리는 디자인 시스템에서 정한 세 곳뿐이다:
    랜딩 헤드라인, 랜딩에 흐르는 수호신 이름, 결과 화면의 수호신 이름.
@@ -256,6 +269,43 @@ body {
 .jg-result-why p { margin: 0; color: var(--jg-ink); font-size: 12px; line-height: 1.6; word-break: keep-all; }
 .jg-result-why em { display: block; margin-top: 7px; color: var(--jg-muted); font-size: 11px; line-height: 1.55; font-style: normal; word-break: keep-all; }
 .jg-result-options { margin: 7px 0 0; color: var(--jg-muted); text-align: center; font-size: 10px; }
+
+/* --- 무료 커리어 신호 (수호신 결과 → 커리어 판단 다리) --- */
+.jg-signal { margin-top: 20px; padding: 18px 16px 16px; border-radius: 18px; background: var(--jg-guardian-soft); border: 1px solid color-mix(in srgb, var(--jg-guardian-accent) 40%, transparent); }
+.jg-signal-head { text-align: center; }
+.jg-signal-head small { display: block; margin-top: 4px; color: var(--jg-muted); font-size: 11px; }
+.jg-signal-marks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.jg-signal-mark {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 12px 6px; border-radius: 13px; background: var(--jg-phone);
+  border: 1px solid transparent;
+}
+.jg-signal-mark.is-top { border-color: var(--jg-guardian-accent); background: var(--jg-guardian-pressed); }
+.jg-signal-icon { font-size: 18px; }
+.jg-signal-label { color: var(--jg-ink); font-size: 12px; font-weight: 500; }
+.jg-signal-badge { color: var(--jg-green); font-size: 18px; line-height: 1; font-weight: 600; }
+.jg-signal-mark.is-top .jg-signal-badge { color: var(--jg-guardian-accent); }
+.jg-signal-sentence { margin: 14px 2px 0; color: var(--jg-ink); font-size: 13px; line-height: 1.6; text-align: center; word-break: keep-all; }
+.jg-signal-legend { margin: 8px 0 0; color: var(--jg-muted); text-align: center; font-size: 10px; }
+.jg-signal-bridge {
+  margin-top: 14px; padding: 12px 14px; border-radius: 13px;
+  background: var(--jg-card); border: 1px dashed color-mix(in srgb, var(--jg-guardian-accent) 45%, transparent);
+}
+.jg-signal-bridge p { margin: 0; color: var(--jg-ink); font-size: 12px; line-height: 1.6; text-align: center; word-break: keep-all; }
+.jg-signal .jg-btn { margin-top: 14px; }
+
+/* --- 유료 전환: 왜·언제·어떻게 --- */
+.jg-value { margin-top: 18px; display: grid; gap: 10px; }
+.jg-value-row {
+  display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start;
+  padding: 14px 15px; border-radius: 16px; background: var(--jg-card);
+}
+.jg-value-tag {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px;
+  background: var(--jg-green-soft); color: var(--jg-green); font-size: 12px; font-weight: 600;
+}
+.jg-value-row strong { display: block; color: var(--jg-ink); font-size: 13px; font-weight: 500; }
+.jg-value-row p { margin: 5px 0 0; color: var(--jg-muted); font-size: 11px; line-height: 1.55; word-break: keep-all; }
 
 /* --- 공유 유입 배너 --- */
 .jg-inbound {

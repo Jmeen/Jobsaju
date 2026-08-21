@@ -207,7 +207,13 @@ export async function handlePaidReportRequest(request, env) {
         }
       }
     } catch (err) {
-      console.error("D1 DB Error:", err);
+      // 생성 잠금이 없으면 같은 결제가 중복 생성될 수 있으므로, DB 오류를 숨기고
+      // Gemini 호출을 계속하지 않는다. 운영자가 바로 원인을 확인할 수 있게 명시적으로 실패시킨다.
+      console.error('Paid report D1 lock error:', err instanceof Error ? err.message : err);
+      return new Response(JSON.stringify({ error: '리포트 저장소를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
     }
   } else {
     // Fallback to in-memory set / KV if D1 is not bound
@@ -324,27 +330,36 @@ export async function handlePaidReportRequest(request, env) {
       }
     };
 
-    const gRequest = buildGeminiRequest(env, 'models/gemini-3.6-flash:generateContent');
+    const requestGemini = async (model) => {
+      const request = buildGeminiRequest(env, `models/${model}:generateContent`);
+      return fetch(request.url, {
+        method: 'POST',
+        headers: request.headers,
+        body: JSON.stringify(geminiParams),
+      });
+    };
+    const primaryModel = typeof env.GEMINI_MODEL === 'string' && env.GEMINI_MODEL.trim()
+      ? env.GEMINI_MODEL.trim()
+      : 'gemini-3.5-flash';
+    const fallbackModel = primaryModel === 'gemini-3.5-flash' ? 'gemini-3.6-flash' : 'gemini-3.5-flash';
     let geminiRes;
     try {
-      geminiRes = await fetch(gRequest.url, {
-        method: 'POST',
-        headers: gRequest.headers,
-        body: JSON.stringify(geminiParams)
-      });
-    } catch (e) {
-      const gRequestFB = buildGeminiRequest(env, 'models/gemini-3.5-flash:generateContent');
-      geminiRes = await fetch(gRequestFB.url, {
-        method: 'POST',
-        headers: gRequestFB.headers,
-        body: JSON.stringify(geminiParams)
-      });
+      geminiRes = await requestGemini(primaryModel);
+    } catch {
+      // 네트워크 단계에서 실패한 경우에도 대체 모델 경로를 한 번 시도한다.
+      geminiRes = await requestGemini(fallbackModel);
+    }
+
+    // 모델 폐기·일시적 과부하일 때만 대체 Flash 모델을 시도한다. 잘못된 요청(400)은
+    // 재시도해도 해결되지 않으므로 원래 오류를 바로 반환한다.
+    if (!geminiRes.ok && [404, 429, 500, 502, 503, 504].includes(geminiRes.status)) {
+      geminiRes = await requestGemini(fallbackModel);
     }
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error("Gemini Failure Payload:", JSON.stringify(payload));
-      throw new Error('Gemini API Error: ' + errText);
+      console.error('Gemini paid-report request failed:', geminiRes.status, errText.slice(0, 500));
+      throw new Error(`Gemini API Error (${geminiRes.status}): ${errText.slice(0, 500)}`);
     }
 
     const geminiData = await geminiRes.json();

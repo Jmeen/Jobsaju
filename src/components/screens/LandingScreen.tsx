@@ -41,7 +41,7 @@ export function LandingScreen() {
         <button className="jg-btn" type="button" onClick={() => setStep('birth')}>
           내 수호신 뽑아보기
         </button>
-        <p className="jg-landing-note">생년월일로 바로 확인 · 10초 · 무료</p>
+        <p className="jg-landing-note">생년월일 입력 후 바로 확인 · 무료</p>
       </div>
 
       {/* 재방문자용 통로. 첫 방문자의 유일한 액션(CTA)을 흐리지 않도록 아래로 내리고 톤을 낮춘다. */}

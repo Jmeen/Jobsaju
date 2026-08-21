@@ -14,7 +14,6 @@ export function ManualPayModal() {
     couponError,
     isCouponChecking,
     showSecretCoupon,
-    secretClickCount,
     checkout,
     price,
   } = useAppCheckout();
@@ -24,7 +23,6 @@ export function ManualPayModal() {
     setShowManualPayModal,
     setCouponError,
     setShowSecretCoupon,
-    setSecretClickCount,
     handleUnlock,
     handleApplyCoupon,
   } = useAppActions();
@@ -66,28 +64,15 @@ export function ManualPayModal() {
                     gap: 6
                   }}
                   title="🔮"
-                  onClick={() => {
-                    const nextCount = secretClickCount + 1;
-                    setSecretClickCount(nextCount);
-                    if (nextCount >= 3) {
-                      setShowSecretCoupon(true);
-                      setSecretClickCount(0);
-                    }
-                  }}
+                  onClick={() => setShowSecretCoupon(true)}
                 >
                   {CHECKOUT_COPY.title} {appliedCoupon ? <span style={{ color: '#4ade80', fontSize: 15 }}>(0원 무료 적용)</span> : `(${price.label})`}
-                  {!showSecretCoupon && !appliedCoupon && secretClickCount > 0 && (
-                    <span style={{ fontSize: 11, color: 'var(--accent-purple)', opacity: 0.8 }}>
-                      {secretClickCount}/3
-                    </span>
-                  )}
                 </h3>
               </div>
               <button 
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 18, cursor: 'pointer' }}
                 onClick={() => {
                   setShowManualPayModal(false);
-                  setSecretClickCount(0);
                 }}
               >✕</button>
             </div>
@@ -114,7 +99,7 @@ export function ManualPayModal() {
                   />
                 </div>
 
-                {/* 숨겨진 쿠폰 코드 입력 섹션 (3회 탭 또는 적용 시 노출) */}
+                {/* 숨겨진 쿠폰 코드 입력 섹션 (제목 1회 탭 또는 적용 시 노출) */}
                 {(showSecretCoupon || appliedCoupon) && (
                   <div style={{ 
                     background: 'rgba(168, 85, 247, 0.08)', 

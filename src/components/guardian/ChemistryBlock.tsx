@@ -54,14 +54,16 @@ export function ChemistryBlock({ guardian, isSharing, onKakaoShare, onCopyLink, 
     }
   };
 
+  // 정교한 궁합 분석이 아니라 캐릭터 세계관을 넓히고 친구를 떠올리게 하는 장치다.
+  // 그래서 "케미 N점" 같은 궁합 점수는 노출하지 않는다 — 유형(찰떡/부딪힘)만 보여준다.
   const rows = [
-    { label: '찰떡', asset: bestGuardian, result: best.result },
-    { label: '티격태격', asset: worstGuardian, result: worst.result },
+    { label: '회사에서 찰떡인 유형', asset: bestGuardian, result: best.result },
+    { label: '부딪히기 쉬운 유형', asset: worstGuardian, result: worst.result },
   ];
 
   return (
     <section className="jg-chemistry">
-      <h2 className="jg-chemistry-title">함께 일하면?</h2>
+      <h2 className="jg-chemistry-title">같이 일하면 잘 맞는 유형</h2>
 
       {rows.map(row => (
         <div className="jg-chemistry-row" key={row.label}>
@@ -71,12 +73,11 @@ export function ChemistryBlock({ guardian, isSharing, onKakaoShare, onCopyLink, 
             <strong>{row.asset.nickname}</strong>
             <small>{chemistryCopy(row.result.dominantRelation)}</small>
           </div>
-          <span className="jg-chemistry-score">직장 케미 {row.result.score}점</span>
         </div>
       ))}
 
       <p className="jg-chemistry-ask">
-        내 수호신은 {guardian.nickname}.<br />너는?
+        내 수호신은 {guardian.nickname}.<br />친구 수호신도 확인해보기
       </p>
 
       <button

@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { decodeSecurePayload } from '../utils/crypto';
 import { STORAGE_KEY, loadSavedSession } from '../utils/session';
 import { daysInMonth, CURRENT_YEAR } from '../utils/birthWheel';
@@ -93,10 +93,11 @@ export function useAppActions() {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   // === UI Step State ===
-  // 목업(docs/mockups/guardian-flow)의 화면 순서 그대로다.
-  // 직무·목표·상황 입력은 결제 전 3단계가 아니라 결제 후 'personalize' 한 화면으로 간다.
+  // 무료 커리어 신호(◎○△)를 수호신 결과 화면 안으로 흡수하면서 별도 '고민 선택' 단계는 없앴다.
+  // 흐름: landing → birth → summon → result(무료 수호신+신호) → paywall(왜·언제·어떻게) → personalize.
+  // 직무·목표·상황 입력은 결제 전이 아니라 결제 후 'personalize' 한 화면에서 받는다.
   const [step, setStep] = useState<
-    'landing' | 'birth' | 'summon' | 'result' | 'concern' | 'paywall' | 'personalize'
+    'landing' | 'birth' | 'summon' | 'result' | 'paywall' | 'personalize'
   >('landing');
 
   // === Form Inputs State ===
@@ -187,7 +188,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isCouponChecking, setIsCouponChecking] = useState(false);
   const [showSecretCoupon, setShowSecretCoupon] = useState(false);
-  const [secretClickCount, setSecretClickCount] = useState(0);
 
   // 랜딩 카피 A/B — 광고 링크에 ?c=a / ?c=b 를 붙이면 고정된다
   const [copy] = useState(() =>
@@ -288,6 +288,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const summaryCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const viralCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // ResultScreen은 lazy load된다. ref만 쓰면 Provider의 효과가 캔버스가 생기기 전에
+  // 한 번 실행되고 끝날 수 있으므로, 실제 DOM 노드가 붙는 순간을 state로도 알린다.
+  const [viralCardCanvasNode, setViralCardCanvasNode] = useState<HTMLCanvasElement | null>(null);
+  const setViralCardCanvasRef = useCallback((node: HTMLCanvasElement | null) => {
+    viralCardCanvasRef.current = node;
+    setViralCardCanvasNode(node);
+  }, []);
   // 카드가 그려지자마자 백그라운드로 미리 업로드해 둔 이미지 URL 캐시.
   // 클릭 시점엔 이 값만 넘겨 fetch 없이 곧바로 Kakao.Share를 호출한다(iOS 제스처 컨텍스트 보존).
   const preUploadedShareImageUrlRef = useRef<string | null>(null);
@@ -773,11 +780,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           conclusion: aiReport?.one_line_conclusion || buildVerdictView(sajuResult.scores).title,
         });
 
+        // 이미지 파일의 로드가 지연돼도 빈 카드가 남지 않도록, 텍스트 기반 카드부터 즉시 그린다.
+        drawShareCard(canvas, model);
         const image = new Image();
         image.decoding = 'async';
         const loadedImage = await new Promise<HTMLImageElement | undefined>(resolve => {
-          image.onload = () => resolve(image);
-          image.onerror = () => resolve(undefined);
+          const timeout = window.setTimeout(() => resolve(undefined), 5000);
+          image.onload = () => { window.clearTimeout(timeout); resolve(image); };
+          image.onerror = () => { window.clearTimeout(timeout); resolve(undefined); };
           image.src = model.imageUrl;
         });
         if (cancelled) return;
@@ -802,7 +812,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(timer);
       };
     }
-  }, [step, isUnlocked, sajuResult, aiReport]);
+  }, [step, isUnlocked, sajuResult, aiReport, viralCardCanvasNode]);
 
   // === 수호신 공유 카드 사전 준비 ===
   // 카카오 리치카드는 절대 URL 이미지만 받는다. 클릭한 다음에 그리고 올리기 시작하면
@@ -1492,10 +1502,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     couponError,
     isCouponChecking,
     showSecretCoupon,
-    secretClickCount,
     checkout,
     price,
-  }), [isAILoading, unlockLoadingText, unlockError, appliedCoupon, couponMessage, couponError, isCouponChecking, showSecretCoupon, secretClickCount, checkout, price]);
+  }), [isAILoading, unlockLoadingText, unlockError, appliedCoupon, couponMessage, couponError, isCouponChecking, showSecretCoupon, checkout, price]);
 
   // 안쪽 핸들러는 지금처럼 매 렌더 새로 만들어진다(클로저가 항상 최신).
   // 밖으로 나가는 것은 이 ref를 거치는 고정 참조라, 렌더가 바뀌어도 같은 함수다.
@@ -1542,7 +1551,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCouponError,
       setIsCouponChecking,
       setShowSecretCoupon,
-      setSecretClickCount,
       setFollowUps,
       setShareBonusGranted,
       setFollowUpError,
@@ -1554,6 +1562,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       lookupEmailDraftRef,
       couponDraftRef,
       viralCardCanvasRef,
+      setViralCardCanvasRef,
       summaryCardCanvasRef,
       restoreSavedSession: stable('restoreSavedSession'),
       handleUnlock: stable('handleUnlock'),

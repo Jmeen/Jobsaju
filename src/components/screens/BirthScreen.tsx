@@ -53,7 +53,7 @@ export function BirthScreen() {
       <h1 className="jg-title">수호신을 깨워볼까요?</h1>
       <p className="jg-sub">
         태어난 날과 시간을 알려주세요.<br />
-        입력한 정보는 당신의 직장생활 수호신을 찾는 데만 사용해요.
+        입력한 정보는 내 수호신과 지금의 커리어 흐름을 확인하는 데 사용해요.
       </p>
 
       <div className="jg-birth-card">

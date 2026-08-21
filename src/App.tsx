@@ -11,7 +11,6 @@ import { BirthScreen } from './components/screens/BirthScreen';
 // 정적으로 묶어두면 랜딩만 보러 온 사람도 그 무게를 전부 내려받게 된다.
 const SummonScreen = lazy(() => import('./components/screens/SummonScreen').then(m => ({ default: m.SummonScreen })));
 const GuardianResultScreen = lazy(() => import('./components/screens/GuardianResultScreen').then(m => ({ default: m.GuardianResultScreen })));
-const ConcernScreen = lazy(() => import('./components/screens/ConcernScreen').then(m => ({ default: m.ConcernScreen })));
 const PaywallScreen = lazy(() => import('./components/screens/PaywallScreen').then(m => ({ default: m.PaywallScreen })));
 const PersonalizeScreen = lazy(() => import('./components/screens/PersonalizeScreen').then(m => ({ default: m.PersonalizeScreen })));
 const ResultScreen = lazy(() => import('./components/screens/ResultScreen').then(m => ({ default: m.ResultScreen })));
@@ -20,6 +19,7 @@ const LookupModal = lazy(() => import('./components/modals/LookupModal').then(m 
 import './styles/typography.css';
 import './index.css';
 import './styles/guardian.css';
+import './styles/report.css';
 
 function AppRouter() {
   const { step, deepLinkError, showManualPayModal, showLookupModal } = useAppFlow();
@@ -50,7 +50,6 @@ function AppRouter() {
           {step === 'landing' && <LandingScreen />}
           {step === 'birth' && <BirthScreen />}
           {step === 'summon' && <SummonScreen />}
-          {step === 'concern' && <ConcernScreen />}
           {step === 'paywall' && <PaywallScreen />}
           {step === 'personalize' && <PersonalizeScreen />}
 
