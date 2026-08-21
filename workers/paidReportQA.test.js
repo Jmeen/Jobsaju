@@ -67,6 +67,16 @@ test('Validator: Completely Empty / Malformed JSON', async () => {
   }
 });
 
+test('Validator: 현재부터 6개월 타임라인은 여섯 달만 복구한다', () => {
+  const timeline = ['2026-08', '2026-09', '2026-10', '2026-11', '2026-12', '2027-01']
+    .map(year_month => ({ year_month, scores: { job_change: 50, negotiation: 50, stay: 50 } }));
+  const repaired = validateAndRepairPaidReport('{}', timeline, {
+    best_job_change_month: '2026-08', best_negotiation_month: '2026-09', caution_month: '2026-10',
+  });
+  assert.equal(repaired.timeline.length, 6);
+  assert.equal(repaired.timeline.at(-1).year_month, '2027-01');
+});
+
 import { handlePaidReportRequest } from './paidReportApi.js';
 
 test('API: 같은 payment_id로 동시에 들어오면 한 건만 생성하고 나머지는 202로 돌린다', async () => {

@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { useAppReport, useAppActions } from '../../contexts/AppContext';
 import { STORAGE_KEY } from '../../utils/session';
 import { buildTopScore } from '../../utils/scorePresentation';
-// @ts-ignore
-import FREE_CHARACTERS from '../../../free_engine_characters.js';
+import { getGuardianAsset } from '../../utils/guardianAssets';
+import { getGuardianCharacter } from '../../utils/guardianCharacters';
 import { buildElementInsight } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUpValidation';
@@ -73,9 +73,13 @@ export function ResultScreen() {
 
   const report = aiReport?.report;
   const th = report?.timing_highlights;
-  const nowYm = new Date().toISOString().slice(0, 7);
+  const nowParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit',
+  }).formatToParts(new Date());
+  const nowYm = `${nowParts.find(part => part.type === 'year')?.value}-${nowParts.find(part => part.type === 'month')?.value}`;
   const dayPillar = sajuResult.pillars.day.ganHanja + sajuResult.pillars.day.zhiHanja;
-  const myChar = FREE_CHARACTERS.find((c: any) => c.id === dayPillar) || FREE_CHARACTERS[0];
+  const guardian = getGuardianAsset(dayPillar);
+  const guardianDetail = getGuardianCharacter(dayPillar);
   const top = buildTopScore(sajuResult.scores);
   const questionLimit = shareBonusGranted ? 2 : 1;
 
@@ -216,12 +220,12 @@ export function ResultScreen() {
             </section>
           )}
 
-          {/* ⑤ 앞으로 6개월 흐름 · 이후 전망 */}
+          {/* ⑤ 현재 월부터 앞으로 6개월 흐름 */}
           {report.timeline && (
             <section className="jg-card">
-              <h3 className="jg-card-title">앞으로 6개월 흐름 · 이후 전망</h3>
+              <h3 className="jg-card-title">현재부터 앞으로 6개월 흐름</h3>
               <div className="jg-months">
-                {report.timeline.map((item: any) => {
+                {report.timeline.slice(0, 6).map((item: any) => {
                   const isBestJob = th?.best_job_change?.year_month === item.year_month;
                   const isBestNego = th?.best_negotiation?.year_month === item.year_month;
                   const isCaution = th?.caution_month?.year_month === item.year_month;
@@ -256,9 +260,9 @@ export function ResultScreen() {
           {/* 왜 이 선택이 잘 맞나 (캐릭터 연결) */}
           {report.personalized_advice?.character_connection && (
             <div className="jg-card jg-report-character">
-              <div className="jg-report-emoji" aria-hidden="true">{myChar.emoji}</div>
+              <img className="jg-report-guardian-image" src={guardian.imageUrl} alt={`${guardian.nickname} 수호신`} />
               <div>
-                <span>왜 이런 선택이 당신에게 잘 맞나</span>
+                <span>{guardian.nickname} · 왜 이런 선택이 당신에게 잘 맞나</span>
                 <p>{report.personalized_advice.character_connection}</p>
               </div>
             </div>
@@ -361,20 +365,20 @@ export function ResultScreen() {
 
       {/* 일할 때 강한 방식 (참고) */}
       <section className="jg-card">
-        <h3 className="jg-card-title">당신이 일할 때 강한 방식</h3>
-        <p className="jg-report-history-note" style={{ marginBottom: 14 }}>{myChar.identity}</p>
+        <h3 className="jg-card-title">{guardian.nickname}의 일하는 방식</h3>
+        <p className="jg-report-history-note" style={{ marginBottom: 14 }}>{guardian.copy}</p>
         <div className="jg-strengths">
           <div className="jg-strength">
             <span>💪 강점</span>
-            <p>{myChar.strength.split('. ')[0]}.</p>
+            <p>{guardianDetail.strength.split('. ')[0]}.</p>
           </div>
           <div className="jg-strength">
             <span>⚠️ 조심할 점</span>
-            <p>{myChar.blind_spot.split('. ')[0]}.</p>
+            <p>{guardianDetail.blind_spot.split('. ')[0]}.</p>
           </div>
           <div className="jg-strength">
             <span>🏢 잘 맞는 환경</span>
-            <p>{myChar.best_environment.split('. ')[0]}.</p>
+            <p>{guardianDetail.best_environment.split('. ')[0]}.</p>
           </div>
         </div>
       </section>

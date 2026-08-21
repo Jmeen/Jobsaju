@@ -1,6 +1,6 @@
 import { parseGeminiError } from './geminiError.js';
 import { encodeSecurePayload } from './crypto.js';
-import { buildGeminiRequest } from './geminiTransport.js';
+import { buildGeminiRequest, hasConfiguredGeminiProvider } from './geminiTransport.js';
 import {
   assessFollowUpQuestion,
   buildRefusalMessage,
@@ -36,11 +36,10 @@ import {
  * 모델명은 환경 변수로 바꿀 수 있게 둔다 (GEMINI_MODEL).
  * 진단 API에서 생성 가능함을 확인한 최신 Flash 계열을 기본값과 폴백으로 사용합니다.
  */
-const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const FALLBACK_FLASH_MODELS = [
-  "gemini-3.5-flash",
-  "gemini-3.6-flash",
-  "gemini-3.7-flash"
+  "gemini-2.5-flash",
+  "gemini-2.0-flash"
 ];
 const REPORT_VERSION = 'copy-v2';
 const reportCacheKey = (token) => `report:${REPORT_VERSION}:${token}`;
@@ -251,7 +250,7 @@ async function callGemini(env, { systemInstruction, prompt }) {
         genConfig.thinkingConfig = { thinkingBudget: 1024 };
       }
 
-      const providerRequest = buildGeminiRequest(env, `models/${model}:generateContent`);
+      const providerRequest = await buildGeminiRequest(env, `models/${model}:generateContent`);
       const res = await fetch(providerRequest.url, {
         method: "POST",
         headers: providerRequest.headers,
@@ -342,11 +341,24 @@ export default {
       };
 
       try {
-        const providerRequest = buildGeminiRequest(env, 'models');
+        const diagnosticResource = String(env.GEMINI_TRANSPORT || '').toLowerCase() === 'vertex'
+          ? `models/${model}:generateContent`
+          : 'models';
+        const providerRequest = await buildGeminiRequest(env, diagnosticResource);
         result.ai_transport = providerRequest.transport;
         result.gateway_configured = providerRequest.transport === 'cloudflare-ai-gateway';
+        result.vertex_configured = providerRequest.transport === 'google-vertex-ai';
 
-        if (env.GEMINI_API_KEY) {
+        if (providerRequest.transport === 'google-vertex-ai') {
+          const modelResponse = await fetch(providerRequest.url.replace(/:generateContent$/, ''), { headers: providerRequest.headers });
+          const modelBody = await modelResponse.json().catch(() => ({}));
+          if (!modelResponse.ok) {
+            result.models_error = modelBody?.error?.message || `status ${modelResponse.status}`;
+          } else {
+            result.auth_ready = true;
+            result.configured_model_available = true;
+          }
+        } else if (env.GEMINI_API_KEY) {
           const res = await fetch(providerRequest.url, { headers: providerRequest.headers });
           const body = await res.json();
           if (!res.ok) {
@@ -363,6 +375,7 @@ export default {
       } catch (err) {
         result.ai_transport = 'configuration-error';
         result.gateway_configured = false;
+        result.vertex_configured = false;
         result.models_error = err instanceof Error ? err.message : 'AI Gateway 설정을 확인하지 못했습니다.';
       }
 
@@ -823,8 +836,7 @@ export default {
           });
         }
 
-        const GEMINI_API_KEY = env.GEMINI_API_KEY;
-        if (!GEMINI_API_KEY) {
+        if (!hasConfiguredGeminiProvider(env)) {
           return new Response(JSON.stringify({ error: "서버 AI API Key 설정 오류" }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -1000,8 +1012,7 @@ ${q}
         }
 
         // Gemini API 호출 설정 (Gemini 2.5 Flash 모델 활용)
-        const GEMINI_API_KEY = env.GEMINI_API_KEY;
-        if (!GEMINI_API_KEY) {
+        if (!hasConfiguredGeminiProvider(env)) {
           return new Response(JSON.stringify({ error: "서버 AI API Key 설정 오류" }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },

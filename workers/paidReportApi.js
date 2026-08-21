@@ -44,13 +44,13 @@ const SYSTEM_PROMPT = `
 당신은 반드시 사전에 정의된 JSON Schema 구조로만 답변해야 합니다. 
 
 ### A. Report Summary
-* \`headline\`: 향후 12개월의 가장 중요한 커리어 판단 (최대 90자)
+* \`headline\`: 향후 6개월의 가장 중요한 커리어 판단 (최대 90자)
 * \`one_line_action\`: 사용자가 가장 먼저 해야 할 행동 (최대 100자)
 
 ### B. Timing Highlights Interpretation
 백엔드의 월 지정을 유지하며, 왜 그 달이 중요한지(\`reason\`: 최대 120자), 무엇을 해야 하는지(\`action\`: 최대 100자)만 작성. \`best_job_change\`와 \`best_negotiation\`은 score도 함께 반환.
 
-### C. Timeline 12 Months
+### C. Timeline 6 Months
 매월 다음을 새롭게 작성 (입력받은 \`year_month\`, \`scores\`는 구조에 그대로 복사)
 * \`keyword\`: 월별 핵심 키워드 (최대 15자)
 * \`summary\`: 흐름 요약 (최대 120자)
@@ -276,14 +276,17 @@ export async function handlePaidReportRequest(request, env) {
       baseZhis.push({ char: analysis.pillars.hour.zhi, weight: 0.5, position: 'natalHourBranch' });
     }
 
-    // 4. Generate 12 Months Fortunes
+    // 4. Generate the current month plus the next five months.
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-indexed
+    const seoulDateParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit',
+    }).formatToParts(now);
+    const currentYear = Number(seoulDateParts.find(part => part.type === 'year')?.value);
+    const currentMonth = Number(seoulDateParts.find(part => part.type === 'month')?.value);
     
     const timeline = [];
     
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 6; i++) {
       let calcMonth = currentMonth + i;
       let calcYear = currentYear;
       if (calcMonth > 12) {
@@ -344,7 +347,7 @@ export async function handlePaidReportRequest(request, env) {
     };
 
     const requestGemini = async (model) => {
-      const request = buildGeminiRequest(env, `models/${model}:generateContent`);
+      const request = await buildGeminiRequest(env, `models/${model}:generateContent`);
       return fetch(request.url, {
         method: 'POST',
         headers: request.headers,
@@ -353,8 +356,8 @@ export async function handlePaidReportRequest(request, env) {
     };
     const primaryModel = typeof env.GEMINI_MODEL === 'string' && env.GEMINI_MODEL.trim()
       ? env.GEMINI_MODEL.trim()
-      : 'gemini-3.5-flash';
-    const fallbackModel = primaryModel === 'gemini-3.5-flash' ? 'gemini-3.6-flash' : 'gemini-3.5-flash';
+      : 'gemini-2.5-flash';
+    const fallbackModel = primaryModel === 'gemini-2.5-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
     let geminiRes;
     try {
       geminiRes = await requestGemini(primaryModel);

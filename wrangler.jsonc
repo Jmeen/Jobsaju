@@ -6,7 +6,10 @@
 	],
 	"pages_build_output_dir": "./dist",
 	"vars": {
-		"GEMINI_MODEL": "gemini-3.5-flash"
+		"GEMINI_MODEL": "gemini-2.5-flash",
+		"GEMINI_TRANSPORT": "vertex",
+		"VERTEX_PROJECT_ID": "gen-lang-client-0289229182",
+		"VERTEX_LOCATION": "global"
 	},
 	"r2_buckets": [
 		{

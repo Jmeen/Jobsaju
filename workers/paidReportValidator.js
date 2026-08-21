@@ -37,7 +37,7 @@ export function validateAndRepairPaidReport(rawJsonText, timeline, precomputed_h
   }
   
   const repairedTimeline = [];
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < timeline.length; i++) {
     const t = timeline[i];
     const generatedMonth = report.timeline.find(m => m && m.year_month === t.year_month) || report.timeline[i] || {};
     

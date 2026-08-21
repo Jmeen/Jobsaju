@@ -122,7 +122,7 @@
 
 /* 캐릭터 연결 */
 .jg-report-character { display: flex; gap: 12px; align-items: center; }
-.jg-report-character .jg-report-emoji { font-size: 26px; flex-shrink: 0; }
+.jg-report-guardian-image { width: 54px; height: 54px; flex-shrink: 0; object-fit: contain; }
 .jg-report-character span { display: block; margin-bottom: 2px; color: var(--jg-muted); font-size: 11px; }
 .jg-report-character p { margin: 0; color: var(--jg-ink); font-size: 13px; line-height: 1.55; word-break: keep-all; }
 

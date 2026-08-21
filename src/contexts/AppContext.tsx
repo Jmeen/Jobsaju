@@ -895,8 +895,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setUnlockError(null);
 
-    // If using a coupon, bypass PortOne
-    let finalPaymentId = appliedCoupon ? `coupon-${appliedCoupon}` : '';
+    // 쿠폰 코드는 결제 수단일 뿐 리포트 ID가 아니다. 같은 쿠폰·같은 이메일로 다시
+    // 구매해도 리포트별 추가 질문권과 다시보기 이력이 분리되도록 매번 새 토큰을 쓴다.
+    let finalPaymentId = appliedCoupon ? `coupon-${appliedCoupon}-${crypto.randomUUID()}` : '';
 
     if (!finalPaymentId) {
       try {
@@ -925,6 +926,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 결제까지가 여기 몫이다. 직무·목표·상황은 결제 후 personalize 화면에서 받는다.
     paidSessionRef.current = { paymentId: finalPaymentId, email: email.trim() };
     savePaidSession(paidSessionRef.current);
+    // 새 리포트를 시작할 때 이전 리포트의 질문·공유 보너스 상태를 이어받지 않는다.
+    setFollowUps([]);
+    setShareBonusGranted(false);
+    setFollowUpError(null);
     setCareerContext(prev => ({ ...prev, email: email.trim() }));
     setShowManualPayModal(false);
     setStep('personalize');
