@@ -1387,6 +1387,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         blob,
         serviceUrl: shareUrl,
         kakaoKey: import.meta.env.VITE_KAKAO_JS_KEY || '',
+        templateId: import.meta.env.VITE_KAKAO_GUARDIAN_TEMPLATE_ID || '',
         shareHook,
         description: shareDescription,
         preUploadedImageUrl: imageUrl || undefined,

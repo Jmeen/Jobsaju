@@ -3,6 +3,8 @@ export type ShareCareerInput = {
   blob: Blob;
   serviceUrl: string;
   kakaoKey: string;
+  /** 수호신과 공용으로 쓰는 카카오 사용자 정의 템플릿 ID. */
+  templateId?: string;
   shareHook: string;
   /**
    * 클릭 이전에 백그라운드로 미리 업로드해 둔 카드 이미지 URL.
@@ -94,11 +96,61 @@ export function buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlock
   };
 }
 
-async function kakaoShare({ imageUrl, serviceUrl, kakaoKey, shareHook, unlockToken, shareId, resultSessionId, visitorSessionId, guardianId, description }: ShareCareerInput & { imageUrl: string }): Promise<void> {
+/**
+ * 무료 수호신과 유료 리포트가 한 개의 Feed A 템플릿을 공유한다.
+ * 템플릿 편집기에 없는 인자는 무시되므로, 수호신용 문구 인자도 함께 보낸다.
+ */
+export function buildKakaoCustomTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, shareId, resultSessionId, visitorSessionId, guardianId, description, templateId }: Omit<ShareCareerInput, 'blob' | 'kakaoKey' | 'templateId'> & { imageUrl: string; templateId: number }): KakaoCustomTemplate {
+  const serverCallbackArgs: Record<string, string> = {};
+  if (unlockToken) serverCallbackArgs.unlock_token = unlockToken;
+  if (shareId) serverCallbackArgs.share_id = shareId;
+  if (resultSessionId) serverCallbackArgs.result_session_id = resultSessionId;
+  if (visitorSessionId) serverCallbackArgs.visitor_session_id = visitorSessionId;
+  if (guardianId) serverCallbackArgs.guardian_id = guardianId;
+
+  let shareQuery = '';
+  try {
+    const url = new URL(serviceUrl);
+    shareQuery = url.search.slice(1);
+  } catch { /* serviceUrl은 항상 절대 URL이어야 하지만, 공유 자체를 막지는 않는다. */ }
+  if (!shareQuery && shareId) {
+    shareQuery = new URLSearchParams({
+      fromGuardian: guardianId || '',
+      utm_source: 'paid_report_share',
+      utm_medium: 'kakao',
+      shareSessionId: shareId,
+    }).toString();
+  }
+
+  const message = description || SHARE_BENEFIT_COPY;
+  return {
+    templateId,
+    templateArgs: {
+      GUARDIAN_ID: guardianId || '',
+      GUARDIAN_NAME: '커리어 수호신',
+      GUARDIAN_IMAGE: imageUrl,
+      GUARDIAN_DESCRIPTION: message,
+      SHARE_TITLE: shareHook,
+      SHARE_QUESTION: message,
+      SHARE_BUTTON: '내 6개월 이직운 보기',
+      SHARE_URL: serviceUrl,
+      SHARE_QUERY: shareQuery,
+      SHARE_SESSION_ID: shareId || '',
+    },
+    ...(Object.keys(serverCallbackArgs).length ? { serverCallbackArgs } : {}),
+  };
+}
+
+async function kakaoShare({ imageUrl, serviceUrl, kakaoKey, templateId, shareHook, unlockToken, shareId, resultSessionId, visitorSessionId, guardianId, description }: ShareCareerInput & { imageUrl: string }): Promise<void> {
   // 결과 화면 진입 시 preload 해두므로 보통은 이미 로드돼 있어 즉시 resolve 된다.
   await loadKakaoSdk();
   if (!window.Kakao) throw new Error('Kakao SDK가 준비되지 않았습니다.');
   if (!window.Kakao.isInitialized()) window.Kakao.init(kakaoKey);
+  const parsedTemplateId = Number(templateId);
+  if (templateId && Number.isInteger(parsedTemplateId) && parsedTemplateId > 0) {
+    window.Kakao.Share.sendCustom(buildKakaoCustomTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, shareId, resultSessionId, visitorSessionId, guardianId, description, templateId: parsedTemplateId }));
+    return;
+  }
   window.Kakao.Share.sendDefault(buildKakaoFeedTemplate({ imageUrl, serviceUrl, shareHook, unlockToken, shareId, resultSessionId, visitorSessionId, guardianId, description }));
 }
 

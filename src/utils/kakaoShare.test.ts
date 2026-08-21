@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildKakaoFeedTemplate, createSharePage, shareCareerResult, type ShareCareerDependencies } from './kakaoShare.ts';
+import { buildKakaoCustomTemplate, buildKakaoFeedTemplate, createSharePage, shareCareerResult, type ShareCareerDependencies } from './kakaoShare.ts';
 
 const input = { blob: new Blob(['png'], { type: 'image/png' }), serviceUrl: 'https://example.com', kakaoKey: 'js-key', shareHook: '나는 잔류형이래. 너는 지금 옮겨도 될까?' };
 const deps = (overrides: Partial<ShareCareerDependencies> = {}): ShareCareerDependencies => ({
@@ -25,6 +25,29 @@ test('카카오 메시지는 결과 유형을 후킹하고 내 사주 확인을 
   assert.equal(template.content.description, '사주로 보는 6개월 이직 타이밍');
   assert.equal(template.buttons[0].title, '내 6개월 이직운 보기');
   assert.equal(template.serverCallbackArgs, undefined, 'unlockToken이 없으면 웹훅 파라미터도 없어야 한다');
+});
+
+test('유료 리포트도 수호신 공용 사용자 정의 템플릿에 카드·링크·웹훅 인자를 보낸다', () => {
+  const template = buildKakaoCustomTemplate({
+    imageUrl: 'https://example.com/card.png',
+    serviceUrl: 'https://example.com/api/share-page/abc',
+    shareHook: '나는 잔류형이래. 너는 지금 옮겨도 될까?',
+    description: '지금은 협상 카드를 먼저 쓸 시점입니다.',
+    templateId: 136437,
+    shareId: '11111111-1111-4111-8111-111111111111',
+    guardianId: '甲子',
+    unlockToken: 'unlock-abc-123',
+  });
+
+  assert.equal(template.templateId, 136437);
+  assert.equal(template.templateArgs?.GUARDIAN_IMAGE, 'https://example.com/card.png');
+  assert.equal(template.templateArgs?.SHARE_URL, 'https://example.com/api/share-page/abc');
+  assert.match(template.templateArgs?.SHARE_QUERY || '', /utm_medium=kakao/);
+  assert.deepEqual(template.serverCallbackArgs, {
+    unlock_token: 'unlock-abc-123',
+    share_id: '11111111-1111-4111-8111-111111111111',
+    guardian_id: '甲子',
+  });
 });
 
 test('unlockToken을 넘기면 카카오 웹훅으로 그대로 돌아올 serverCallbackArgs를 포함한다', () => {
