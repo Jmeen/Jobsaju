@@ -280,9 +280,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [savedSession]);
 
+  // 탭 제목은 수호신 브랜드로 고정한다. 예전 이직운 A/B 카피(copy.documentTitle)는
+  // index.html의 제목을 런타임에 옛 문구로 덮어써, 랜딩이 바뀐 뒤에도 탭에만 이직사주가 남았다.
   useEffect(() => {
-    document.title = copy.documentTitle;
-  }, [copy]);
+    document.title = '60마리 중 내 수호신은 누구?';
+  }, []);
 
   const summaryCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const viralCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
