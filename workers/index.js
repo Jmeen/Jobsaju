@@ -244,18 +244,18 @@ async function callGemini(env, { systemInstruction, prompt }) {
 
   for (const model of modelsToTry) {
     try {
+      // 추가 질문은 짧은 구조화 답변만 필요하다. Vertex의 Thinking 경로는 이 요청에서
+      // 간헐적으로 502를 반환하므로, 유료 리포트와 같이 일반 JSON 생성으로 고정한다.
       const genConfig = { responseMimeType: "application/json" };
-      // 2.0/2.5 Thinking 모델일 경우 생각 토큰 설정 추가
-      if (model.includes("2.0") || model.includes("2.5")) {
-        genConfig.thinkingConfig = { thinkingBudget: 1024 };
-      }
 
       const providerRequest = await buildGeminiRequest(env, `models/${model}:generateContent`);
       const res = await fetch(providerRequest.url, {
         method: "POST",
         headers: providerRequest.headers,
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          // Vertex AI는 각 Content에 user/model 역할을 명시해야 한다.
+          // AI Studio는 생략을 허용하지만, 이 값이 없으면 추가 질문만 400으로 실패한다.
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
           systemInstruction: { parts: [{ text: systemInstruction }] },
           generationConfig: genConfig,
         }),
@@ -265,9 +265,10 @@ async function callGemini(env, { systemInstruction, prompt }) {
         const detail = await res.text().catch(() => "");
         const { code, message } = parseGeminiError(res.status, res.statusText, detail);
 
-        // 404 Not Found (해당 키에서 모델을 찾을 수 없음)인 경우 다음 후보 모델로 시도
-        if (res.status === 404 || code === "NOT_FOUND" || detail.includes("404")) {
-          lastError = new Error(`Gemini 모델 ${model} 미지원 (404): ${message}`);
+        // 모델 미지원뿐 아니라 Vertex의 일시적 과부하/게이트웨이 오류도 다음 Flash 모델로
+        // 한 번 복구한다. 유료 리포트와 동일한 규칙이어야 추가 질문만 502로 깨지지 않는다.
+        if ([404, 429, 500, 502, 503, 504].includes(res.status) || code === "NOT_FOUND" || detail.includes("404")) {
+          lastError = new Error(`Gemini 모델 ${model} 호출 실패 (${res.status}): ${message}`);
           continue;
         }
 

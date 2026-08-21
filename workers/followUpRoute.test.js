@@ -143,6 +143,7 @@ test('허용 질문은 구조화 분석 계약과 사용자 커리어 정보를 
     assert.equal(sentUrl, 'https://gateway.ai.cloudflare.com/v1/account-123/jobsaju-gemini/google-ai-studio/v1/models/test-model:generateContent');
     assert.equal(sentHeaders['x-goog-api-key'], 'test-key');
     assert.equal(sentHeaders['cf-aig-authorization'], 'Bearer gateway-token');
+    assert.equal(sentBody.contents[0].role, 'user');
     assert.equal(body.question_analysis.primary_intent, 'industry');
     assert.match(systemText, /question_analysis/);
     assert.match(systemText, /질문을 먼저 정리/);

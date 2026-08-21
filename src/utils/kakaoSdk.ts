@@ -4,9 +4,9 @@
 // 한 번도 누르지 않는 사용자까지 첫 렌더 전에 SDK를 기다려야 했다.
 // 지금은 결과 화면에 도달하는 시점에 미리 받아두고(preload), 공유 클릭 시점에는
 // 이미 로드된 SDK를 쓴다 — iOS에서 클릭 제스처 컨텍스트가 끊기지 않게 하기 위함이다.
-const KAKAO_SDK_SRC = 'https://t1.kakaocdn.net/kakao_js_sdk/2.8.2/kakao.min.js';
-// index.html에 있던 것과 동일한 SRI 해시. 지연 로드로 바꿔도 무결성 검증은 유지한다.
-const KAKAO_SDK_INTEGRITY = 'sha384-zt/G7/KfaRQ9dT/QIkS0ujMtzouJqzuSJcXVQu50x0rl/+mD1dc70AeOejVbMD9E';
+// 일부 브라우저·콘텐츠 차단기가 kakaocdn.net을 차단하면 SDK 자체가 실행되지 않아
+// 공유 버튼이 링크 복사 폴백으로만 떨어진다. 공식 배포본을 같은 도메인 자산으로 제공한다.
+const KAKAO_SDK_SRC = '/vendor/share-sdk-2.8.2.min.js';
 const SCRIPT_ID = 'kakao-sdk';
 
 let pending: Promise<void> | null = null;
@@ -24,8 +24,6 @@ export function loadKakaoSdk(): Promise<void> {
     if (!existing) {
       script.id = SCRIPT_ID;
       script.src = KAKAO_SDK_SRC;
-      script.integrity = KAKAO_SDK_INTEGRITY;
-      script.crossOrigin = 'anonymous';
       script.async = true;
       document.head.appendChild(script);
     }
