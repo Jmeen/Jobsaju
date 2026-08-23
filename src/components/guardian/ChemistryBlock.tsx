@@ -18,14 +18,19 @@ type Props = {
   onKakaoShare: () => Promise<GuardianShareFeedback>;
   onCopyLink: () => Promise<GuardianShareFeedback>;
   onView: () => void;
+  /**
+   * 헤더 표시 방식.
+   * - 'chemistry'(기본): 무료 결과 화면. "같이 일하면 잘 맞는 유형"으로 친구를 떠올리게 한다.
+   * - 'guardianCard': 유료 리포트. 이미 궁합·캐릭터를 충분히 봤으므로 궁합 대신
+   *   "내 수호신 카드는 ○○" 한 장만 보여주고 공유로 잇는다.
+   */
+  variant?: 'chemistry' | 'guardianCard';
 };
 
 const TOAST_MS = 2600;
 
-export function ChemistryBlock({ guardian, isSharing, onKakaoShare, onCopyLink, onView }: Props) {
-  const { best, worst } = findChemistryExtremes(guardian.id);
-  const bestGuardian = getGuardianAsset(best.id);
-  const worstGuardian = getGuardianAsset(worst.id);
+export function ChemistryBlock({ guardian, isSharing, onKakaoShare, onCopyLink, onView, variant = 'chemistry' }: Props) {
+  const isGuardianCard = variant === 'guardianCard';
 
   // 블록이 실제로 붙었을 때 한 번만 집계한다.
   useEffect(() => { onView(); }, [onView, guardian.id]);
@@ -56,16 +61,29 @@ export function ChemistryBlock({ guardian, isSharing, onKakaoShare, onCopyLink, 
 
   // 정교한 궁합 분석이 아니라 캐릭터 세계관을 넓히고 친구를 떠올리게 하는 장치다.
   // 그래서 "케미 N점" 같은 궁합 점수는 노출하지 않는다 — 유형(찰떡/부딪힘)만 보여준다.
-  const rows = [
-    { label: '회사에서 찰떡인 유형', asset: bestGuardian, result: best.result },
-    { label: '부딪히기 쉬운 유형', asset: worstGuardian, result: worst.result },
-  ];
+  // 유료(guardianCard) 변형에서는 궁합을 계산하지 않는다.
+  const rows = isGuardianCard ? [] : (() => {
+    const { best, worst } = findChemistryExtremes(guardian.id);
+    return [
+      { label: '회사에서 찰떡인 유형', asset: getGuardianAsset(best.id), result: best.result },
+      { label: '부딪히기 쉬운 유형', asset: getGuardianAsset(worst.id), result: worst.result },
+    ];
+  })();
 
   return (
     <section className="jg-chemistry">
-      <h2 className="jg-chemistry-title">같이 일하면 잘 맞는 유형</h2>
+      <h2 className="jg-chemistry-title">{isGuardianCard ? '내 수호신 카드' : '같이 일하면 잘 맞는 유형'}</h2>
 
-      {rows.map(row => (
+      {isGuardianCard ? (
+        <div className="jg-chemistry-row">
+          <GuardianImage className="jg-chemistry-face" guardian={guardian} />
+          <div className="jg-chemistry-text">
+            <span className="jg-chemistry-label">내 수호신 카드는</span>
+            <strong>{guardian.nickname}</strong>
+            <small>{guardian.copy}</small>
+          </div>
+        </div>
+      ) : rows.map(row => (
         <div className="jg-chemistry-row" key={row.label}>
           <GuardianImage className="jg-chemistry-face" guardian={row.asset} />
           <div className="jg-chemistry-text">

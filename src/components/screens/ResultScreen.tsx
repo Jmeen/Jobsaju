@@ -452,9 +452,11 @@ export function ResultScreen() {
         )}
       </section>
 
-      {/* 공유 — 무료 수호신 결과와 같은 방식(수호신 카드 + 카카오톡/링크 복사)을 그대로 쓴다. */}
+      {/* 공유 — 무료와 같은 수호신 카드 공유(카카오톡/링크 복사)를 쓰되, 유료에서는 이미 궁합·캐릭터를
+          충분히 봤으므로 "같이 일하면 잘 맞는 유형" 대신 "내 수호신 카드는 ○○"만 보여준다. */}
       <ChemistryBlock
         guardian={guardian}
+        variant="guardianCard"
         isSharing={isShareLoading}
         onKakaoShare={handleGuardianKakaoShare}
         onCopyLink={handleGuardianLinkCopy}
