@@ -50,7 +50,7 @@ export function ResultScreen() {
     setFollowUpError,
     handleSelectPastReport,
     handleFollowUpSubmit,
-    handleGuardianKakaoShare,
+    handlePaidReportShare,
     handleGuardianLinkCopy,
     trackMatchSectionView,
   } = useAppActions();
@@ -443,7 +443,7 @@ export function ResultScreen() {
                 ? '카카오톡에서 실제로 보내기를 누르면 자동으로 확인돼요. 잠시만 기다려 주세요.'
                 : '결과를 친구에게 공유하면 추가 질문 1회가 열립니다.'}
             </p>
-            <button className="jg-btn" onClick={() => void handleGuardianKakaoShare()} disabled={isShareLoading || isShareConfirming}>
+            <button className="jg-btn" onClick={() => void handlePaidReportShare()} disabled={isShareLoading || isShareConfirming}>
               {isShareConfirming ? '카카오톡 전송 확인 중...' : isShareLoading ? '공유 카드 준비 중...' : '친구에게 공유하고 한 번 더 물어보기'}
             </button>
           </>
@@ -458,7 +458,7 @@ export function ResultScreen() {
         guardian={guardian}
         variant="guardianCard"
         isSharing={isShareLoading}
-        onKakaoShare={handleGuardianKakaoShare}
+        onKakaoShare={handlePaidReportShare}
         onCopyLink={handleGuardianLinkCopy}
         onView={trackMatchSectionView}
       />

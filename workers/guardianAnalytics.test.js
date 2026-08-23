@@ -283,3 +283,25 @@ test('모르는 공유 채널은 거부한다', async () => {
   assert.equal(response.status, 400);
   assert.equal(db.rows.length, 0);
 });
+
+test('유료 공유의 utm_source=report_share를 허용해 저장한다', async () => {
+  const db = createAnalyticsDb();
+
+  const response = await handleGuardianAnalyticsRequest(makeRequest({
+    ...validEvent(), eventName: 'guardian_share_click', shareId: UUID_C, shareChannel: 'kakao', utmSource: 'report_share',
+  }), { DB: db });
+
+  assert.equal(response.status, 202);
+  assert.equal(db.rows[0].utm_source, 'report_share');
+});
+
+test('알 수 없는 utm_source는 거부한다', async () => {
+  const db = createAnalyticsDb();
+
+  const response = await handleGuardianAnalyticsRequest(makeRequest({
+    ...validEvent(), eventName: 'guardian_share_click', shareId: UUID_C, shareChannel: 'kakao', utmSource: 'facebook_ads',
+  }), { DB: db });
+
+  assert.equal(response.status, 400);
+  assert.equal(db.rows.length, 0);
+});

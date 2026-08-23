@@ -5,6 +5,7 @@ import {
   buildGuardianShareQuery,
   buildGuardianShareUrl,
   buildGuardianTemplateArgs,
+  buildPaidReportShareMessage,
   copyGuardianShareLink,
   sendGuardianKakaoShare,
 } from './guardianShare.ts';
@@ -18,6 +19,75 @@ const CARD_URL = 'https://jobsaju.kr/api/share-card/550e8400-e29b-41d4-a716-4466
 function urlInput(medium: 'kakao' | 'copy') {
   return { baseUrl: 'https://jobsaju.kr/', guardianId: '甲寅', shareSessionId: SHARE_SESSION_ID, medium };
 }
+
+test('유료 SHARE_TITLE은 추천 선택+점수, SHARE_QUESTION은 이직 적기+운점수+훅질문이다', () => {
+  const message = buildPaidReportShareMessage(
+    tiger,
+    { jobChange: 52, stay: 59, negotiation: 53 },
+    { best_job_change: { year_month: '2026-10', score: 71 } },
+  );
+
+  // SHARE_TITLE: 1순위(잔류 59) — 리포트 UI의 top choice 그대로
+  assert.equal(message.title, '지금은 잔류가 1순위 · 잔류 59');
+  // SHARE_QUESTION: 대표 이직 시기 10월·71 + 훅 질문 (한 줄)
+  assert.equal(message.question, '10월 이직운 71 🔥 너는 언제 움직이는 게 좋을까?');
+});
+
+test('유료 제목은 이직 1순위에 조사 "이"를 붙인다', () => {
+  const message = buildPaidReportShareMessage(
+    tiger,
+    { jobChange: 68, stay: 55, negotiation: 44 },
+    { best_job_change: { year_month: '2026-10', score: 71 } },
+  );
+  assert.equal(message.title, '지금은 이직이 1순위 · 이직 68');
+});
+
+test('이직 적기가 없으면 협상 적기(💰)로, 둘 다 없으면 일반 질문으로 폴백한다', () => {
+  const nego = buildPaidReportShareMessage(
+    tiger,
+    { jobChange: 40, stay: 59, negotiation: 51 },
+    { best_negotiation: { year_month: '2026-12', score: 68 } },
+  );
+  assert.equal(nego.question, '12월 협상운 68 💰 너는 언제가 좋을까?');
+
+  const none = buildPaidReportShareMessage(tiger, { jobChange: 40, stay: 59, negotiation: 41 });
+  assert.equal(none.question, '너는 앞으로 6개월 중 언제가 가장 좋을까?');
+});
+
+test('점수를 못 구하면 제목을 중립 문구로 폴백한다', () => {
+  const message = buildPaidReportShareMessage(tiger, null, { best_job_change: { year_month: '2026-10', score: 71 } });
+  assert.equal(message.title, '내 커리어 흐름을 확인했어요');
+  // 시기 정보는 그대로 살린다.
+  assert.equal(message.question, '10월 이직운 71 🔥 너는 언제 움직이는 게 좋을까?');
+});
+
+test('유료 메시지를 buildGuardianTemplateArgs에 넘기면 SHARE_TITLE/SHARE_QUESTION이 교체된다', () => {
+  const message = buildPaidReportShareMessage(
+    tiger,
+    { jobChange: 52, stay: 59, negotiation: 53 },
+    { best_job_change: { year_month: '2026-10', score: 71 } },
+  );
+  const args = buildGuardianTemplateArgs(
+    { guardian: tiger, imageUrl: CARD_URL, shareUrl: 'https://jobsaju.kr/', shareQuery: '', shareSessionId: SHARE_SESSION_ID },
+    message,
+  );
+
+  assert.equal(args.SHARE_TITLE, '지금은 잔류가 1순위 · 잔류 59');
+  assert.equal(args.SHARE_QUESTION, '10월 이직운 71 🔥 너는 언제 움직이는 게 좋을까?');
+  assert.notEqual(args.SHARE_QUESTION, '너의 수호신은 누구일까?');
+});
+
+test('유료 공유 URL은 utm_source=report_share를 쓰고 SHARE_QUERY에 ?를 포함하지 않는다', () => {
+  const input = { ...urlInput('kakao'), utmSource: 'report_share' as const };
+  const url = new URL(buildGuardianShareUrl(input));
+  assert.equal(url.searchParams.get('utm_source'), 'report_share');
+
+  const query = buildGuardianShareQuery(input);
+  assert.ok(!query.startsWith('?'));
+  assert.match(query, /utm_source=report_share/);
+  assert.match(query, /utm_medium=kakao/);
+  assert.match(query, /fromGuardian=/);
+});
 
 test('공유 URL에 수호신·유입원·medium·shareSessionId가 모두 들어간다', () => {
   const url = new URL(buildGuardianShareUrl(urlInput('kakao')));

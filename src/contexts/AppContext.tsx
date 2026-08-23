@@ -26,9 +26,12 @@ import { resolveShareInbound } from '../utils/shareInbound';
 import {
   buildGuardianShareQuery,
   buildGuardianShareUrl,
+  buildPaidReportShareMessage,
   copyGuardianShareLink,
+  REPORT_SHARE_UTM_SOURCE,
   sendGuardianKakaoShare,
   type GuardianShareFeedback,
+  type GuardianShareMessage,
 } from '../utils/guardianShare';
 import type { ShareInbound } from '../utils/shareInbound';
 import { drawGuardianShareCard, ensureShareCardFonts, loadGuardianImage } from '../utils/guardianShareCard';
@@ -45,6 +48,7 @@ import {
   trackGuardianEvent,
   type GuardianAnalyticsIds,
   type GuardianEventName,
+  type GuardianShareUtmSource,
 } from '../utils/guardianAnalytics';
 
 
@@ -1232,6 +1236,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ids: GuardianAnalyticsIds & { shareId: string },
     guardianId: string,
     shareChannel: 'kakao' | 'copy',
+    // 무료(guardian_share)와 유료(report_share) 공유를 분석에서 가르는 유일한 축이다.
+    utmSource?: GuardianShareUtmSource,
   ) => {
     void trackGuardianEvent({
       eventId: crypto.randomUUID(),
@@ -1242,6 +1248,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       shareId: ids.shareId,
       guardianId,
       shareChannel,
+      utmSource,
     });
   };
 
@@ -1250,12 +1257,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * 기본 피드 레이아웃에 맞춰 크롭되면 캐릭터가 잘린다.
    * 공유 대상 Picker는 기본값이라 친구·채팅방·단톡방을 모두 고를 수 있다.
    */
-  const handleGuardianKakaoShare = async (): Promise<GuardianShareFeedback> => {
+  type GuardianKakaoShareOptions = {
+    /** 무료 기본 문구 대신 쓸 메시지(유료 리포트). */
+    messageOverride?: GuardianShareMessage;
+    /** 쓸 카카오 사용자 정의 템플릿 ID. 무료는 수호신, 유료는 리포트 템플릿(136466)을 넘긴다. */
+    templateId: string;
+    /** 공유 유입원. 무료 guardian_share / 유료 report_share. 분석과 링크 attribution에 함께 실린다. */
+    utmSource?: GuardianShareUtmSource;
+    /** 카카오 웹훅으로 되돌아올 공유 유형. guardian_share_confirmed를 무료/유료로 가른다. */
+    shareType?: 'guardian' | 'paid_report';
+  };
+
+  const runGuardianKakaoShare = async ({ messageOverride, templateId, utmSource, shareType }: GuardianKakaoShareOptions): Promise<GuardianShareFeedback> => {
     if (!sajuResult || !guardian || isShareLoading) return { ok: false, message: null };
 
     const ids = ensureGuardianShareIds();
     const guardianId = guardian.id;
-    trackGuardianShare('guardian_share_click', ids, guardianId, 'kakao');
+    trackGuardianShare('guardian_share_click', ids, guardianId, 'kakao', utmSource);
 
     setIsShareLoading(true);
     try {
@@ -1267,15 +1285,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         guardianId,
         shareSessionId: ids.shareId,
         medium: 'kakao' as const,
+        utmSource,
       };
       await sendGuardianKakaoShare({
         kakaoKey: import.meta.env.VITE_KAKAO_JS_KEY || '',
-        templateId: import.meta.env.VITE_KAKAO_GUARDIAN_TEMPLATE_ID || '',
+        templateId,
         guardian,
         imageUrl,
         shareUrl: buildGuardianShareUrl(urlInput),
         shareQuery: buildGuardianShareQuery(urlInput),
         shareSessionId: ids.shareId,
+        messageOverride,
         // 카카오가 실제 전송에 성공했을 때만 그대로 돌려주는 값이다.
         // guardian_share_confirmed(= 진짜 발송)는 오직 이 웹훅으로만 기록된다.
         // 개인정보는 넣지 않는다 — 전부 익명 UUID와 수호신 id뿐이다.
@@ -1284,11 +1304,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           result_session_id: ids.resultSessionId,
           visitor_session_id: ids.visitorSessionId,
           guardian_id: guardianId,
+          ...(shareType ? { share_type: shareType } : {}),
           ...(isUnlocked ? { unlock_token: unlockToken } : {}),
         },
       });
 
-      trackGuardianShare('guardian_share_sheet_opened', ids, guardianId, 'kakao');
+      trackGuardianShare('guardian_share_sheet_opened', ids, guardianId, 'kakao', utmSource);
       // 공유 보너스(추가 질문)는 결제한 사람에게만 있는 혜택이라, 해금된 경우에만 확인한다.
       if (isUnlocked && !shareBonusGranted) pollShareBonusStatus(unlockToken);
       return { ok: true, message: null };
@@ -1298,6 +1319,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsShareLoading(false);
     }
+  };
+
+  // 무료 수호신 결과: 수호신 템플릿 + 기본 캐릭터 호기심 문구로 공유한다.
+  const handleGuardianKakaoShare = (): Promise<GuardianShareFeedback> => runGuardianKakaoShare({
+    templateId: import.meta.env.VITE_KAKAO_GUARDIAN_TEMPLATE_ID || '',
+  });
+
+  // 유료 리포트: 별도 리포트 템플릿(136466) + 결제한 값(선택 1순위 점수·대표 시기)을 얹은 유료 전용 문구.
+  // utm_source=report_share, share_type=paid_report로 분석·웹훅에서 무료와 갈라 집계한다.
+  const handlePaidReportShare = (): Promise<GuardianShareFeedback> => {
+    if (!sajuResult || !guardian) return Promise.resolve({ ok: false, message: null });
+    return runGuardianKakaoShare({
+      templateId: import.meta.env.VITE_KAKAO_REPORT_TEMPLATE_ID || '',
+      utmSource: REPORT_SHARE_UTM_SOURCE,
+      shareType: 'paid_report',
+      messageOverride: buildPaidReportShareMessage(guardian, sajuResult.scores, aiReport?.report?.timing_highlights),
+    });
   };
 
   /** 링크 복사. 카카오와 같은 귀속 구조를 쓰되 utm_medium=copy로 갈라 집계한다. */
@@ -1525,6 +1563,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     handleDownloadCard,
     handleShareResult,
     handleGuardianKakaoShare,
+    handlePaidReportShare,
     handleGuardianLinkCopy,
     trackMatchSectionView,
     handleApplyCoupon,
@@ -1579,6 +1618,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       handleDownloadCard: stable('handleDownloadCard'),
       handleShareResult: stable('handleShareResult'),
       handleGuardianKakaoShare: stable('handleGuardianKakaoShare'),
+      handlePaidReportShare: stable('handlePaidReportShare'),
       handleGuardianLinkCopy: stable('handleGuardianLinkCopy'),
       trackMatchSectionView: stable('trackMatchSectionView'),
       handleApplyCoupon: stable('handleApplyCoupon'),

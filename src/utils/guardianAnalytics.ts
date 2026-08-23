@@ -11,6 +11,9 @@ export type GuardianAnalyticsIds = {
   shareId: string | null;
 };
 
+/** 공유 유입원 = 무료/유료 공유를 가르는 축. 별도 share_type 컬럼 없이 이 값으로 구분한다. */
+export type GuardianShareUtmSource = 'guardian_share' | 'report_share';
+
 export type GuardianEventInput = {
   eventId: string;
   eventName: GuardianEventName;
@@ -21,7 +24,7 @@ export type GuardianEventInput = {
   guardianId?: string | null;
   fromGuardianId?: string | null;
   shareChannel?: 'kakao' | 'copy' | 'web_link' | 'web_file' | 'download' | null;
-  utmSource?: 'guardian_share' | null;
+  utmSource?: GuardianShareUtmSource | null;
 };
 
 export type GuardianAnalyticsTransport = {

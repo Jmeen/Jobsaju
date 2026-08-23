@@ -157,7 +157,8 @@ async function readAndValidateAnalyticsBody(request, now) {
     return { ok: false, error: 'Invalid guardian ID' };
   }
   if (!isNullableShareChannel(value.shareChannel)) return { ok: false, error: 'Invalid share channel' };
-  if (value.utmSource !== null && value.utmSource !== 'guardian_share') {
+  // 무료(guardian_share)와 유료(report_share) 공유를 utm_source로 가른다. 별도 share_type 컬럼은 두지 않는다.
+  if (value.utmSource !== null && value.utmSource !== 'guardian_share' && value.utmSource !== 'report_share') {
     return { ok: false, error: 'Invalid utm source' };
   }
 
