@@ -11,6 +11,7 @@ import { getGuardianCharacter } from '../../utils/guardianCharacters';
 import { buildElementInsight } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUpValidation';
+import { ChemistryBlock } from '../guardian/ChemistryBlock';
 
 const CHOICE_META = [
   { key: 'jobChange', label: '이직', desc: '외부 기회를 확인하면서 현재 조건과 비교해볼 시기입니다.' },
@@ -49,10 +50,9 @@ export function ResultScreen() {
     setFollowUpError,
     handleSelectPastReport,
     handleFollowUpSubmit,
-    handleDownloadCard,
-    handleShareResult,
-    viralCardCanvasRef,
-    setViralCardCanvasRef,
+    handleGuardianKakaoShare,
+    handleGuardianLinkCopy,
+    trackMatchSectionView,
   } = useAppActions();
 
   const handleReset = () => {
@@ -443,7 +443,7 @@ export function ResultScreen() {
                 ? '카카오톡에서 실제로 보내기를 누르면 자동으로 확인돼요. 잠시만 기다려 주세요.'
                 : '결과를 친구에게 공유하면 추가 질문 1회가 열립니다.'}
             </p>
-            <button className="jg-btn" onClick={handleShareResult} disabled={isShareLoading || isShareConfirming}>
+            <button className="jg-btn" onClick={() => void handleGuardianKakaoShare()} disabled={isShareLoading || isShareConfirming}>
               {isShareConfirming ? '카카오톡 전송 확인 중...' : isShareLoading ? '공유 카드 준비 중...' : '친구에게 공유하고 한 번 더 물어보기'}
             </button>
           </>
@@ -452,27 +452,14 @@ export function ResultScreen() {
         )}
       </section>
 
-      {/* 커리어 성향 공유 카드 */}
-      <section className="jg-report-share">
-        <span className="jg-eyebrow">커리어 성향 공유 카드</span>
-        <h3>내 캐릭터 카드 공유하기</h3>
-        <p>카카오톡이나 SNS로 보내 동기·지인의 수호신과 비교해 보세요.</p>
-        <canvas
-          ref={setViralCardCanvasRef}
-          width="800"
-          height="800"
-          role="img"
-          aria-label="커리어 성향과 선택지 점수 공유 카드"
-        />
-        <div className="jg-report-share-buttons">
-          <button className="jg-btn jg-btn-kakao" onClick={handleShareResult} disabled={isShareLoading || isShareConfirming}>
-            {isShareConfirming ? '전송 확인 중...' : isShareLoading ? '준비 중...' : '💬 카톡 공유'}
-          </button>
-          <button className="jg-btn jg-btn-secondary" onClick={() => void handleDownloadCard(viralCardCanvasRef.current, '내수호신_커리어카드.png')}>
-            🖼️ 이미지 저장
-          </button>
-        </div>
-      </section>
+      {/* 공유 — 무료 수호신 결과와 같은 방식(수호신 카드 + 카카오톡/링크 복사)을 그대로 쓴다. */}
+      <ChemistryBlock
+        guardian={guardian}
+        isSharing={isShareLoading}
+        onKakaoShare={handleGuardianKakaoShare}
+        onCopyLink={handleGuardianLinkCopy}
+        onView={trackMatchSectionView}
+      />
 
       <div className="jg-report-reset">
         <button className="jg-text-link" onClick={handleReset}>다른 생년월일로 다시 보기</button>

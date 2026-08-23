@@ -817,9 +817,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // === 수호신 공유 카드 사전 준비 ===
   // 카카오 리치카드는 절대 URL 이미지만 받는다. 클릭한 다음에 그리고 올리기 시작하면
   // iOS에서 사용자 제스처 컨텍스트가 끊겨 카카오톡이 열리지 않는다. 화면에 도착한 지금 만들어 둔다.
-  // 유료 리포트 화면에는 자체 공유 카드가 따로 있으므로, 무료 수호신 화면일 때만 준비한다.
+  // 유료 리포트도 무료 수호신과 같은 공유(수호신 카드)를 쓰므로, 무료·유료 결과 화면 모두에서 준비한다.
   useEffect(() => {
-    if (step !== 'result' || !guardian || (isUnlocked && aiReport)) return;
+    if (step !== 'result' || !guardian) return;
 
     let cancelled = false;
     guardianCardImageUrlRef.current = null;
