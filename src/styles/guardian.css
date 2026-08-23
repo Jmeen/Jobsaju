@@ -335,6 +335,23 @@ body {
 .jg-chemistry-score { color: var(--jg-muted); font-size: 11px; white-space: nowrap; }
 .jg-chemistry-ask { margin: 12px 0 0; color: var(--jg-ink); text-align: center; font-size: 13px; line-height: 1.5; }
 
+/* --- 유료 리포트 하단 '나의 수호신 카드' (guardianCard 변형) ---
+   공유용 정사각 카드를 크게 박지 않고, 일러스트 + 이름 + 한 줄 정체성의 작은 카드만 둔다. */
+.jg-mycard-block { text-align: center; }
+.jg-mycard {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  margin: 0 auto 14px; padding: 18px 16px 16px; max-width: 260px;
+  border-radius: 18px; background: var(--jg-guardian-soft);
+  border: 1px solid color-mix(in srgb, var(--jg-guardian-accent) 40%, transparent);
+}
+.jg-mycard-face {
+  width: 120px; height: 120px; object-fit: contain; margin-bottom: 4px;
+  filter: drop-shadow(0 10px 14px rgba(55, 86, 65, .16));
+}
+.jg-mycard-name { font-size: 20px; font-weight: 600; color: var(--jg-ink); }
+.jg-mycard-id { color: var(--jg-green); font-size: 11px; }
+.jg-mycard-copy { margin: 8px 0 0; color: var(--jg-muted); font-size: 12.5px; line-height: 1.6; word-break: keep-all; }
+
 /* 공유 CTA — 카카오톡이 Primary, 링크 복사가 Secondary.
    카카오 브랜드 컬러를 쓰는 이유는 눈에 띄어서가 아니라, 누르면 카카오톡이 열린다는 걸
    글을 읽기 전에 알려주기 위해서다. */

@@ -59,31 +59,55 @@ export function ChemistryBlock({ guardian, isSharing, onKakaoShare, onCopyLink, 
     }
   };
 
+  if (isGuardianCard) {
+    // 유료 리포트 하단. 공유용 정사각 카드를 크게 박지 않고, 캐릭터 일러스트 + 이름 +
+    // 한 줄 정체성의 작은 '나의 수호신 카드'만 보여준다. 실제 공유 카드는 클릭 시 별도로 그려 올린다.
+    return (
+      <section className="jg-chemistry jg-mycard-block">
+        <h2 className="jg-chemistry-title">나의 수호신</h2>
+
+        <div className="jg-mycard">
+          <GuardianImage className="jg-mycard-face" guardian={guardian} eager />
+          <strong className="jg-mycard-name">{guardian.nickname}</strong>
+          <span className="jg-mycard-id">{guardian.ganzhiKo} {guardian.id} · {guardian.elementLabel} 기운</span>
+          <p className="jg-mycard-copy">“{guardian.copy}”</p>
+        </div>
+
+        <button
+          className="jg-btn jg-btn-kakao"
+          type="button"
+          disabled={isSharing}
+          onClick={async () => showToast(await onKakaoShare())}
+        >
+          {isSharing ? '공유 카드를 만드는 중…' : '내 수호신 공유하기'}
+        </button>
+
+        <button className="jg-text-link" type="button" disabled={isCopying} onClick={() => void runCopy()}>
+          {isCopying ? '복사하는 중…' : '링크 복사'}
+        </button>
+
+        {toast && (
+          <p className={`jg-toast ${toast.ok ? '' : 'is-error'}`} role="status" aria-live="polite">
+            {toast.message}
+          </p>
+        )}
+      </section>
+    );
+  }
+
   // 정교한 궁합 분석이 아니라 캐릭터 세계관을 넓히고 친구를 떠올리게 하는 장치다.
   // 그래서 "케미 N점" 같은 궁합 점수는 노출하지 않는다 — 유형(찰떡/부딪힘)만 보여준다.
-  // 유료(guardianCard) 변형에서는 궁합을 계산하지 않는다.
-  const rows = isGuardianCard ? [] : (() => {
-    const { best, worst } = findChemistryExtremes(guardian.id);
-    return [
-      { label: '회사에서 찰떡인 유형', asset: getGuardianAsset(best.id), result: best.result },
-      { label: '부딪히기 쉬운 유형', asset: getGuardianAsset(worst.id), result: worst.result },
-    ];
-  })();
+  const { best, worst } = findChemistryExtremes(guardian.id);
+  const rows = [
+    { label: '회사에서 찰떡인 유형', asset: getGuardianAsset(best.id), result: best.result },
+    { label: '부딪히기 쉬운 유형', asset: getGuardianAsset(worst.id), result: worst.result },
+  ];
 
   return (
     <section className="jg-chemistry">
-      <h2 className="jg-chemistry-title">{isGuardianCard ? '내 수호신 카드' : '같이 일하면 잘 맞는 유형'}</h2>
+      <h2 className="jg-chemistry-title">같이 일하면 잘 맞는 유형</h2>
 
-      {isGuardianCard ? (
-        <div className="jg-chemistry-row">
-          <GuardianImage className="jg-chemistry-face" guardian={guardian} />
-          <div className="jg-chemistry-text">
-            <span className="jg-chemistry-label">내 수호신 카드는</span>
-            <strong>{guardian.nickname}</strong>
-            <small>{guardian.copy}</small>
-          </div>
-        </div>
-      ) : rows.map(row => (
+      {rows.map(row => (
         <div className="jg-chemistry-row" key={row.label}>
           <GuardianImage className="jg-chemistry-face" guardian={row.asset} />
           <div className="jg-chemistry-text">
