@@ -14,7 +14,13 @@ function InlineContent({ tokens }: { tokens: InlineToken[] }) {
 }
 
 export function FormattedAnswer({ answer }: { answer: string }) {
-  const blocks = parseFollowUpAnswer(answer);
+  // 예전 서버 버전이 KV에 answer를 문자열이 아니라 { question_analysis, answer } 객체로 저장했다.
+  // 그 레코드는 아직 TTL(90일)이 남아 재열람 시 그대로 내려온다. 문자열이 아니면 답변 텍스트만
+  // 뽑아내 렌더가 깨지지 않게 한다(객체에 .replace를 호출하면 TypeError로 화면이 죽는다).
+  const text = typeof answer === 'string'
+    ? answer
+    : ((answer as { answer?: string } | null)?.answer ?? '');
+  const blocks = parseFollowUpAnswer(text);
 
   return (
     <div className="formatted-answer">

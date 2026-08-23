@@ -154,6 +154,12 @@ test('허용 질문은 구조화 분석 계약과 사용자 커리어 정보를 
     // 늘어나도 깨지지 않도록, 전체 목록을 통째로 비교하지 않고 포함 여부만 본다.
     const writtenKeys = kv.writes.map(write => write[0]);
     assert.ok(writtenKeys.includes(`followup:${token}`));
+    // 저장되는 답변은 반드시 문자열이어야 한다. 객체(question_analysis 포함)로 저장하면
+    // 재열람 시 FormattedAnswer가 문자열을 기대하다 렌더에서 깨진다.
+    const followupsWrite = kv.writes.find(write => write[0] === `followups:${token}`);
+    assert.ok(followupsWrite, 'followups 목록이 저장되어야 한다');
+    const savedFollowups = JSON.parse(followupsWrite[1]);
+    assert.equal(typeof savedFollowups[0].answer, 'string');
   } finally {
     globalThis.fetch = originalFetch;
   }

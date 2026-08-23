@@ -927,9 +927,12 @@ ${q}
           if (existingText) {
             try { followups = JSON.parse(existingText); } catch (e) {}
           }
+          // 저장에는 답변 텍스트만 남긴다. 재열람 시 클라이언트가 record.answer를 문자열로
+          // 렌더(FormattedAnswer)하므로, question_analysis까지 통째로 저장하면 재열람 화면이
+          // "text.replace is not a function"으로 깨진다. 즉시 응답은 전체 객체를 그대로 돌려준다.
           followups.push({
             question: q,
-            answer: parsedAnswer,
+            answer: parsedAnswer.answer,
             answeredAt: generatedAt,
           });
           const ttl = 60 * 60 * 24 * 90; // 90일
