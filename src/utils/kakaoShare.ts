@@ -206,6 +206,9 @@ const browserDeps: ShareCareerDependencies = { upload, kakaoShare, linkShare, fi
 
 export async function shareCareerResult(input: ShareCareerInput, deps: ShareCareerDependencies = browserDeps): Promise<ShareResult> {
   const shareHookWithBenefit = `${input.shareHook}\n${SHARE_BENEFIT_COPY}`;
+  // 키가 비어 있으면 아래 분기들이 카카오를 통째로 건너뛰고 조용히 링크 공유로 폴백한다.
+  // 빌드 환경변수(VITE_KAKAO_JS_KEY) 누락이 원인 없이 사라지는 걸 막기 위해 눈에 보이게 남긴다.
+  if (!input.kakaoKey) console.warn('[share] VITE_KAKAO_JS_KEY가 비어 있어 카카오 공유를 건너뛰고 링크 공유로 폴백합니다. Cloudflare Pages 빌드 환경변수를 확인하세요.');
   const onIOS = deps.isIOS();
   // 엣지·크롬 등 iOS 위의 비사파리 브라우저는 카카오 커스텀 URL 스킴(kakaolink://)을 안정적으로 열지
   // 못해, 카카오톡이 설치돼 있어도 카카오의 "앱 실행 안내" 폴백 페이지로 떨어진다. 이 환경에서는

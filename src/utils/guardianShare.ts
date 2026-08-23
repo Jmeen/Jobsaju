@@ -175,7 +175,12 @@ export async function sendGuardianKakaoShare(
   input: GuardianKakaoShareInput,
   deps: GuardianKakaoDependencies = browserKakaoDeps,
 ): Promise<GuardianKakaoTemplateMode> {
-  if (!input.kakaoKey) throw new Error('카카오 JavaScript 키가 설정되지 않았습니다.');
+  if (!input.kakaoKey) {
+    // 호출부가 이 예외를 조용히 삼키고 링크 복사로 안내하므로, 원인(빌드 환경변수 누락)이
+    // 흔적 없이 사라지지 않도록 콘솔에 남긴다. VITE_KAKAO_JS_KEY는 Cloudflare Pages 빌드 환경변수.
+    console.warn('[guardian-share] VITE_KAKAO_JS_KEY가 비어 있어 카카오 공유를 열 수 없습니다. Cloudflare Pages 빌드 환경변수를 확인하세요.');
+    throw new Error('카카오 JavaScript 키가 설정되지 않았습니다.');
+  }
 
   await deps.loadSdk();
   const kakao = deps.getKakao();
