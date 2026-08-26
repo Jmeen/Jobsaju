@@ -1,3 +1,5 @@
+import { deriveReportDecision } from './reportDecision.js';
+
 export function validateAndRepairPaidReport(rawJsonText, timeline, precomputed_highlights) {
   let report;
   try {
@@ -6,32 +8,7 @@ export function validateAndRepairPaidReport(rawJsonText, timeline, precomputed_h
     throw new Error("Failed to parse LLM JSON output.");
   }
 
-  // 1. Force restore highlights
-  if (!report.timing_highlights) report.timing_highlights = {};
-  
-  // best_job_change
-  if (!report.timing_highlights.best_job_change) report.timing_highlights.best_job_change = {};
-  report.timing_highlights.best_job_change.year_month = precomputed_highlights.best_job_change_month;
-  const bjcMonth = timeline.find(m => m.year_month === precomputed_highlights.best_job_change_month);
-  report.timing_highlights.best_job_change.score = bjcMonth ? bjcMonth.scores.job_change : 0;
-  report.timing_highlights.best_job_change.reason = report.timing_highlights.best_job_change.reason || "기회와 이동운이 강한 시기입니다.";
-  report.timing_highlights.best_job_change.action = report.timing_highlights.best_job_change.action || "적극적으로 면접과 오퍼를 진행하세요.";
-
-  // best_negotiation
-  if (!report.timing_highlights.best_negotiation) report.timing_highlights.best_negotiation = {};
-  report.timing_highlights.best_negotiation.year_month = precomputed_highlights.best_negotiation_month;
-  const bnMonth = timeline.find(m => m.year_month === precomputed_highlights.best_negotiation_month);
-  report.timing_highlights.best_negotiation.score = bnMonth ? bnMonth.scores.negotiation : 0;
-  report.timing_highlights.best_negotiation.reason = report.timing_highlights.best_negotiation.reason || "협상력이 극대화되는 시기입니다.";
-  report.timing_highlights.best_negotiation.action = report.timing_highlights.best_negotiation.action || "원하는 조건을 명확히 제시하세요.";
-
-  // caution_month
-  if (!report.timing_highlights.caution_month) report.timing_highlights.caution_month = {};
-  report.timing_highlights.caution_month.year_month = precomputed_highlights.caution_month;
-  report.timing_highlights.caution_month.reason = report.timing_highlights.caution_month.reason || "변동성과 리스크가 높은 시기입니다.";
-  report.timing_highlights.caution_month.action = report.timing_highlights.caution_month.action || "신중하게 관망하며 결정을 보류하세요.";
-
-  // 2. Force restore timeline
+  // 1. Force restore timeline. 월별 점수가 유일한 원천 데이터다.
   if (!Array.isArray(report.timeline)) {
     report.timeline = [];
   }
@@ -55,18 +32,28 @@ export function validateAndRepairPaidReport(rawJsonText, timeline, precomputed_h
   }
   report.timeline = repairedTimeline;
 
-  // 3. Guarantee other structures
-  if (!report.report_summary) report.report_summary = { headline: "커리어 흐름", one_line_action: "상황을 주시하세요." };
+  // 2. 타임라인에서 핵심 시기·요약 결론·복합 행동 전략을 다시 계산한다.
+  // LLM 출력이나 사주 원국의 별도 점수는 이 판단에 개입하지 않는다.
+  const decisionSourceTimeline = timeline.map((month, index) => ({ ...month, index }));
+  const decision = deriveReportDecision(decisionSourceTimeline);
+  report.report_summary = decision.report_summary;
+  report.timing_highlights = decision.timing_highlights;
+  report.decision = decision;
+
+  // 3. Guarantee other structures. 행동 가이드와 추천 방향도 위의 타임라인 전략으로 고정한다.
   if (!report.personalized_advice) {
     report.personalized_advice = {
       question_summary: "현재 커리어 상황에 대한 방향성 고민",
       diagnosis: "전반적으로 흐름이 변동하는 시기입니다.",
       character_connection: "현재 성향상 너무 급한 결정은 독이 될 수 있습니다.",
-      recommendation: "장기적인 안목으로 판단하세요.",
-      action_steps: ["이력서를 업데이트하세요.", "네트워킹을 강화하세요.", "내부 성과를 기록하세요."],
-      watch_out: ["충동적인 퇴사는 피하세요."]
+      recommendation: decision.recommendation,
+      action_steps: decision.steps.map(step => step.detail),
+      watch_out: decision.watch_out
     };
   }
+  report.personalized_advice.recommendation = decision.recommendation;
+  report.personalized_advice.action_steps = decision.steps.map(step => step.detail);
+  report.personalized_advice.watch_out = decision.watch_out;
 
   return report;
 }

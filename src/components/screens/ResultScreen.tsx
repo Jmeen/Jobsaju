@@ -5,19 +5,12 @@
 import { useState } from 'react';
 import { useAppReport, useAppActions } from '../../contexts/AppContext';
 import { STORAGE_KEY } from '../../utils/session';
-import { buildTopScore } from '../../utils/scorePresentation';
 import { getGuardianAsset } from '../../utils/guardianAssets';
 import { getGuardianCharacter } from '../../utils/guardianCharacters';
 import { buildElementInsight } from '../../utils/reportInsights';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUpValidation';
 import { ChemistryBlock } from '../guardian/ChemistryBlock';
-
-const CHOICE_META = [
-  { key: 'jobChange', label: '이직', desc: '외부 기회를 확인하면서 현재 조건과 비교해볼 시기입니다.' },
-  { key: 'negotiation', label: '협상', desc: '연봉·역할·근무 조건을 먼저 요구해볼 가치가 있습니다.' },
-  { key: 'stay', label: '잔류', desc: '현재 조건을 유지하며 때를 기다리는 것이 좋습니다.' },
-] as const;
 
 const FOLLOW_UP_EXAMPLES = ['몇 월에 지원하는 게 좋을까요?', '연봉을 얼마나 불러도 될까요?', '승진을 1년 더 기다려도 될까요?', '지금 받은 오퍼를 수락해도 될까요?'];
 
@@ -80,7 +73,6 @@ export function ResultScreen() {
   const dayPillar = sajuResult.pillars.day.ganHanja + sajuResult.pillars.day.zhiHanja;
   const guardian = getGuardianAsset(dayPillar);
   const guardianDetail = getGuardianCharacter(dayPillar);
-  const top = buildTopScore(sajuResult.scores);
   const questionLimit = shareBonusGranted ? 2 : 1;
 
   const formatYm = (ym?: string) => {
@@ -89,14 +81,8 @@ export function ResultScreen() {
     return `${y}년 ${parseInt(m, 10)}월`;
   };
 
-  const roadmapSteps = th
-    ? ([
-        { ym: th.best_job_change?.year_month, phase: '이직 집중', detail: th.best_job_change?.action },
-        { ym: th.best_negotiation?.year_month, phase: '협상', detail: th.best_negotiation?.action },
-        { ym: th.caution_month?.year_month, phase: '신중 관망', detail: th.caution_month?.action },
-      ].filter(s => s.ym) as { ym: string; phase: string; detail: string }[])
-        .sort((a, b) => a.ym.localeCompare(b.ym))
-    : [];
+  const decision = report?.decision;
+  const roadmapSteps = Array.isArray(decision?.steps) ? decision.steps : [];
 
   return (
     <section className="jg-report">
@@ -204,10 +190,10 @@ export function ResultScreen() {
             <section className="jg-card">
               <h3 className="jg-card-title">지금부터 이렇게 움직이세요</h3>
               <div className="jg-roadmap-steps">
-                {roadmapSteps.map(stepItem => (
-                  <div className="jg-roadmap-step" key={stepItem.ym + stepItem.phase}>
+                {roadmapSteps.map((stepItem: { year_month: string; phase: string; detail: string }) => (
+                  <div className="jg-roadmap-step" key={stepItem.year_month + stepItem.phase}>
                     <div className="jg-roadmap-step-when">
-                      <span>{stepItem.ym}</span>
+                      <span>{stepItem.year_month}</span>
                       <i aria-hidden="true" />
                     </div>
                     <div className="jg-roadmap-step-body">
@@ -239,7 +225,7 @@ export function ResultScreen() {
                         {badge && <span className={`jg-month-badge ${isCaution ? 'is-caution' : ''}`}>{badge}</span>}
                       </div>
                       <div className="jg-month-meta">
-                        {item.keyword} · 이직 {item.scores?.job_change ?? 0} · 협상 {item.scores?.negotiation ?? 0} · 잔류 {item.scores?.stay ?? 0}
+                        {item.keyword} · 이직 {item.scores?.job_change ?? 0} · 협상 {item.scores?.negotiation ?? 0} · 내부 안정성 {item.scores?.stay ?? 0}
                       </div>
                       <p className={`jg-month-summary ${isOpen ? '' : 'is-clamped'}`}>{item.summary}</p>
                       {isOpen && <p className="jg-month-action">✅ {item.action}</p>}
@@ -340,28 +326,18 @@ export function ResultScreen() {
         </div>
       </section>
 
-      {/* 세 가지 선택 비교 (요약 · 참고) */}
-      <section className="jg-card">
-        <h3 className="jg-card-title">지금 당신에게 더 맞는 선택은?</h3>
-        <div className="jg-choices">
-          {CHOICE_META.map(axis => {
-            const scoreVal = sajuResult.scores[axis.key];
-            const isTop = top.axis === axis.key;
-            return (
-              <div className={`jg-choice ${isTop ? 'is-top' : ''}`} key={axis.key}>
-                <div className="jg-choice-head">
-                  <div className="jg-choice-name">
-                    <strong>{axis.label}</strong>
-                    {isTop && <span className="jg-choice-rank">현재 1순위</span>}
-                  </div>
-                  <div className="jg-choice-score">{scoreVal}{!isTop && <small>{scoreVal > 50 ? '탐색해볼 만함' : '우선순위 낮음'}</small>}</div>
-                </div>
-                <p>{axis.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {/* 최종 추천은 월별 흐름에서 계산한 복합 행동 전략만 보여준다. */}
+      {decision && (
+        <section className="jg-card">
+          <h3 className="jg-card-title">지금부터의 추천 전략</h3>
+          <div className="jg-choice is-top">
+            <div className="jg-choice-head">
+              <div className="jg-choice-name"><strong>{decision.strategy}</strong></div>
+            </div>
+            <p>{decision.recommendation}</p>
+          </div>
+        </section>
+      )}
 
       {/* 일할 때 강한 방식 (참고) */}
       <section className="jg-card">

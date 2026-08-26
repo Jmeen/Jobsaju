@@ -42,10 +42,12 @@ test('Validator: Corrupted Highlights and Timeline', async () => {
   assert.equal(repaired.timing_highlights.best_job_change.year_month, "2026-08");
   assert.equal(repaired.timing_highlights.best_job_change.score, 85);
   
-  assert.equal(repaired.timing_highlights.best_negotiation.year_month, "2026-09");
+  // 같은 점수면 타임라인에서 먼저 오는 달을 고른다. 외부에서 주입한 highlight는 쓰지 않는다.
+  assert.equal(repaired.timing_highlights.best_negotiation.year_month, "2026-08");
   assert.equal(repaired.timing_highlights.best_negotiation.score, 40);
 
   assert.equal(repaired.timing_highlights.caution_month.year_month, "2026-08");
+  assert.equal(repaired.decision.steps[0].year_month, "2026-08");
 
   // Assert Timeline Restored
   assert.equal(repaired.timeline[0].year_month, "2026-08");
@@ -75,6 +77,7 @@ test('Validator: 현재부터 6개월 타임라인은 여섯 달만 복구한다
   });
   assert.equal(repaired.timeline.length, 6);
   assert.equal(repaired.timeline.at(-1).year_month, '2027-01');
+  assert.equal(repaired.decision.steps[0].year_month, '2026-08');
 });
 
 import { handlePaidReportRequest } from './paidReportApi.js';
