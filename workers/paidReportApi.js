@@ -181,6 +181,18 @@ export async function handlePaidReportRequest(request, env) {
     return new Response(JSON.stringify({ error: 'Missing payment_id' }), { status: 400 });
   }
 
+  // payment_id에는 클라이언트가 임의로 만든 주문번호가 아니라 /api/payment/validate가 발급한
+  // 해금 토큰만 들어온다. 운영 환경의 KV 바인딩에서 이를 먼저 확인해야 AI 생성 비용을 보호한다.
+  if (env.SAJU_KV) {
+    const unlockRecord = await env.SAJU_KV.get(`token:${payment_id}`);
+    if (!unlockRecord) {
+      return new Response(JSON.stringify({ error: '결제 확인 토큰이 유효하지 않습니다.' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+  }
+
   // Idempotency check with Cloudflare D1 - Atomic Lock
   if (env.DB) {
     try {
@@ -248,12 +260,6 @@ export async function handlePaidReportRequest(request, env) {
   }
   
   try {
-    // 1. Mock Payment Validation
-    const isPaymentValid = payment_id.length > 5;
-    if (!isPaymentValid) {
-      return new Response(JSON.stringify({ error: 'Invalid payment token' }), { status: 403 });
-    }
-
     // payment_id를 해금 토큰으로도 등록한다 — /api/followup, /api/share-bonus 등
     // 기존 unlockToken 체계가 이 값으로 인증되도록 하기 위함.
     if (env.SAJU_KV) {

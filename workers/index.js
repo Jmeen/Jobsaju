@@ -605,29 +605,34 @@ export default {
           } else {
             failureReason = result.reason;
           }
+        } else if (paymentId) {
+          // 포트원 결제 상태 교차 검증 (PortOne V2 API 호출)
+          const portoneApiSecret = env.PORTONE_API_SECRET || env.PORTONE_API_KEY;
+          if (!portoneApiSecret) {
+            failureReason = "결제 검증 서버 설정이 완료되지 않았습니다.";
+          } else {
+            const portoneRes = await fetch(`https://api.portone.io/payments/${encodeURIComponent(paymentId)}`, {
+              headers: {
+                "Authorization": `PortOne ${portoneApiSecret}`,
+              }
+            });
+
+            if (portoneRes.ok) {
+              const paymentData = await portoneRes.json();
+              // 금액 위변조 검증 — 가격 A/B 변형(6,900 / 8,900) 중 하나여야 하며 PAID 상태여야 한다
+              const VALID_AMOUNTS = [6900, 8900];
+              if (paymentData.status === "PAID" && VALID_AMOUNTS.includes(paymentData.amount?.total)) {
+                isPaymentValid = true;
+              }
+            } else {
+              failureReason = "포트원에서 결제 완료 내역을 확인하지 못했습니다.";
+            }
+          }
         } else if (env.PAYMENT_SANDBOX_MODE === "true") {
           // 서버 환경변수로만 켤 수 있는 개발/테스트 우회. 클라이언트가 임의로 켤 수 없다
           // (예전엔 paymentId가 "sandbox-"로 시작하기만 하면 통과였는데, 클라이언트가 그 문자열을
           // 매번 스스로 만들어 보냈기 때문에 사실상 전원 무료 통과였다).
           isPaymentValid = true;
-        } else if (paymentId) {
-          // 포트원 결제 상태 교차 검증 (PortOne V2 API 호출)
-          const PORTONE_API_KEY = env.PORTONE_API_KEY;
-          const portoneRes = await fetch(`https://api.portone.io/payments/${paymentId}`, {
-            headers: {
-              "Authorization": `PortOne ${PORTONE_API_KEY}`,
-              "Content-Type": "application/json"
-            }
-          });
-
-          if (portoneRes.ok) {
-            const paymentData = await portoneRes.json();
-            // 금액 위변조 검증 — 가격 A/B 변형(6,900 / 8,900) 중 하나여야 하며 PAID 상태여야 한다
-            const VALID_AMOUNTS = [6900, 8900];
-            if (paymentData.status === "PAID" && VALID_AMOUNTS.includes(paymentData.amount.total)) {
-              isPaymentValid = true;
-            }
-          }
         }
 
         if (!isPaymentValid) {

@@ -1,5 +1,7 @@
-export const PORTONE_STORE_ID = "store-7eb0ffed-09d3-4fc6-b25c-097bbde9dd01"; // Placeholder
-export const PORTONE_CHANNEL_KEY = "channel-key-12345"; // Placeholder
+// VITE_ 접두사가 붙은 값만 브라우저 번들에 포함된다. 둘 다 공개 식별자이며,
+// PORTONE_API_SECRET 같은 서버 비밀값은 절대로 여기에 두지 않는다.
+const PORTONE_STORE_ID = (import.meta.env.VITE_PORTONE_STORE_ID || '').trim();
+const PORTONE_CHANNEL_KEY = (import.meta.env.VITE_PORTONE_CHANNEL_KEY || '').trim();
 
 export interface PaymentParams {
   paymentId: string;
@@ -7,6 +9,17 @@ export interface PaymentParams {
   totalAmount: number;
   currency: string;
   payMethod: string;
+}
+
+export function createPortOnePaymentId(): string {
+  // KCP는 주문번호를 최대 40자로 제한하고 한글/특수문자를 지원하지 않는다.
+  return `p${crypto.randomUUID().replaceAll('-', '')}`;
+}
+
+function assertPortOneConfig() {
+  if (!PORTONE_STORE_ID || !PORTONE_CHANNEL_KEY) {
+    throw new Error('결제 테스트 설정이 아직 완료되지 않았습니다. 포트원 상점 ID와 채널 키를 확인해 주세요.');
+  }
 }
 
 export function loadPortOneSdk(): Promise<void> {
@@ -25,6 +38,7 @@ export function loadPortOneSdk(): Promise<void> {
 }
 
 export async function requestPortOnePayment(params: PaymentParams): Promise<any> {
+  assertPortOneConfig();
   await loadPortOneSdk();
   if (!window.PortOne) {
     throw new Error('PortOne SDK not initialized');

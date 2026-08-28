@@ -29,7 +29,14 @@ Pages의 **Variables and Secrets**에 다음 값을 Preview와 Production 환경
 
 ## 데모 해금 설정
 
-현재 프로토타입은 `sandbox-`로 시작하는 결제 ID만 데모 승인합니다. 실제 결제를 붙이기 전까지만 사용하고, 운영 결제를 시작하기 전에는 제거해야 합니다.
+`PAYMENT_SANDBOX_MODE=true`는 결제 ID 없이 호출한 개발용 요청만 통과시킵니다. 실제 포트원 결제 ID가 있으면 항상 포트원 V2 API로 결제 상태와 금액을 검증합니다.
+
+## PortOne V2 KCP 테스트 결제
+
+- Pages 빌드 변수: `VITE_PORTONE_STORE_ID`, `VITE_PORTONE_CHANNEL_KEY`를 등록합니다. 둘은 브라우저에 공개되는 식별자입니다.
+- Pages secret: `PORTONE_API_SECRET`을 등록합니다. 이 값은 포트원 V2 API Secret이며 KCP 인증서나 개인키가 아닙니다.
+- KCP 테스트 채널은 포트원 콘솔에서 `T0000` 및 KCP 테스트 인증서/개인키로 먼저 완성해야 합니다. 앱에는 `T0000`을 넣지 않습니다.
+- 결제 완료 뒤 Worker가 `GET https://api.portone.io/payments/{paymentId}`로 `PAID`와 결제금액(6,900원 또는 8,900원)을 확인한 뒤에만 해금 토큰을 발급합니다.
 
 추가 질문 1회 제한과 해금 토큰 보존을 테스트하려면 Pages 프로젝트의 **Settings → Bindings**에서 KV namespace를 `SAJU_KV`라는 이름으로 연결합니다. Preview와 Production의 바인딩은 각각 확인합니다.
 

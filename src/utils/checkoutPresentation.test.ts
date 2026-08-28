@@ -17,12 +17,12 @@ test('사용자용 결제 문구는 전체 풀이 표현을 사용한다', () =>
   );
 });
 
-test('쿠폰이 없으면 유료 가격과 PG 대기 액션을 제공한다', () => {
+test('쿠폰이 없으면 유료 가격과 포트원 결제 액션을 제공한다', () => {
   assert.deepEqual(buildCheckoutPresentation('8,900원', false), {
     originalLabel: null,
     finalLabel: '8,900원',
     buttonLabel: '⚡ 전체 풀이 결제하기 (8,900원)',
-    action: 'pending',
+    action: 'unlock',
   });
 });
 
@@ -35,30 +35,24 @@ test('쿠폰이 적용되면 현재 가격을 0원과 전체 풀이 액션으로
   });
 });
 
-test('일반 결제는 전체 풀이를 실행하지 않고 PG 연동 대기 알림만 표시한다', () => {
-  const messages: string[] = [];
-  let unlockCount = 0;
-
-  runCheckoutAction(
-    'pending',
-    () => { unlockCount += 1; },
-    message => messages.push(message),
-  );
-
-  assert.deepEqual(messages, ['현재 PG사 연동 중입니다. 결제 기능은 곧 제공될 예정입니다.']);
-  assert.equal(unlockCount, 0);
-});
-
-test('쿠폰 결제는 PG 알림 없이 전체 풀이를 실행한다', () => {
-  const messages: string[] = [];
+test('일반 결제도 포트원 결제 흐름을 시작한다', () => {
   let unlockCount = 0;
 
   runCheckoutAction(
     'unlock',
     () => { unlockCount += 1; },
-    message => messages.push(message),
   );
 
-  assert.deepEqual(messages, []);
+  assert.equal(unlockCount, 1);
+});
+
+test('쿠폰 결제도 같은 전체 풀이 흐름을 실행한다', () => {
+  let unlockCount = 0;
+
+  runCheckoutAction(
+    'unlock',
+    () => { unlockCount += 1; },
+  );
+
   assert.equal(unlockCount, 1);
 });

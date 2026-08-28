@@ -13,7 +13,7 @@ import { resolveCopyVariant, getCopy } from '../utils/copy';
 import { resolvePriceVariant } from '../utils/pricing';
 import { validateFollowUpQuestion } from '../utils/followUpValidation';
 import type { FollowUpRecord } from '../utils/followUpValidation';
-import { lookupReportByEmail, lookupReportByToken } from '../utils/premiumApi';
+import { lookupReportByEmail, lookupReportByToken, validatePayment } from '../utils/premiumApi';
 import type { ReportHistoryEntry } from '../utils/premiumApi';
 import { renderAllResultCards } from '../utils/resultCardTargets';
 import { buildShareCardModel, canvasToPngBlob, drawShareCard } from '../utils/shareCard';
@@ -901,13 +901,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 쿠폰 코드는 결제 수단일 뿐 리포트 ID가 아니다. 같은 쿠폰·같은 이메일로 다시
     // 구매해도 리포트별 추가 질문권과 다시보기 이력이 분리되도록 매번 새 토큰을 쓴다.
-    let finalPaymentId = appliedCoupon ? `coupon-${appliedCoupon}-${crypto.randomUUID()}` : '';
+    let paymentId = appliedCoupon ? `coupon-${appliedCoupon}-${crypto.randomUUID()}` : '';
 
-    if (!finalPaymentId) {
+    if (!paymentId) {
       try {
-        const { requestPortOnePayment } = await import('../utils/portone');
+        const { createPortOnePaymentId, requestPortOnePayment } = await import('../utils/portone');
         const paymentRes = await requestPortOnePayment({
-          paymentId: `pid-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          paymentId: createPortOnePaymentId(),
           orderName: '잡사주 유료 리포트',
           totalAmount: price.amount,
           currency: 'KRW',
@@ -920,15 +920,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         
-        finalPaymentId = paymentRes.paymentId;
+        if (typeof paymentRes.paymentId !== 'string' || !paymentRes.paymentId) {
+          setUnlockError('결제 완료 정보를 받지 못했습니다. 결제 내역을 확인한 뒤 다시 시도해 주세요.');
+          return;
+        }
+        paymentId = paymentRes.paymentId;
       } catch (err: any) {
         setUnlockError(`결제 초기화 실패: ${err.message}`);
         return;
       }
     }
 
+    let unlockToken: string;
+    try {
+      // PG 결제 완료 응답만 신뢰하지 않고 Worker가 포트원 V2 API에서 상태와 금액을 재검증한다.
+      unlockToken = await validatePayment(paymentId, appliedCoupon || undefined);
+    } catch (err: any) {
+      setUnlockError(err?.message || '결제 검증에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+
     // 결제까지가 여기 몫이다. 직무·목표·상황은 결제 후 personalize 화면에서 받는다.
-    paidSessionRef.current = { paymentId: finalPaymentId, email: email.trim() };
+    paidSessionRef.current = { paymentId: unlockToken, email: email.trim() };
     savePaidSession(paidSessionRef.current);
     // 새 리포트를 시작할 때 이전 리포트의 질문·공유 보너스 상태를 이어받지 않는다.
     setFollowUps([]);

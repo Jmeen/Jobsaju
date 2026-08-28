@@ -43,12 +43,11 @@ function responseError(response: Response, data: Record<string, any>) {
   );
 }
 
-export async function requestPremiumReport(
-  payload: PremiumReportPayload,
-  fetcher: typeof fetch = fetch,
-  paymentId = '',
+export async function validatePayment(
+  paymentId: string,
   couponCode?: string,
-): Promise<Record<string, any>> {
+  fetcher: typeof fetch = fetch,
+): Promise<string> {
   const validationResponse = await fetcher('/api/payment/validate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -59,8 +58,18 @@ export async function requestPremiumReport(
 
   const unlockToken = validationData.unlockToken;
   if (typeof unlockToken !== 'string' || !unlockToken) {
-    throw new PremiumReportError('해금 토큰을 발급받지 못했습니다.', validationResponse.status, 'TOKEN_MISSING');
+    throw new PremiumReportError('결제 확인 토큰을 발급받지 못했습니다.', validationResponse.status, 'TOKEN_MISSING');
   }
+  return unlockToken;
+}
+
+export async function requestPremiumReport(
+  payload: PremiumReportPayload,
+  fetcher: typeof fetch = fetch,
+  paymentId = '',
+  couponCode?: string,
+): Promise<Record<string, any>> {
+  const unlockToken = await validatePayment(paymentId, couponCode, fetcher);
 
   const reportResponse = await fetcher('/api/interpret', {
     method: 'POST',
