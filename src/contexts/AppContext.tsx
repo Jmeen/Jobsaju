@@ -873,11 +873,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const discountPercent = typeof data.discountPercent === 'number' ? data.discountPercent : 100;
       setAppliedCoupon({ code: raw, discountPercent });
-      const remainingHint = typeof data.remainingUses === 'number' ? ` (남은 사용 ${data.remainingUses}회)` : '';
       const discountedLabel = `${Math.round(price.amount * (100 - discountPercent) / 100).toLocaleString()}원`;
       setCouponMessage(discountPercent === 100
-        ? `🎉 100% 무료 프로모션 쿠폰(${raw})이 적용되었습니다!${remainingHint}`
-        : `🎉 ${discountPercent}% 할인 쿠폰(${raw})이 적용되었습니다. ${discountedLabel}에 결제됩니다!${remainingHint}`);
+        ? `🎉 100% 무료 프로모션 쿠폰(${raw})이 적용되었습니다!`
+        : `🎉 ${discountPercent}% 할인 쿠폰(${raw})이 적용되었습니다. ${discountedLabel}에 결제됩니다!`);
     } catch {
       setAppliedCoupon(null);
       setCouponMessage(null);
