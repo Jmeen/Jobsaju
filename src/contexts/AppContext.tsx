@@ -905,26 +905,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (!paymentId) {
       try {
-        const { createPortOnePaymentId, requestPortOnePayment } = await import('../utils/portone');
-        const paymentRes = await requestPortOnePayment({
-          paymentId: createPortOnePaymentId(),
-          orderName: '잡사주 유료 리포트',
-          totalAmount: price.amount,
-          currency: 'KRW',
-          payMethod: 'CARD'
-        });
-        
-        if (paymentRes.code != null) {
-          // PortOne V2 returns code on failure
-          setUnlockError(`결제 실패: ${paymentRes.message}`);
-          return;
+        const { createPortOnePaymentId, isPortOneConfigured, requestPortOnePayment } = await import('../utils/portone');
+        if (isPortOneConfigured()) {
+          const paymentRes = await requestPortOnePayment({
+            paymentId: createPortOnePaymentId(),
+            orderName: '잡사주 유료 리포트',
+            totalAmount: price.amount,
+            currency: 'KRW',
+            payMethod: 'CARD'
+          });
+
+          if (paymentRes.code != null) {
+            // PortOne V2 returns code on failure
+            setUnlockError(`결제 실패: ${paymentRes.message}`);
+            return;
+          }
+
+          if (typeof paymentRes.paymentId !== 'string' || !paymentRes.paymentId) {
+            setUnlockError('결제 완료 정보를 받지 못했습니다. 결제 내역을 확인한 뒤 다시 시도해 주세요.');
+            return;
+          }
+          paymentId = paymentRes.paymentId;
         }
-        
-        if (typeof paymentRes.paymentId !== 'string' || !paymentRes.paymentId) {
-          setUnlockError('결제 완료 정보를 받지 못했습니다. 결제 내역을 확인한 뒤 다시 시도해 주세요.');
-          return;
-        }
-        paymentId = paymentRes.paymentId;
       } catch (err: any) {
         setUnlockError(`결제 초기화 실패: ${err.message}`);
         return;
@@ -1300,6 +1302,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         medium: 'kakao' as const,
         utmSource,
       };
+      // 접근 토큰은 카카오에 전달하지 않는다. 서버만 share_id와 짧게 연결해 웹훅 도착 시 보너스를 준다.
+      if (isUnlocked) {
+        await fetch('/api/share-bonus/bind', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unlock_token: unlockToken, share_id: ids.shareId }),
+        });
+      }
       await sendGuardianKakaoShare({
         kakaoKey: import.meta.env.VITE_KAKAO_JS_KEY || '',
         templateId,
@@ -1318,7 +1328,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           visitor_session_id: ids.visitorSessionId,
           guardian_id: guardianId,
           ...(shareType ? { share_type: shareType } : {}),
-          ...(isUnlocked ? { unlock_token: unlockToken } : {}),
         },
       });
 
@@ -1391,7 +1400,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const tick = async () => {
       attempts += 1;
       try {
-        const res = await fetch(`/api/share-bonus/status?unlock_token=${encodeURIComponent(token)}`);
+        const res = await fetch('/api/share-bonus/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unlock_token: token }),
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.granted) {

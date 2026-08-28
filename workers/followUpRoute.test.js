@@ -37,7 +37,7 @@ function createRequest(question, questionIndex = 1) {
   });
 }
 
-test('유효한 해금 토큰으로 공유 보너스를 등록한다', async () => {
+test('브라우저가 직접 공유 보너스를 등록할 수 없고, 공유 ID 연결만 요청할 수 있다', async () => {
   const kv = createKv();
   const response = await worker.fetch(new Request('https://example.com/api/share-bonus', {
     method: 'POST',
@@ -45,8 +45,13 @@ test('유효한 해금 토큰으로 공유 보너스를 등록한다', async () 
     body: JSON.stringify({ unlock_token: token }),
   }), { SAJU_KV: kv });
 
-  assert.equal(response.status, 200);
-  assert.ok(kv.writes.some(write => write[0] === `share-bonus:${token}`));
+  assert.equal(response.status, 403);
+  const bindResponse = await worker.fetch(new Request('https://example.com/api/share-bonus/bind', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ unlock_token: token, share_id: '11111111-1111-4111-8111-111111111111' }),
+  }), { SAJU_KV: kv });
+  assert.equal(bindResponse.status, 200);
+  assert.ok(kv.writes.some(write => write[0] === 'share-auth:11111111-1111-4111-8111-111111111111'));
 });
 
 test('공유 보너스가 있으면 두 번째 질문을 허용하고 세 번째는 거부한다', async () => {

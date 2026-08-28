@@ -56,15 +56,8 @@ export function ManualPayModal() {
                   style={{ 
                     fontSize: 18, 
                     color: 'var(--jg-ink, #2f3732)', 
-                    margin: 0, 
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6
+                    margin: 0,
                   }}
-                  title="🔮"
-                  onClick={() => setShowSecretCoupon(true)}
                 >
                   {CHECKOUT_COPY.title} {appliedCoupon ? <span style={{ color: '#4ade80', fontSize: 15 }}>(0원 무료 적용)</span> : `(${price.label})`}
                 </h3>
@@ -97,9 +90,22 @@ export function ManualPayModal() {
                     type="email" className="input-text" placeholder="yourname@gmail.com"
                     value={emailInput} onChange={e => setEmailInput(e.target.value)}
                   />
+                  {!showSecretCoupon && !appliedCoupon && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSecretCoupon(true)}
+                      style={{
+                        display: 'block', marginTop: 8, padding: 0, border: 0,
+                        background: 'transparent', color: 'var(--jg-muted, #858b83)',
+                        fontSize: 12, cursor: 'pointer', textDecoration: 'underline',
+                      }}
+                    >
+                      프로모 코드가 있나요?
+                    </button>
+                  )}
                 </div>
 
-                {/* 숨겨진 쿠폰 코드 입력 섹션 (제목 1회 탭 또는 적용 시 노출) */}
+                {/* 프로모 코드 링크를 누르거나 이미 적용된 경우에만 입력칸을 연다. */}
                 {(showSecretCoupon || appliedCoupon) && (
                   <div style={{ 
                     background: 'rgba(168, 85, 247, 0.08)', 
@@ -196,15 +202,6 @@ export function ManualPayModal() {
                       ) : (
                         <span>
                           안전하고 간편한 결제가 지원됩니다.
-                          {!showSecretCoupon && (
-                            <button
-                              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', fontSize: 10, cursor: 'pointer', marginLeft: 6, textDecoration: 'underline' }}
-                              onClick={() => setShowSecretCoupon(true)}
-                              title="시크릿 코드 입력"
-                            >
-                              코드입력
-                            </button>
-                          )}
                         </span>
                       )}
                     </div>

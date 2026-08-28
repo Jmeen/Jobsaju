@@ -7,3 +7,9 @@ CREATE TABLE paid_reports (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE payment_redemptions (
+  payment_id TEXT PRIMARY KEY,
+  unlock_token TEXT NOT NULL,
+  redeemed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

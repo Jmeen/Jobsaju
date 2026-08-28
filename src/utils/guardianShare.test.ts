@@ -149,6 +149,11 @@ test('공유 문구는 자랑 한 줄과 질문 한 줄이다', () => {
   assert.equal(message.buttonLabel, '내 수호신 확인하기');
 });
 
+test('수호신 이름의 받침에 맞춰 래/이래를 고른다', () => {
+  assert.match(buildGuardianShareMessage(tiger).title, /새싹호랑이래/);
+  assert.equal(buildGuardianShareMessage({ ...tiger, nickname: '퇴근멍' }).title, '내 수호신은 퇴근멍이래 🐯');
+});
+
 test('템플릿 인자에 수호신별 값이 모두 실린다', () => {
   const args = buildGuardianTemplateArgs({
     guardian: tiger,

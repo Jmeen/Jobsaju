@@ -76,6 +76,13 @@ export type GuardianShareMessage = {
 
 export const GUARDIAN_SHARE_BUTTON_LABEL = '내 수호신 확인하기';
 
+/** 수호신 이름 마지막 글자의 받침에 따라 간접 인용 어미를 고른다. 새싹호랑이래 / 퇴근멍이래. */
+function reportedSpeechEnding(word: string): '래' | '이래' {
+  const last = word.charCodeAt(word.length - 1);
+  if (Number.isNaN(last) || last < 0xac00 || last > 0xd7a3) return '래';
+  return (last - 0xac00) % 28 === 0 ? '래' : '이래';
+}
+
 /**
  * 공유 메시지 문구.
  *
@@ -84,7 +91,7 @@ export const GUARDIAN_SHARE_BUTTON_LABEL = '내 수호신 확인하기';
  */
 export function buildGuardianShareMessage(guardian: GuardianAsset): GuardianShareMessage {
   return {
-    title: `내 수호신은 ${guardian.nickname}래 ${guardian.animalEmoji}`,
+    title: `내 수호신은 ${guardian.nickname}${reportedSpeechEnding(guardian.nickname)} ${guardian.animalEmoji}`,
     question: '너의 수호신은 누구일까?',
     trait: guardian.copy,
     buttonLabel: GUARDIAN_SHARE_BUTTON_LABEL,

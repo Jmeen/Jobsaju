@@ -4,6 +4,7 @@ import worker from './index.js';
 
 const token = 'valid-unlock-token-1234567890';
 const ADMIN_KEY = 'test-admin-key';
+const SHARE_ID = '11111111-1111-4111-8111-111111111111';
 
 function createKv({ registerToken = true } = {}) {
   const writes = [];
@@ -19,7 +20,15 @@ function createKv({ registerToken = true } = {}) {
       writes.push(args);
       values.set(args[0], args[1]);
     },
+    async delete(key) {
+      values.delete(key);
+    },
   };
+}
+
+async function bindShare(kv) {
+  await kv.put(`share-auth:${SHARE_ID}`, token);
+  kv.writes.length = 0;
 }
 
 function createAnalyticsDb() {
@@ -62,7 +71,7 @@ function createExecutionContext() {
 
 function createAnalyticsCallback(resourceId, method = 'GET') {
   return new Request(
-    `https://example.com/api/kakao-share-webhook?unlock_token=${token}&share_id=11111111-1111-4111-8111-111111111111&result_session_id=22222222-2222-4222-8222-222222222222&visitor_session_id=33333333-3333-4333-8333-333333333333&guardian_id=%E7%94%B2%E5%AD%90`,
+    `https://example.com/api/kakao-share-webhook?share_id=${SHARE_ID}&result_session_id=22222222-2222-4222-8222-222222222222&visitor_session_id=33333333-3333-4333-8333-333333333333&guardian_id=%E7%94%B2%E5%AD%90`,
     {
       method,
       headers: {
@@ -101,9 +110,10 @@ test('관리자 키 자체가 설정돼 있지 않으면 웹훅을 거부한다'
   assert.equal(response.status, 401);
 });
 
-test('카카오 웹훅이 GET으로 도착하면(Authorization 일치) 쿼리의 unlock_token으로 공유 보너스를 등록한다', async () => {
+test('카카오 웹훅이 GET으로 도착하면 사전 연결된 share_id의 공유 보너스를 등록한다', async () => {
   const kv = createKv();
-  const response = await worker.fetch(new Request('https://example.com/api/kakao-share-webhook?unlock_token=' + token + '&CHAT_TYPE=MemoChat', {
+  await bindShare(kv);
+  const response = await worker.fetch(new Request('https://example.com/api/kakao-share-webhook?share_id=' + SHARE_ID + '&CHAT_TYPE=MemoChat', {
     method: 'GET',
     headers: { Authorization: `KakaoAK ${ADMIN_KEY}` },
   }), { SAJU_KV: kv, KAKAO_ADMIN_KEY: ADMIN_KEY });
@@ -112,12 +122,13 @@ test('카카오 웹훅이 GET으로 도착하면(Authorization 일치) 쿼리의
   assert.ok(kv.writes.some(write => write[0] === `share-bonus:${token}`));
 });
 
-test('카카오 웹훅이 폼인코딩 POST로 도착해도 unlock_token을 읽어 공유 보너스를 등록한다', async () => {
+test('카카오 웹훅이 폼인코딩 POST로 도착해도 share_id로 공유 보너스를 등록한다', async () => {
   const kv = createKv();
+  await bindShare(kv);
   const response = await worker.fetch(new Request('https://example.com/api/kakao-share-webhook', {
     method: 'POST',
     headers: { Authorization: `KakaoAK ${ADMIN_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `unlock_token=${token}&CHAT_TYPE=DirectChat`,
+    body: `share_id=${SHARE_ID}&CHAT_TYPE=DirectChat`,
   }), { SAJU_KV: kv, KAKAO_ADMIN_KEY: ADMIN_KEY });
 
   assert.equal(response.status, 200);
@@ -126,6 +137,7 @@ test('카카오 웹훅이 폼인코딩 POST로 도착해도 unlock_token을 읽�
 
 test('같은 X-Kakao-Resource-ID 재시도는 보상 키와 confirmed 이벤트를 하나만 유지한다', async () => {
   const kv = createKv();
+  await bindShare(kv);
   const db = createAnalyticsDb();
   const env = { SAJU_KV: kv, DB: db, KAKAO_ADMIN_KEY: ADMIN_KEY };
 
@@ -140,6 +152,7 @@ test('같은 X-Kakao-Resource-ID 재시도는 보상 키와 confirmed 이벤트�
 
 test('같은 shareId라도 서로 다른 카카오 resource ID는 서로 다른 confirmed 행을 만든다', async () => {
   const kv = createKv();
+  await bindShare(kv);
   const db = createAnalyticsDb();
   const env = { SAJU_KV: kv, DB: db, KAKAO_ADMIN_KEY: ADMIN_KEY };
 
@@ -156,6 +169,7 @@ test('같은 shareId라도 서로 다른 카카오 resource ID는 서로 다른 
 
 test('Workers 실행 컨텍스트에서는 confirmed 분석 저장이 200 응답을 지연시키지 않는다', async () => {
   const kv = createKv();
+  await bindShare(kv);
   let releaseDatabase;
   const db = {
     prepare() {
@@ -195,6 +209,7 @@ test('Workers 실행 컨텍스트에서는 confirmed 분석 저장이 200 응답
 
 test('분석 D1 실패와 누락된 resource ID는 보상 및 200 응답을 막지 않는다', async () => {
   const kv = createKv();
+  await bindShare(kv);
   const failingDb = {
     prepare: () => ({ bind: () => ({ run: async () => { throw new Error('D1 unavailable'); } }) }),
   };
@@ -215,7 +230,7 @@ test('분석 D1 실패와 누락된 resource ID는 보상 및 200 응답을 막�
   assert.ok(kv.writes.some(write => write[0] === `share-bonus:${token}`));
 });
 
-test('웹훅 인증은 통과했지만 unlock_token을 찾지 못하면 보너스 없이 200으로만 응답한다', async () => {
+test('웹훅 인증은 통과했지만 share_id 연결을 찾지 못하면 보너스 없이 200으로만 응답한다', async () => {
   const kv = createKv();
   const response = await worker.fetch(new Request('https://example.com/api/kakao-share-webhook', {
     method: 'GET',
@@ -226,13 +241,13 @@ test('웹훅 인증은 통과했지만 unlock_token을 찾지 못하면 보너�
   assert.equal(kv.writes.length, 0);
 });
 
-test('검증되지 않은 해금 토큰은 공유 보너스로 기록하지 않는다', async () => {
-  // 결제 전 클라이언트는 'local-developer-unlock-token' 상수를 공유한다.
-  // 이걸 그대로 기록하면 무료 사용자 한 명의 공유가 모든 무료 사용자에게 보너스로 보인다.
+test('검증되지 않은 사전 연결 토큰은 공유 보너스로 기록하지 않는다', async () => {
   const kv = createKv({ registerToken: false });
   const sharedConstant = 'local-developer-unlock-token';
+  await kv.put(`share-auth:${SHARE_ID}`, sharedConstant);
+  kv.writes.length = 0;
   const request = new Request(
-    `https://example.com/api/kakao-share-webhook?unlock_token=${sharedConstant}`,
+    `https://example.com/api/kakao-share-webhook?share_id=${SHARE_ID}`,
     { method: 'GET', headers: { Authorization: `KakaoAK ${ADMIN_KEY}` } },
   );
 
@@ -244,8 +259,8 @@ test('검증되지 않은 해금 토큰은 공유 보너스로 기록하지 않�
 
 test('공유 보너스 상태 조회는 웹훅이 아직 도착하지 않았으면 granted:false를 반환한다', async () => {
   const kv = createKv();
-  const response = await worker.fetch(new Request('https://example.com/api/share-bonus/status?unlock_token=' + token, {
-    method: 'GET',
+  const response = await worker.fetch(new Request('https://example.com/api/share-bonus/status', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ unlock_token: token }),
   }), { SAJU_KV: kv });
 
   const data = await response.json();
@@ -256,8 +271,8 @@ test('공유 보너스 상태 조회는 웹훅이 아직 도착하지 않았으�
 test('공유 보너스 상태 조회는 웹훅 도착 후 granted:true를 반환한다', async () => {
   const kv = createKv();
   await kv.put(`share-bonus:${token}`, new Date().toISOString());
-  const response = await worker.fetch(new Request('https://example.com/api/share-bonus/status?unlock_token=' + token, {
-    method: 'GET',
+  const response = await worker.fetch(new Request('https://example.com/api/share-bonus/status', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ unlock_token: token }),
   }), { SAJU_KV: kv });
 
   const data = await response.json();

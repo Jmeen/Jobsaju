@@ -23,6 +23,25 @@ function createKv() {
   };
 }
 
+function createPaymentDb() {
+  const redeemed = new Set();
+  return {
+    prepare() {
+      return {
+        bind(paymentId) {
+          return {
+            async run() {
+              if (redeemed.has(paymentId)) return { meta: { changes: 0 } };
+              redeemed.add(paymentId);
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
 async function seedCoupon(kv, code, overrides = {}) {
   await kv.put(`coupon:${code}`, JSON.stringify({
     code,
@@ -133,6 +152,24 @@ test('쿠폰도 없고 PAYMENT_SANDBOX_MODE도 꺼져 있으면 결제 정보 �
     });
     const res = await worker.fetch(req, { SAJU_KV: kv });
     assert.equal(res.status, 400, '클라이언트가 만든 sandbox- 문자열만으로는 더 이상 통과하면 안 된다');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('같은 완료 결제번호를 다시 POST해도 해금 토큰을 한 번만 발급한다', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ status: 'PAID', amount: { total: 6900 } }), { status: 200 });
+  const env = { SAJU_KV: createKv(), DB: createPaymentDb(), PORTONE_API_SECRET: 'test-secret' };
+  const request = () => new Request('https://example.com/api/payment/validate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paymentId: 'payment-replay-test-123', couponCode: '' }),
+  });
+  try {
+    assert.equal((await worker.fetch(request(), env)).status, 200);
+    const replay = await worker.fetch(request(), env);
+    assert.equal(replay.status, 409);
+    assert.match((await replay.json()).error, /이미 처리된 결제/);
   } finally {
     globalThis.fetch = originalFetch;
   }

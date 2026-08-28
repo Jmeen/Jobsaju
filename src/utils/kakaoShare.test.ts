@@ -27,7 +27,7 @@ test('카카오 메시지는 결과 유형을 후킹하고 내 사주 확인을 
   assert.equal(template.serverCallbackArgs, undefined, 'unlockToken이 없으면 웹훅 파라미터도 없어야 한다');
 });
 
-test('유료 리포트도 수호신 공용 사용자 정의 템플릿에 카드·링크·웹훅 인자를 보낸다', () => {
+test('유료 리포트도 수호신 공용 사용자 정의 템플릿에 카드·링크·익명 웹훅 인자만 보낸다', () => {
   const template = buildKakaoCustomTemplate({
     imageUrl: 'https://example.com/card.png',
     serviceUrl: 'https://example.com/api/share-page/abc',
@@ -36,7 +36,6 @@ test('유료 리포트도 수호신 공용 사용자 정의 템플릿에 카드�
     templateId: 136437,
     shareId: '11111111-1111-4111-8111-111111111111',
     guardianId: '甲子',
-    unlockToken: 'unlock-abc-123',
   });
 
   assert.equal(template.templateId, 136437);
@@ -44,13 +43,12 @@ test('유료 리포트도 수호신 공용 사용자 정의 템플릿에 카드�
   assert.equal(template.templateArgs?.SHARE_URL, 'https://example.com/api/share-page/abc');
   assert.match(template.templateArgs?.SHARE_QUERY || '', /utm_medium=kakao/);
   assert.deepEqual(template.serverCallbackArgs, {
-    unlock_token: 'unlock-abc-123',
     share_id: '11111111-1111-4111-8111-111111111111',
     guardian_id: '甲子',
   });
 });
 
-test('unlockToken을 넘기면 카카오 웹훅으로 그대로 돌아올 serverCallbackArgs를 포함한다', () => {
+test('unlockToken을 넘겨도 카카오 웹훅 인자에 접근 토큰을 넣지 않는다', () => {
   const template = buildKakaoFeedTemplate({
     imageUrl: 'https://example.com/card.png',
     serviceUrl: 'https://example.com',
@@ -58,15 +56,14 @@ test('unlockToken을 넘기면 카카오 웹훅으로 그대로 돌아올 server
     unlockToken: 'unlock-abc-123',
   });
 
-  assert.deepEqual(template.serverCallbackArgs, { unlock_token: 'unlock-abc-123' });
+  assert.equal(template.serverCallbackArgs, undefined);
 });
 
-test('카카오 콜백 인자에는 보상 토큰과 익명 분석 식별자가 함께 담긴다', () => {
+test('카카오 콜백 인자에는 익명 분석 식별자만 담긴다', () => {
   const template = buildKakaoFeedTemplate({
     imageUrl: 'https://example.com/card.png',
     serviceUrl: 'https://example.com',
     shareHook: '나는 잔류형이래. 너는 지금 옮겨도 될까?',
-    unlockToken: 'unlock-abc-123',
     shareId: '11111111-1111-4111-8111-111111111111',
     resultSessionId: '22222222-2222-4222-8222-222222222222',
     visitorSessionId: '33333333-3333-4333-8333-333333333333',
@@ -74,7 +71,6 @@ test('카카오 콜백 인자에는 보상 토큰과 익명 분석 식별자가 
   });
 
   assert.deepEqual(template.serverCallbackArgs, {
-    unlock_token: 'unlock-abc-123',
     share_id: '11111111-1111-4111-8111-111111111111',
     result_session_id: '22222222-2222-4222-8222-222222222222',
     visitor_session_id: '33333333-3333-4333-8333-333333333333',
@@ -147,13 +143,16 @@ test('createSharePage는 실패하면 예외 대신 null을 돌려준다(호출�
   }
 });
 
-test('카카오 공유 시도 시 unlockToken이 kakaoShare 호출까지 그대로 전달된다', async () => {
-  let receivedUnlockToken;
+test('카카오 공유 시도는 접근 토큰을 콜백 인자로 보내지 않는다', async () => {
+  let receivedServerArgs;
   await shareCareerResult(
     { ...input, unlockToken: 'unlock-abc-123' },
-    deps({ kakaoShare: async value => { receivedUnlockToken = value.unlockToken; } }),
+    deps({ kakaoShare: async value => { receivedServerArgs = buildKakaoFeedTemplate({
+      imageUrl: 'https://example.com/card.png', serviceUrl: value.serviceUrl, shareHook: value.shareHook,
+      unlockToken: value.unlockToken,
+    }).serverCallbackArgs; } }),
   );
-  assert.equal(receivedUnlockToken, 'unlock-abc-123');
+  assert.equal(receivedServerArgs, undefined);
 });
 
 test('안드로이드/데스크톱에서는 업로드 후 Kakao 피드를 먼저 시도한다', async () => {

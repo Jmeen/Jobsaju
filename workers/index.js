@@ -111,6 +111,29 @@ async function verifyUnlockToken(env, unlockToken) {
 }
 
 /**
+ * 포트원 결제번호는 한 번만 해금 토큰으로 바꿀 수 있다.
+ * D1의 UNIQUE 제약으로 동시에 같은 결제번호를 재전송해도 한 요청만 성공한다.
+ */
+async function claimPaymentRedemption(env, paymentId, unlockToken) {
+  if (!env.DB) {
+    return { ok: false, error: '결제 기록 저장소를 사용할 수 없습니다.' };
+  }
+
+  try {
+    const result = await env.DB.prepare(`
+      INSERT INTO payment_redemptions (payment_id, unlock_token)
+      VALUES (?, ?)
+      ON CONFLICT(payment_id) DO NOTHING
+    `).bind(paymentId, unlockToken).run();
+    if (result.meta.changes === 1) return { ok: true };
+    return { ok: false, error: '이미 처리된 결제입니다. 리포트는 구매 확인 이메일에서 다시 열어 주세요.' };
+  } catch (error) {
+    console.error('Payment redemption claim failed:', error instanceof Error ? error.message : error);
+    return { ok: false, error: '결제 기록을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
+  }
+}
+
+/**
  * 리포트 생성 완료 시 사용자에게 알림 이메일을 발송합니다.
  * RESEND_API_KEY 또는 EMAIL_WEBHOOK_URL이 설정되어 있을 때 자동 발송됩니다.
  */
@@ -411,17 +434,16 @@ export default {
         }
       }
 
-      const unlockToken = typeof callbackArgs.unlock_token === 'string' ? callbackArgs.unlock_token : null;
-
-      // 결제 전 클라이언트는 'local-developer-unlock-token'이라는 고정 상수를 들고 다닌다.
-      // 검증 없이 기록하면 무료 사용자 한 명의 공유가 같은 상수를 쓰는 모든 무료 사용자에게
-      // 보너스 획득으로 표시된다(실제 추가 질문은 /api/followup이 막지만 UI가 어긋난다).
-      // /api/share-bonus와 동일하게 실제 해금 토큰만 기록한다.
-      if (unlockToken && env.SAJU_KV && await verifyUnlockToken(env, unlockToken)) {
-        await env.SAJU_KV.put(`share-bonus:${unlockToken}`, new Date().toISOString());
-      }
-
       const shareId = typeof callbackArgs.share_id === 'string' ? callbackArgs.share_id : null;
+      // 카카오에는 접근 권한인 unlock_token을 절대 보내지 않는다. 공유 직전에 서버가
+      // share_id → unlock_token을 짧게 보관하고, 인증된 카카오 웹훅이 도착했을 때만 보너스를 준다.
+      if (shareId && UUID_V4_PATTERN.test(shareId) && env.SAJU_KV) {
+        const unlockToken = await env.SAJU_KV.get(`share-auth:${shareId}`);
+        if (unlockToken && await verifyUnlockToken(env, unlockToken)) {
+          await env.SAJU_KV.put(`share-bonus:${unlockToken}`, new Date().toISOString());
+          await env.SAJU_KV.delete(`share-auth:${shareId}`);
+        }
+      }
       const resultSessionId = typeof callbackArgs.result_session_id === 'string' ? callbackArgs.result_session_id : null;
       const visitorSessionId = typeof callbackArgs.visitor_session_id === 'string' ? callbackArgs.visitor_session_id : null;
       const guardianId = typeof callbackArgs.guardian_id === 'string' ? callbackArgs.guardian_id : null;
@@ -460,13 +482,31 @@ export default {
     if (guardianAnalyticsResponse) return guardianAnalyticsResponse;
 
     // --- 프론트엔드가 카카오 웹훅 도착 여부를 짧은 간격으로 확인하는 폴링 API ---
-    if (request.method === "GET" && new URL(request.url).pathname === "/api/share-bonus/status") {
-      const unlockToken = new URL(request.url).searchParams.get("unlock_token");
+    if (request.method === "POST" && new URL(request.url).pathname === "/api/share-bonus/status") {
+      const { unlock_token: unlockToken } = await request.json().catch(() => ({}));
       let granted = false;
       if (env.SAJU_KV && unlockToken) {
         granted = Boolean(await env.SAJU_KV.get(`share-bonus:${unlockToken}`));
       }
       return new Response(JSON.stringify({ granted }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    // 공유를 열기 직전에만 토큰과 익명 share_id를 서버에서 연결한다. share_id는 분석용 ID일 뿐
+    // 리포트 접근 권한이 아니며, 카카오 웹훅으로 외부에 전달돼도 안전하다.
+    if (request.method === "POST" && new URL(request.url).pathname === "/api/share-bonus/bind") {
+      const { unlock_token: unlockToken, share_id: shareId } = await request.json().catch(() => ({}));
+      if (!UUID_V4_PATTERN.test(String(shareId || '')) || !(await verifyUnlockToken(env, unlockToken))) {
+        return new Response(JSON.stringify({ error: "공유 보너스 연결 정보가 유효하지 않습니다." }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+      if (env.SAJU_KV) {
+        await env.SAJU_KV.put(`share-auth:${shareId}`, unlockToken.trim(), { expirationTtl: 600 });
+      }
+      return new Response(JSON.stringify({ status: "success" }), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
@@ -649,6 +689,18 @@ export default {
         // 해금용 유일 토큰 발급 (UUIDv4)
         const unlockToken = crypto.randomUUID();
 
+        // 실제 결제번호는 토큰을 발급하기 전에 원자적으로 소비한다. 같은 paymentId를 POST로
+        // 다시 보내도 두 번째 요청은 여기서 멈추므로, 한 번 결제로 여러 리포트를 만들 수 없다.
+        if (paymentId) {
+          const redemption = await claimPaymentRedemption(env, paymentId, unlockToken);
+          if (!redemption.ok) {
+            return new Response(JSON.stringify({ error: redemption.error }), {
+              status: 409,
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+            });
+          }
+        }
+
         // KV 저장소나 D1 데이터베이스에 토큰 영구 바인딩 (환경에 KV가 매핑되어 있을 때 활용)
         if (env.SAJU_KV) {
           await env.SAJU_KV.put(`token:${unlockToken}`, JSON.stringify({
@@ -759,18 +811,8 @@ export default {
 
       // --- [경로 2-1] 공유 완료 후 보너스 질문권 등록 ---
       if (url.pathname === "/api/share-bonus") {
-        const { unlock_token } = await request.json();
-        const isAuthorized = await verifyUnlockToken(env, unlock_token);
-        if (!isAuthorized) {
-          return new Response(JSON.stringify({ error: "해금 토큰이 유효하지 않습니다." }), {
-            status: 403,
-            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-          });
-        }
-        if (env.SAJU_KV) {
-          await env.SAJU_KV.put(`share-bonus:${unlock_token}`, new Date().toISOString());
-        }
-        return new Response(JSON.stringify({ status: "success" }), {
+        return new Response(JSON.stringify({ error: "공유 보너스는 카카오 공유 완료 후에만 지급됩니다." }), {
+          status: 403,
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         });
       }

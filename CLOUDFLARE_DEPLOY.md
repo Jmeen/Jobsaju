@@ -31,6 +31,8 @@ Pages의 **Variables and Secrets**에 다음 값을 Preview와 Production 환경
 
 `PAYMENT_SANDBOX_MODE=true`는 결제 ID 없이 호출한 개발용 요청만 통과시킵니다. 실제 포트원 결제 ID가 있으면 항상 포트원 V2 API로 결제 상태와 금액을 검증합니다.
 
+브라우저용 `VITE_PORTONE_STORE_ID` 또는 `VITE_PORTONE_CHANNEL_KEY`가 없는 Preview 배포는 PortOne 창을 열지 않고 `/api/payment/validate`에 결제 ID 없이 요청합니다. 따라서 서버의 `PAYMENT_SANDBOX_MODE=true`인 Preview에서만 테스트 리포트로 진행되며, Production에서는 결제 설정 안내와 함께 거절됩니다. 이 동작은 설정 누락이 무료 해금으로 이어지지 않게 하기 위한 것입니다.
+
 ## PortOne V2 KCP 테스트 결제
 
 - Pages 빌드 변수: `VITE_PORTONE_STORE_ID`, `VITE_PORTONE_CHANNEL_KEY`를 등록합니다. 둘은 브라우저에 공개되는 식별자입니다.

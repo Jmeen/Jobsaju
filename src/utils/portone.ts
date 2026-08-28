@@ -16,8 +16,12 @@ export function createPortOnePaymentId(): string {
   return `p${crypto.randomUUID().replaceAll('-', '')}`;
 }
 
+export function isPortOneConfigured(): boolean {
+  return Boolean(PORTONE_STORE_ID && PORTONE_CHANNEL_KEY);
+}
+
 function assertPortOneConfig() {
-  if (!PORTONE_STORE_ID || !PORTONE_CHANNEL_KEY) {
+  if (!isPortOneConfigured()) {
     throw new Error('결제 테스트 설정이 아직 완료되지 않았습니다. 포트원 상점 ID와 채널 키를 확인해 주세요.');
   }
 }
