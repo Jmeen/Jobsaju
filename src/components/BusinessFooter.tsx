@@ -11,10 +11,13 @@ export function BusinessFooter() {
           잡사주 <span aria-hidden="true">|</span> 운영: 두리하나랩
         </p>
         <p>
-          대표 임재민 <span aria-hidden="true">·</span> 사업자등록번호 306-16-54574
+          대표: 임재민 <span aria-hidden="true">·</span> 사업자등록번호 306-16-54574
         </p>
         <p>
-          고객지원: <a href="mailto:admin@jobsaju.kr">admin@jobsaju.kr</a>
+          사업장 주소: 경기도 성남시 수정구 복정로134번길 1
+        </p>
+        <p>
+          고객지원: <a href="tel:05067721131">050-6772-1131</a> <span aria-hidden="true">·</span> <a href="mailto:admin@jobsaju.kr">admin@jobsaju.kr</a>
         </p>
         <p className="business-footer__policies">
           <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setPolicyType('terms')}>이용약관</span>

@@ -23,8 +23,10 @@ test('사업자 정보와 이메일 링크 및 비활성 정책명을 렌더링�
   const text = html.replace(/<[^>]+>/g, '');
 
   assert.match(text, /잡사주 \| 운영: 두리하나랩/);
-  assert.match(text, /대표 임재민/);
+  assert.match(text, /대표: 임재민/);
   assert.match(text, /사업자등록번호 306-16-54574/);
+  assert.match(text, /사업장 주소: 경기도 성남시 수정구 복정로134번길 1/);
+  assert.match(html, /href="tel:05067721131"/);
   assert.match(html, /href="mailto:admin@jobsaju\.kr"/);
   assert.match(text, /이용약관/);
   assert.match(text, /개인정보처리방침/);
