@@ -164,6 +164,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 리포트 생성이 끝나면 지운다.
   const paidSessionRef = useRef<PaidSession | null>(loadPaidSession());
   const paymentRedirectHandledRef = useRef(false);
+  const resumePaymentRef = useRef(false);
   // 결제 후 입력 화면에서 새로고침한 경우다. 사주를 다시 계산한 뒤 그 화면으로 되돌린다.
   const resumePersonalizeRef = useRef(Boolean(paidSessionRef.current));
 
@@ -426,7 +427,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (code) {
       clearPendingPayment();
-      setDeepLinkError(message || '결제가 취소되었거나 완료되지 않았습니다.');
+      // 취소(예: KCP 3001)는 오류 화면이 아니라, 결제 직전의 결과·결제 모달로 되돌린다.
+      // 모바일 외부 결제 페이지를 거치며 React 상태가 초기화되므로 저장된 무료 결과를 다시 계산한다.
+      if (!savedSession?.birthData?.year) {
+        setDeepLinkError(message || '결제가 취소되었거나 완료되지 않았습니다.');
+        return;
+      }
+      emailDraftRef.current = pending.email;
+      couponDraftRef.current = pending.couponCode || '';
+      if (pending.couponCode && pending.discountPercent) {
+        setAppliedCoupon({ code: pending.couponCode, discountPercent: pending.discountPercent });
+        setShowSecretCoupon(true);
+      }
+      resumePaymentRef.current = true;
+      restoreSavedSession();
       return;
     }
 
@@ -656,6 +670,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!resumePersonalizeRef.current || !sajuResult) return;
     resumePersonalizeRef.current = false;
     setStep('personalize');
+  }, [sajuResult]);
+
+  // 모바일 결제를 취소하고 돌아오면, 새로고침으로 사라진 결과 화면과 결제 모달을 함께 복구한다.
+  useEffect(() => {
+    if (!resumePaymentRef.current || !sajuResult) return;
+    resumePaymentRef.current = false;
+    setStep('paywall');
+    setShowManualPayModal(true);
   }, [sajuResult]);
 
   // === 결제 후 AI 리포트 생성 대기 문구 순환 (소요 시간이 길어 진행감을 계속 보여줘야 한다) ===
@@ -983,7 +1005,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           savePendingPayment({
             paymentId: requestedPaymentId,
             email: email.trim(),
-            ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}),
+            ...(appliedCoupon ? {
+              couponCode: appliedCoupon.code,
+              discountPercent: appliedCoupon.discountPercent,
+            } : {}),
           });
           if (loadPendingPayment()?.paymentId !== requestedPaymentId) {
             setUnlockError('모바일 결제 정보를 저장하지 못했습니다. 브라우저의 사이트 데이터 저장을 허용한 뒤 다시 시도해 주세요.');

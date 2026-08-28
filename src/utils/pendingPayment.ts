@@ -6,6 +6,7 @@ export type PendingPayment = {
   paymentId: string;
   email: string;
   couponCode?: string;
+  discountPercent?: number;
 };
 
 function getStore(): Storage | null {
@@ -32,6 +33,8 @@ export function loadPendingPayment(): PendingPayment | null {
     if (typeof parsed?.paymentId !== 'string' || !parsed.paymentId) return null;
     if (typeof parsed?.email !== 'string' || !parsed.email) return null;
     if (parsed.couponCode !== undefined && typeof parsed.couponCode !== 'string') return null;
+    if (parsed.discountPercent !== undefined
+      && (!Number.isInteger(parsed.discountPercent) || parsed.discountPercent < 1 || parsed.discountPercent > 100)) return null;
     return parsed;
   } catch {
     return null;
