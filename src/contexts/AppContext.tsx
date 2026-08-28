@@ -22,6 +22,7 @@ import { preloadKakaoSdk } from '../utils/kakaoSdk';
 import { getCharacterAsset } from '../utils/characterAssets';
 import { fetchFreeResult } from '../utils/freeResultApi';
 import { clearPaidSession, loadPaidSession, savePaidSession } from '../utils/paidSession';
+import { clearPendingPayment, loadPendingPayment, savePendingPayment } from '../utils/pendingPayment';
 import { resolveShareInbound } from '../utils/shareInbound';
 import {
   buildGuardianShareQuery,
@@ -162,6 +163,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 메모리의 ref만으로는 결제 사실을 잃어버려, 이미 낸 사람에게 처음부터 다시 하라고 하게 된다.
   // 리포트 생성이 끝나면 지운다.
   const paidSessionRef = useRef<PaidSession | null>(loadPaidSession());
+  const paymentRedirectHandledRef = useRef(false);
   // 결제 후 입력 화면에서 새로고침한 경우다. 사주를 다시 계산한 뒤 그 화면으로 되돌린다.
   const resumePersonalizeRef = useRef(Boolean(paidSessionRef.current));
 
@@ -369,7 +371,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       shareId: savedSession.shareId || null,
     }));
     setBirthData(savedSession.birthData);
-    setCareerContext(savedSession.careerContext);
+    setCareerContext({
+      ...savedSession.careerContext,
+      ...(paidSessionRef.current?.email ? { email: paidSessionRef.current.email } : {}),
+    });
     setAiReport(savedSession.aiReport);
     setIsUnlocked(savedSession.isUnlocked);
     setFollowUps(savedSession.followUps ?? (savedSession.followUp ? [savedSession.followUp] : []));
@@ -377,6 +382,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUnlockToken(savedSession.unlockToken ?? 'local-developer-unlock-token');
     setStep('summon'); // 저장된 출생정보로 사주를 다시 계산해 결과 화면으로 이동
   };
+
+  const finishPaymentUnlock = (unlockToken: string, email: string, restoreSavedResult = false) => {
+    // 결제 후 입력 화면을 새로고침해도 이어갈 수 있도록, 결제 확인 토큰만 별도 보관한다.
+    paidSessionRef.current = { paymentId: unlockToken, email: email.trim() };
+    savePaidSession(paidSessionRef.current);
+    setFollowUps([]);
+    setShareBonusGranted(false);
+    setFollowUpError(null);
+    setCareerContext(prev => ({ ...prev, email: email.trim() }));
+    setShowManualPayModal(false);
+
+    if (restoreSavedResult) {
+      if (!savedSession?.birthData?.year) {
+        setDeepLinkError('결제는 확인됐지만 기존 진단 정보를 찾지 못했습니다. 처음부터 다시 진단해 주세요.');
+        return;
+      }
+      resumePersonalizeRef.current = true;
+      restoreSavedSession();
+      return;
+    }
+    setStep('personalize');
+  };
+
+  // 모바일 KCP 결제는 외부 결제 페이지에서 끝난 뒤 이 주소로 돌아온다.
+  // URL의 성공 여부는 신뢰하지 않고, 탭에 보관한 주문번호와 Worker의 포트원 재검증을 모두 통과해야 해금한다.
+  useEffect(() => {
+    if (typeof window === 'undefined' || paymentRedirectHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment_return') !== '1') return;
+    paymentRedirectHandledRef.current = true;
+
+    const pending = loadPendingPayment();
+    const paymentId = params.get('paymentId');
+    const code = params.get('code');
+    const message = params.get('message');
+    window.history.replaceState({}, '', window.location.pathname);
+
+    if (!pending || !paymentId || paymentId !== pending.paymentId) {
+      clearPendingPayment();
+      setDeepLinkError('결제 정보를 확인하지 못했습니다. 결제 내역을 확인한 뒤 다시 시도해 주세요.');
+      return;
+    }
+    if (code) {
+      clearPendingPayment();
+      setDeepLinkError(message || '결제가 취소되었거나 완료되지 않았습니다.');
+      return;
+    }
+
+    setUnlockLoadingText('결제를 확인하는 중...');
+    setIsAILoading(true);
+    void validatePayment(paymentId, pending.couponCode)
+      .then((unlockToken) => {
+        clearPendingPayment();
+        finishPaymentUnlock(unlockToken, pending.email, true);
+      })
+      .catch((error: any) => {
+        clearPendingPayment();
+        setDeepLinkError(error?.message || '결제 검증에 실패했습니다. 결제 내역을 확인한 뒤 다시 시도해 주세요.');
+      })
+      .finally(() => setIsAILoading(false));
+    // 페이지 복귀 때 한 번만 검증한다. savedSession은 첫 렌더의 복원 대상이다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 선택된 연/월/양력여부에 따라 '일' 휠의 선택지가 달라진다 (예: 2월은 28~29일까지만)
   const wheelDayCount = daysInMonth(
@@ -907,25 +975,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 100% 쿠폰은 PG 거래 자체가 없으므로 빈 결제번호로 서버에 전달한다.
     let paymentId = '';
 
-    if (!paymentId) {
+    if (appliedCoupon?.discountPercent !== 100) {
       try {
         const { createPortOnePaymentId, isPortOneConfigured, requestPortOnePayment } = await import('../utils/portone');
         if (isPortOneConfigured()) {
+          const requestedPaymentId = createPortOnePaymentId();
+          // 모바일 리디렉션 뒤에도 같은 주문인지 확인할 수 있도록 탭 세션에만 기록한다.
+          savePendingPayment({
+            paymentId: requestedPaymentId,
+            email: email.trim(),
+            ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}),
+          });
+          if (loadPendingPayment()?.paymentId !== requestedPaymentId) {
+            setUnlockError('모바일 결제 정보를 저장하지 못했습니다. 브라우저의 사이트 데이터 저장을 허용한 뒤 다시 시도해 주세요.');
+            return;
+          }
           const paymentRes = await requestPortOnePayment({
-            paymentId: createPortOnePaymentId(),
+            paymentId: requestedPaymentId,
             orderName: '잡사주 유료 리포트',
             totalAmount: appliedCoupon ? Math.round(price.amount * (100 - appliedCoupon.discountPercent) / 100) : price.amount,
             currency: 'KRW',
-            payMethod: 'CARD'
+            payMethod: 'CARD',
+            customerEmail: email.trim(),
+            redirectUrl: `${window.location.origin}/?payment_return=1`,
           });
 
           if (paymentRes.code != null) {
             // PortOne V2 returns code on failure
+            clearPendingPayment();
             setUnlockError(`결제 실패: ${paymentRes.message}`);
             return;
           }
 
           if (typeof paymentRes.paymentId !== 'string' || !paymentRes.paymentId) {
+            // 모바일 REDIRECTION은 페이지를 떠나므로 보통 이 행까지 오지 않는다.
+            // 남아 있다면 결제가 시작되지 않은 것으로 보고 다시 시도할 수 있게 정리한다.
+            clearPendingPayment();
             setUnlockError('결제 완료 정보를 받지 못했습니다. 결제 내역을 확인한 뒤 다시 시도해 주세요.');
             return;
           }
@@ -941,21 +1026,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       // PG 결제 완료 응답만 신뢰하지 않고 Worker가 포트원 V2 API에서 상태와 금액을 재검증한다.
       unlockToken = await validatePayment(paymentId, appliedCoupon?.code);
+      clearPendingPayment();
     } catch (err: any) {
+      clearPendingPayment();
       setUnlockError(err?.message || '결제 검증에 실패했습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
 
     // 결제까지가 여기 몫이다. 직무·목표·상황은 결제 후 personalize 화면에서 받는다.
-    paidSessionRef.current = { paymentId: unlockToken, email: email.trim() };
-    savePaidSession(paidSessionRef.current);
-    // 새 리포트를 시작할 때 이전 리포트의 질문·공유 보너스 상태를 이어받지 않는다.
-    setFollowUps([]);
-    setShareBonusGranted(false);
-    setFollowUpError(null);
-    setCareerContext(prev => ({ ...prev, email: email.trim() }));
-    setShowManualPayModal(false);
-    setStep('personalize');
+    finishPaymentUnlock(unlockToken, email);
   };
 
   // 결제 후 입력 화면에서 호출된다. 입력을 건너뛰면 빈 객체가 들어온다.

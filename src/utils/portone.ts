@@ -9,6 +9,8 @@ export interface PaymentParams {
   totalAmount: number;
   currency: string;
   payMethod: string;
+  customerEmail: string;
+  redirectUrl: string;
 }
 
 export function createPortOnePaymentId(): string {
@@ -56,5 +58,9 @@ export async function requestPortOnePayment(params: PaymentParams): Promise<any>
     totalAmount: params.totalAmount,
     currency: params.currency,
     payMethod: params.payMethod,
+    customer: { email: params.customerEmail },
+    // PC는 현재와 같은 결제창, 모바일은 KCP의 모바일 페이지로 전환한다.
+    windowType: { mobile: 'REDIRECTION' },
+    redirectUrl: params.redirectUrl,
   });
 }
