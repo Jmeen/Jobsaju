@@ -29,6 +29,8 @@ export function handleAdminPageRequest(request) {
   .sub { color: #9ca3af; font-size: 13px; margin: 0 0 20px; }
   .card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
   label { display: block; font-size: 12px; color: #9ca3af; margin-bottom: 4px; }
+  .field-label { color: #d1d5db; font-weight: 600; }
+  .field-help { color: #6b7280; font-size: 11px; margin-top: 4px; }
   input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.14); background: #16131f; color: #f3f4f6; font-size: 13px; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .row > div { flex: 1; min-width: 140px; }
@@ -65,12 +67,12 @@ export function handleAdminPageRequest(request) {
 
   <div class="card">
     <label>새 쿠폰 발급</label>
-    <div class="row" style="margin-bottom:10px;">
-      <div><input id="newCode" placeholder="코드 (예: FRIEND-KIM)" /></div>
-      <div style="max-width:105px;"><input id="newDiscountPercent" type="number" min="1" max="100" value="100" placeholder="할인율" aria-label="할인율" /></div>
-      <div style="max-width:120px;"><input id="newMaxUses" type="number" min="1" value="1" placeholder="사용 횟수" /></div>
-      <div style="max-width:180px;"><input id="newExpiresAt" type="date" /></div>
-      <div style="flex:2;"><input id="newNote" placeholder="메모 (예: 김OO 테스터)" /></div>
+    <div class="row" style="margin-bottom:10px; align-items:flex-end;">
+      <div><label class="field-label" for="newCode">프로모 코드</label><input id="newCode" placeholder="예: FRIEND-KIM" /></div>
+      <div style="max-width:120px;"><label class="field-label" for="newDiscountPercent">할인율</label><input id="newDiscountPercent" type="number" min="1" max="100" value="100" placeholder="예: 30" /><div class="field-help">100% = 무료</div></div>
+      <div style="max-width:120px;"><label class="field-label" for="newMaxUses">최대 사용 횟수</label><input id="newMaxUses" type="number" min="1" value="1" /></div>
+      <div style="max-width:180px;"><label class="field-label" for="newExpiresAt">만료일</label><input id="newExpiresAt" type="date" /><div class="field-help">비워두면 제한 없음</div></div>
+      <div style="flex:2;"><label class="field-label" for="newNote">관리자 메모</label><input id="newNote" placeholder="예: 김OO 테스터" /></div>
       <div style="max-width:110px;"><button class="btn-primary" style="width:100%" onclick="createCoupon()">발급</button></div>
     </div>
   </div>
@@ -84,7 +86,7 @@ export function handleAdminPageRequest(request) {
       <table>
         <thead>
           <tr>
-            <th>코드</th><th>할인</th><th>상태</th><th>사용</th><th>만료일</th><th>메모</th><th>생성일</th><th></th>
+            <th>프로모 코드</th><th>할인율</th><th>상태</th><th>사용</th><th>만료일</th><th>관리자 메모</th><th>생성일</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody"><tr><td colspan="8" class="muted">관리자 키를 입력하고 "불러오기"를 눌러주세요.</td></tr></tbody>
@@ -139,7 +141,7 @@ async function loadCoupons() {
       tbody.innerHTML = coupons.map(c => \`
         <tr>
           <td><strong>\${escapeHtml(c.code)}</strong></td>
-          <td>\${Number.isFinite(c.discountPercent) ? c.discountPercent : 100}%</td>
+          <td><strong>\${Number.isFinite(c.discountPercent) ? c.discountPercent : 100}%</strong></td>
           <td>\${statusBadge(c)}</td>
           <td>\${c.usedCount} / \${c.maxUses}</td>
           <td>\${c.expiresAt ? escapeHtml(c.expiresAt.slice(0, 10)) : '<span class="muted">없음</span>'}</td>
