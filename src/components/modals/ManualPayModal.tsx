@@ -190,7 +190,6 @@ export function ManualPayModal() {
 
                     {unlockError && (
                       <div role="alert" className="unlock-error">
-                        <strong>전체 리포트를 불러오지 못했어요.</strong>
                         <span>{unlockError}</span>
                         <small>입력 내용은 그대로 유지됩니다. 서버 설정을 확인한 뒤 다시 눌러주세요.</small>
                       </div>
