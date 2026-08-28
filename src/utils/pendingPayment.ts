@@ -1,5 +1,7 @@
 // 모바일 PG 리디렉션 중에만 보관하는 결제 문맥이다.
 // 결제 완료 여부는 절대 이 값으로 판단하지 않고, 복귀 뒤 Worker가 포트원 API로 재검증한다.
+import type { SajuCoreResult } from './sajuCore';
+
 const STORAGE_KEY = 'jobsaju_pending_payment_v1';
 
 export type PendingPayment = {
@@ -7,6 +9,9 @@ export type PendingPayment = {
   email: string;
   couponCode?: string;
   discountPercent?: number;
+  // 취소 후에는 결제 전 결과 화면을 즉시 그리기 위한 표시용 데이터다.
+  // 해금·금액 판단에는 사용하지 않는다.
+  sajuResult?: SajuCoreResult;
 };
 
 function getStore(): Storage | null {
@@ -35,6 +40,7 @@ export function loadPendingPayment(): PendingPayment | null {
     if (parsed.couponCode !== undefined && typeof parsed.couponCode !== 'string') return null;
     if (parsed.discountPercent !== undefined
       && (!Number.isInteger(parsed.discountPercent) || parsed.discountPercent < 1 || parsed.discountPercent > 100)) return null;
+    if (parsed.sajuResult !== undefined && (typeof parsed.sajuResult !== 'object' || !parsed.sajuResult)) return null;
     return parsed;
   } catch {
     return null;
