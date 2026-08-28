@@ -14,6 +14,63 @@ import { ChemistryBlock } from '../guardian/ChemistryBlock';
 
 const FOLLOW_UP_EXAMPLES = ['몇 월에 지원하는 게 좋을까요?', '연봉을 얼마나 불러도 될까요?', '승진을 1년 더 기다려도 될까요?', '지금 받은 오퍼를 수락해도 될까요?'];
 
+function WorkEnvironmentSections({ sajuResult, guardian, guardianDetail }: any) {
+  const maxVal = 5;
+  const w = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.wood));
+  const f = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.fire));
+  const e = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.earth));
+  const m = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.metal));
+  const wa = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.water));
+  const points = [
+    { x: 110, y: 110 - (100 * (w / maxVal)) },
+    { x: 110 + (95 * (f / maxVal)), y: 110 - (31 * (f / maxVal)) },
+    { x: 110 + (59 * (e / maxVal)), y: 110 + (81 * (e / maxVal)) },
+    { x: 110 - (59 * (m / maxVal)), y: 110 + (81 * (m / maxVal)) },
+    { x: 110 - (95 * (wa / maxVal)), y: 110 - (31 * (wa / maxVal)) },
+  ];
+  const polygonPoints = points.map(point => `${point.x},${point.y}`).join(' ');
+
+  return (
+    <>
+      <section className="jg-card">
+        <h3 className="jg-card-title">나에게 맞는 환경 · 일하는 방식</h3>
+        <div className="radar-wrapper">
+          <svg className="radar-svg" width="220" height="220" viewBox="0 0 220 220">
+            <polygon points="110,10 205,79 169,191 51,191 15,79" fill="none" stroke="var(--jg-line)" strokeWidth="1" />
+            <polygon points="110,60 157.5,94.5 139.5,150.5 80.5,150.5 62.5,94.5" fill="none" stroke="var(--jg-line)" strokeWidth="1" />
+            <line x1="110" y1="110" x2="110" y2="10" stroke="var(--jg-line)" strokeWidth="1" />
+            <line x1="110" y1="110" x2="205" y2="79" stroke="var(--jg-line)" strokeWidth="1" />
+            <line x1="110" y1="110" x2="169" y2="191" stroke="var(--jg-line)" strokeWidth="1" />
+            <line x1="110" y1="110" x2="51" y2="191" stroke="var(--jg-line)" strokeWidth="1" />
+            <line x1="110" y1="110" x2="15" y2="79" stroke="var(--jg-line)" strokeWidth="1" />
+            <text x="110" y="5" fill="var(--jg-muted)" fontSize="10" textAnchor="middle">추진력 (목)</text>
+            <text x="210" y="82" fill="var(--jg-muted)" fontSize="10" textAnchor="start">열정/소통 (화)</text>
+            <text x="175" y="202" fill="var(--jg-muted)" fontSize="10" textAnchor="start">끈기/안정 (토)</text>
+            <text x="45" y="202" fill="var(--jg-muted)" fontSize="10" textAnchor="end">결단/실행 (금)</text>
+            <text x="10" y="82" fill="var(--jg-muted)" fontSize="10" textAnchor="end">기획/전략 (수)</text>
+            <polygon points={polygonPoints} fill="color-mix(in srgb, var(--jg-guardian-accent) 28%, transparent)" stroke="var(--jg-guardian-accent)" strokeWidth="2" />
+            {points.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="3" fill="var(--jg-green)" />)}
+          </svg>
+        </div>
+        <div className="jg-radar-note">
+          <strong>오행 밸런스</strong>
+          <p>{buildElementInsight(sajuResult.elementsCount)}</p>
+        </div>
+      </section>
+
+      <section className="jg-card">
+        <h3 className="jg-card-title">{guardian.nickname}의 일하는 방식</h3>
+        <p className="jg-report-history-note" style={{ marginBottom: 14 }}>{guardian.copy}</p>
+        <div className="jg-strengths">
+          <div className="jg-strength"><span>💪 강점</span><p>{guardianDetail.strength.split('. ')[0]}.</p></div>
+          <div className="jg-strength"><span>⚠️ 조심할 점</span><p>{guardianDetail.blind_spot.split('. ')[0]}.</p></div>
+          <div className="jg-strength"><span>🏢 잘 맞는 환경</span><p>{guardianDetail.best_environment.split('. ')[0]}.</p></div>
+        </div>
+      </section>
+    </>
+  );
+}
+
 export function ResultScreen() {
   const [followUpInput, setFollowUpInput] = useState('');
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
@@ -66,10 +123,6 @@ export function ResultScreen() {
 
   const report = aiReport?.report;
   const th = report?.timing_highlights;
-  const nowParts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit',
-  }).formatToParts(new Date());
-  const nowYm = `${nowParts.find(part => part.type === 'year')?.value}-${nowParts.find(part => part.type === 'month')?.value}`;
   const dayPillar = sajuResult.pillars.day.ganHanja + sajuResult.pillars.day.zhiHanja;
   const guardian = getGuardianAsset(dayPillar);
   const guardianDetail = getGuardianCharacter(dayPillar);
@@ -82,7 +135,8 @@ export function ResultScreen() {
   };
 
   const decision = report?.decision;
-  const roadmapSteps = Array.isArray(decision?.steps) ? decision.steps : [];
+  const decisionGuide = decision?.decision_guide;
+  const snapshotDate = report?.snapshot?.generated_at ? new Date(report.snapshot.generated_at) : null;
 
   return (
     <section className="jg-report">
@@ -114,6 +168,7 @@ export function ResultScreen() {
 
       {report && (
         <>
+          {report.snapshot && <p className="jg-report-snapshot"><strong>{snapshotDate && !Number.isNaN(snapshotDate.getTime()) ? `${snapshotDate.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })} 기준` : '생성 기준일'}</strong><span>분석기간 {report.snapshot.analysis_period}</span></p>}
           {/* ① 지금의 결론 */}
           {report.report_summary && (
             <section className="jg-report-hero">
@@ -149,59 +204,35 @@ export function ResultScreen() {
                 {th.best_job_change && (
                   <div className="jg-timing is-best">
                     <div className="jg-timing-head">
-                      <strong>🔥 가장 좋은 이직 시기</strong>
-                      <span className="jg-timing-ym">{formatYm(th.best_job_change.year_month)}</span>
+                      <strong>🔥 {th.best_job_change.title || '가장 좋은 이직 시기'}</strong>
+                      {th.best_job_change.year_month && <span className="jg-timing-ym">{formatYm(th.best_job_change.year_month)}</span>}
                     </div>
-                    <div className="jg-timing-score">이직운 {th.best_job_change.score}</div>
+                    {th.best_job_change.score != null && <div className="jg-timing-score">이직운 {th.best_job_change.score}</div>}
                     <p>{th.best_job_change.reason}</p>
-                    <span className="jg-timing-action">👉 {th.best_job_change.action}</span>
                   </div>
                 )}
                 {th.best_negotiation && (
                   <div className="jg-timing is-best">
                     <div className="jg-timing-head">
-                      <strong>💰 가장 좋은 협상 시기</strong>
+                      <strong>💰 {th.best_negotiation.title || '가장 좋은 협상 시기'}</strong>
                       <span className="jg-timing-ym">{formatYm(th.best_negotiation.year_month)}</span>
                     </div>
                     <div className="jg-timing-score">협상운 {th.best_negotiation.score}</div>
                     <p>{th.best_negotiation.reason}</p>
-                    <span className="jg-timing-action">👉 {th.best_negotiation.action}</span>
                   </div>
                 )}
                 {th.caution_month && (
                   <div className="jg-timing is-caution">
                     <div className="jg-timing-head">
-                      <strong>⚠️ 가장 조심해야 하는 시기</strong>
+                      <strong>⚠️ {th.caution_month.title || '가장 조심해야 하는 시기'}</strong>
                       <span className="jg-timing-ym">{formatYm(th.caution_month.year_month)}</span>
                     </div>
                     <p>{th.caution_month.reason}</p>
-                    <span className="jg-timing-action">👉 {th.caution_month.action}</span>
                     {(th.caution_month.year_month === th.best_job_change?.year_month || th.caution_month.year_month === th.best_negotiation?.year_month) && (
                       <p className="jg-timing-note">* 기회와 리스크가 함께 큰 달입니다. 서두르되 조건은 반드시 확인하세요.</p>
                     )}
                   </div>
                 )}
-              </div>
-            </section>
-          )}
-
-          {/* 행동 로드맵 */}
-          {roadmapSteps.length > 0 && (
-            <section className="jg-card">
-              <h3 className="jg-card-title">지금부터 이렇게 움직이세요</h3>
-              <div className="jg-roadmap-steps">
-                {roadmapSteps.map((stepItem: { year_month: string; phase: string; detail: string }) => (
-                  <div className="jg-roadmap-step" key={stepItem.year_month + stepItem.phase}>
-                    <div className="jg-roadmap-step-when">
-                      <span>{stepItem.year_month}</span>
-                      <i aria-hidden="true" />
-                    </div>
-                    <div className="jg-roadmap-step-body">
-                      <strong>{stepItem.phase}</strong>
-                      <span>{stepItem.detail}</span>
-                    </div>
-                  </div>
-                ))}
               </div>
             </section>
           )}
@@ -215,13 +246,12 @@ export function ResultScreen() {
                   const isBestJob = th?.best_job_change?.year_month === item.year_month;
                   const isBestNego = th?.best_negotiation?.year_month === item.year_month;
                   const isCaution = th?.caution_month?.year_month === item.year_month;
-                  const isCurrent = item.year_month === nowYm;
                   const isOpen = expandedMonths.includes(item.year_month);
                   const badge = isBestJob ? '이직 적기' : isBestNego ? '협상 적기' : isCaution ? '주의' : null;
                   return (
-                    <div className={`jg-month ${isCurrent ? 'is-current' : ''} ${badge ? 'is-flag' : ''}`} key={item.year_month}>
+                    <div className={`jg-month ${badge ? 'is-flag' : ''}`} key={item.year_month}>
                       <div className="jg-month-head">
-                        <strong>{formatYm(item.year_month)}{isCurrent && <span className="jg-month-now">· 이번 달</span>}</strong>
+                        <strong>{formatYm(item.year_month)}</strong>
                         {badge && <span className={`jg-month-badge ${isCaution ? 'is-caution' : ''}`}>{badge}</span>}
                       </div>
                       <div className="jg-month-meta">
@@ -243,6 +273,8 @@ export function ResultScreen() {
             </section>
           )}
 
+          <WorkEnvironmentSections sajuResult={sajuResult} guardian={guardian} guardianDetail={guardianDetail} />
+
           {/* 왜 이 선택이 잘 맞나 (캐릭터 연결) */}
           {report.personalized_advice?.character_connection && (
             <div className="jg-card jg-report-character">
@@ -254,21 +286,21 @@ export function ResultScreen() {
             </div>
           )}
 
-          {/* 행동 가이드 */}
-          {report.personalized_advice && (
-            <section className="jg-card">
-              <h3 className="jg-card-title">행동 가이드 · 지금 해야 할 {report.personalized_advice.action_steps.length}가지</h3>
-              <div className="jg-todos">
-                {report.personalized_advice.action_steps.map((item: string) => (
-                  <div className="jg-todo" key={item}><span>☐</span><span>{item}</span></div>
-                ))}
+          {decisionGuide && (
+            <section className="jg-card jg-decision-guide">
+              <h3 className="jg-card-title">이번 6개월의 결정 가이드</h3>
+              <div className="jg-decision-columns">
+                <div><strong>Must Have</strong>{decisionGuide.must_haves?.map((item: string) => <p key={item}>✓ {item}</p>)}</div>
+                <div><strong>Check</strong>{decisionGuide.checks?.map((item: any) => <p key={item.text}>• {item.text}{item.reason && <small>특히 중요한 이유: {item.reason}</small>}</p>)}</div>
+                <div><strong>Red Flag</strong>{decisionGuide.red_flags?.map((item: any) => {
+                  const text = typeof item === 'string' ? item : item.text;
+                  const reason = typeof item === 'string' ? null : item.reason;
+                  return <p key={text}>⚠️ {text}{reason && <small>특히 중요한 이유: {reason}</small>}</p>;
+                })}</div>
               </div>
-              <div className="jg-watch">
-                <strong>이건 꼭 조심하세요</strong>
-                {report.personalized_advice.watch_out.map((item: string) => (
-                  <span key={item}>⚠️ {item}</span>
-                ))}
-              </div>
+              <div className="jg-if-then"><strong>If–Then</strong>{decisionGuide.if_then?.map((item: any) => <p key={item.if}><b>IF {item.if}</b><span>THEN {item.then}</span></p>)}</div>
+              <div className="jg-todos"><strong>지금 해야 할 3가지</strong>{decisionGuide.now_actions?.map((item: string) => <div className="jg-todo" key={item}><span>☐</span><span>{item}</span></div>)}</div>
+              <div className="jg-watch"><strong>가장 중요한 주의점</strong><span>⚠️ {decisionGuide.caution}</span></div>
             </section>
           )}
 
@@ -281,92 +313,14 @@ export function ResultScreen() {
         </>
       )}
 
-      {/* ⑤ 나에게 맞는 환경 — 오행 레이더 (핵심 결론보다 항상 아래) */}
-      <section className="jg-card">
-        <h3 className="jg-card-title">나에게 맞는 환경 · 일하는 방식</h3>
-        <div className="radar-wrapper">
-          <svg className="radar-svg" width="220" height="220" viewBox="0 0 220 220">
-            <polygon points="110,10 205,79 169,191 51,191 15,79" fill="none" stroke="var(--jg-line)" strokeWidth="1" />
-            <polygon points="110,60 157.5,94.5 139.5,150.5 80.5,150.5 62.5,94.5" fill="none" stroke="var(--jg-line)" strokeWidth="1" />
-            <line x1="110" y1="110" x2="110" y2="10" stroke="var(--jg-line)" strokeWidth="1" />
-            <line x1="110" y1="110" x2="205" y2="79" stroke="var(--jg-line)" strokeWidth="1" />
-            <line x1="110" y1="110" x2="169" y2="191" stroke="var(--jg-line)" strokeWidth="1" />
-            <line x1="110" y1="110" x2="51" y2="191" stroke="var(--jg-line)" strokeWidth="1" />
-            <line x1="110" y1="110" x2="15" y2="79" stroke="var(--jg-line)" strokeWidth="1" />
-            <text x="110" y="5" fill="var(--jg-muted)" fontSize="10" textAnchor="middle">추진력 (목)</text>
-            <text x="210" y="82" fill="var(--jg-muted)" fontSize="10" textAnchor="start">열정/소통 (화)</text>
-            <text x="175" y="202" fill="var(--jg-muted)" fontSize="10" textAnchor="start">끈기/안정 (토)</text>
-            <text x="45" y="202" fill="var(--jg-muted)" fontSize="10" textAnchor="end">결단/실행 (금)</text>
-            <text x="10" y="82" fill="var(--jg-muted)" fontSize="10" textAnchor="end">기획/전략 (수)</text>
-            {(() => {
-              const maxVal = 5;
-              const w = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.wood));
-              const f = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.fire));
-              const e = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.earth));
-              const m = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.metal));
-              const wa = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.water));
-              const p1 = { x: 110, y: 110 - (100 * (w / maxVal)) };
-              const p2 = { x: 110 + (95 * (f / maxVal)), y: 110 - (31 * (f / maxVal)) };
-              const p3 = { x: 110 + (59 * (e / maxVal)), y: 110 + (81 * (e / maxVal)) };
-              const p4 = { x: 110 - (59 * (m / maxVal)), y: 110 + (81 * (m / maxVal)) };
-              const p5 = { x: 110 - (95 * (wa / maxVal)), y: 110 - (31 * (wa / maxVal)) };
-              const points = `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y} ${p4.x},${p4.y} ${p5.x},${p5.y}`;
-              return (
-                <>
-                  <polygon points={points} fill="color-mix(in srgb, var(--jg-guardian-accent) 28%, transparent)" stroke="var(--jg-guardian-accent)" strokeWidth="2" />
-                  {[p1, p2, p3, p4, p5].map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="var(--jg-green)" />)}
-                </>
-              );
-            })()}
-          </svg>
-        </div>
-        <div className="jg-radar-note">
-          <strong>오행 밸런스</strong>
-          <p>{buildElementInsight(sajuResult.elementsCount)}</p>
-        </div>
-      </section>
-
-      {/* 최종 추천은 월별 흐름에서 계산한 복합 행동 전략만 보여준다. */}
-      {decision && (
-        <section className="jg-card">
-          <h3 className="jg-card-title">지금부터의 추천 전략</h3>
-          <div className="jg-choice is-top">
-            <div className="jg-choice-head">
-              <div className="jg-choice-name"><strong>{decision.strategy}</strong></div>
-            </div>
-            <p>{decision.recommendation}</p>
-          </div>
-        </section>
-      )}
-
-      {/* 일할 때 강한 방식 (참고) */}
-      <section className="jg-card">
-        <h3 className="jg-card-title">{guardian.nickname}의 일하는 방식</h3>
-        <p className="jg-report-history-note" style={{ marginBottom: 14 }}>{guardian.copy}</p>
-        <div className="jg-strengths">
-          <div className="jg-strength">
-            <span>💪 강점</span>
-            <p>{guardianDetail.strength.split('. ')[0]}.</p>
-          </div>
-          <div className="jg-strength">
-            <span>⚠️ 조심할 점</span>
-            <p>{guardianDetail.blind_spot.split('. ')[0]}.</p>
-          </div>
-          <div className="jg-strength">
-            <span>🏢 잘 맞는 환경</span>
-            <p>{guardianDetail.best_environment.split('. ')[0]}.</p>
-          </div>
-        </div>
-      </section>
-
       {/* 추가 질문 */}
       <section className="followup-card">
         <div className="section-heading">
           <div>
-            <span className="jg-eyebrow">궁금한 점 더 물어보기</span>
-            <h3>{isFollowUpLoading ? '질문을 살펴보고 있어요' : followUps.length ? '내 사주 기준 추가 답변' : '아직 궁금한 게 남았나요?'}</h3>
+            <span className="jg-eyebrow">내 상황으로 한 번 더 확인하기</span>
+            <h3>{isFollowUpLoading ? '질문을 살펴보고 있어요' : '실제 상황 하나에 집중해 답합니다'}</h3>
           </div>
-          <span>{isFollowUpLoading ? '답변 생성 중' : `${followUps.length}/${questionLimit} 사용`}</span>
+          <span>{isFollowUpLoading ? '답변 생성 중' : '질문 1회 · 공유하면 1회 추가'}</span>
         </div>
 
         {followUps.map((record: any, index: any) => (
@@ -380,7 +334,7 @@ export function ResultScreen() {
           <FollowUpLoading />
         ) : followUps.length < questionLimit ? (
           <>
-            <p className="followup-hint">리포트를 읽고 남은 궁금증 하나를 적어주세요. 내 사주 데이터를 근거로 그 질문에만 집중해 답합니다.</p>
+            <p className="followup-hint">내 사주 원국과 6개월 흐름, 리포트의 판단 근거, 질문하는 오늘의 시점을 함께 대조해 답합니다.</p>
             <div className="followup-examples">
               {FOLLOW_UP_EXAMPLES.map(example => (
                 <button key={example} type="button" onClick={() => { setFollowUpInput(example); setFollowUpError(null); }}>

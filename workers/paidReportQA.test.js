@@ -4,8 +4,12 @@ import { validateAndRepairPaidReport } from './paidReportValidator.js';
 
 test('Validator: Corrupted Highlights and Timeline', async () => {
   const timeline = [];
-  for (let i = 0; i < 12; i++) {
-    timeline.push({ year_month: `2026-${String(8+i).padStart(2, '0')}`, scores: { job_change: 85, negotiation: 40, stay: 15 } });
+  for (let i = 0; i < 6; i++) {
+    timeline.push({
+      year_month: i < 5 ? `2026-${String(8 + i).padStart(2, '0')}` : '2027-01',
+      scores: { job_change: i === 0 ? 85 : 38 + i, negotiation: i === 1 ? 78 : 40 + i, stay: 60 - i },
+      debug: { semantic_signals: { Risk: i === 0 ? 12 : i } },
+    });
   }
   const precomputed_highlights = {
     best_job_change_month: "2026-08",
@@ -42,9 +46,8 @@ test('Validator: Corrupted Highlights and Timeline', async () => {
   assert.equal(repaired.timing_highlights.best_job_change.year_month, "2026-08");
   assert.equal(repaired.timing_highlights.best_job_change.score, 85);
   
-  // 같은 점수면 타임라인에서 먼저 오는 달을 고른다. 외부에서 주입한 highlight는 쓰지 않는다.
-  assert.equal(repaired.timing_highlights.best_negotiation.year_month, "2026-08");
-  assert.equal(repaired.timing_highlights.best_negotiation.score, 40);
+  assert.equal(repaired.timing_highlights.best_negotiation.year_month, "2026-09");
+  assert.equal(repaired.timing_highlights.best_negotiation.score, 78);
 
   assert.equal(repaired.timing_highlights.caution_month.year_month, "2026-08");
   assert.equal(repaired.decision.steps[0].year_month, "2026-08");
@@ -55,6 +58,31 @@ test('Validator: Corrupted Highlights and Timeline', async () => {
 
   // Assert Missing Fields Restored (Safety net)
   assert.ok(repaired.personalized_advice.action_steps.length > 0);
+});
+
+test('Validator: 월별 Action은 실제 연월을 포함하고 상대 날짜와 중복을 제거한다', () => {
+  const timeline = ['2026-08', '2026-09', '2026-10', '2026-11', '2026-12', '2027-01']
+    .map((year_month, index) => ({
+      year_month,
+      scores: { job_change: 50 + index, negotiation: 48, stay: 55 - index },
+      debug: { semantic_signals: { Risk: 0 } },
+    }));
+  const generated = {
+    timeline: timeline.map((month, index) => ({
+      ...month,
+      keyword: '준비',
+      summary: '조건을 정리하는 시기입니다.',
+      action: index < 2 ? '다음 달에는 이력서를 정리하세요.' : '완전히 같은 행동을 반복하세요.',
+    })),
+  };
+  const repaired = validateAndRepairPaidReport(JSON.stringify(generated), timeline, {});
+  const actions = repaired.timeline.map(month => month.action);
+  repaired.timeline.forEach((month) => {
+    const [year, rawMonth] = month.year_month.split('-');
+    assert.match(month.action, new RegExp(`${year}년 ${Number(rawMonth)}월`));
+    assert.doesNotMatch(month.action, /이번 달|다음 달|곧/);
+  });
+  assert.equal(new Set(actions).size, 6);
 });
 
 test('Validator: Completely Empty / Malformed JSON', async () => {

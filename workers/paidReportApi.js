@@ -1,10 +1,7 @@
-import { computeMonthlyScore, generateHighlights } from './scoreEngine.js';
-import { getSajuAnalysis, calculateShiShen, normalizeGanZhi } from '../src/utils/sajuCore.ts';
-import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { buildGeminiRequest } from './geminiTransport.js';
 import { validateAndRepairPaidReport } from './paidReportValidator.js';
 import { archivePaidReport } from './reportArchive.js';
-import characters from '../free_engine_characters.js';
+import { buildPaidReportContext } from './paidReportContext.js';
 
 const SYSTEM_PROMPT = `
 # 🤖 잡사주 유료 리포트 전용 AI 시스템 프롬프트 v5.2
@@ -60,6 +57,7 @@ const SYSTEM_PROMPT = `
 * \`keyword\`: 월별 핵심 키워드 (최대 15자)
 * \`summary\`: 흐름 요약 (최대 120자)
 * \`action\`: 실행 행동 1문장 (최대 100자)
+* 각 \`action\`에는 해당 \`year_month\`의 실제 연도와 월을 쓰십시오. "이번 달", "다음 달", "곧" 같은 상대 날짜는 쓰지 마십시오.
 
 ### D. Personalized Advice
 * \`question_summary\`: 고민을 실제 의사결정 문제로 재정의 (최대 120자)
@@ -273,65 +271,16 @@ export async function handlePaidReportRequest(request, env) {
       }
     }
 
-    // 2. Generate Natal Chart
-    const hasTime = birth.hour !== null && birth.hour !== undefined && birth.hour !== '';
-    const analysis = getSajuAnalysis(Number(birth.year), Number(birth.month), Number(birth.day), hasTime ? Number(birth.hour) : 12, Number(birth.minute) || 0, Number(birth.gender) || 1, { isSolar: birth.isSolar !== false, hasTime });
-
-    // 3. Prepare Base Zhis
-    const baseZhis = [
-      { char: analysis.pillars.month.zhi, weight: 1.5, position: 'natalMonthBranch' },
-      { char: analysis.pillars.day.zhi, weight: 1.2, position: 'natalDayBranch' },
-      { char: analysis.pillars.year.zhi, weight: 0.8, position: 'natalYearBranch' }
-    ];
-    if (hasTime && analysis.pillars.hour.zhi) {
-      baseZhis.push({ char: analysis.pillars.hour.zhi, weight: 0.5, position: 'natalHourBranch' });
-    }
-
-    // 4. Generate the current month plus the next five months.
     const now = new Date();
-    const seoulDateParts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit',
-    }).formatToParts(now);
-    const currentYear = Number(seoulDateParts.find(part => part.type === 'year')?.value);
-    const currentMonth = Number(seoulDateParts.find(part => part.type === 'month')?.value);
-    
-    const timeline = [];
-    
-    for (let i = 0; i < 6; i++) {
-      let calcMonth = currentMonth + i;
-      let calcYear = currentYear;
-      if (calcMonth > 12) {
-        calcMonth -= 12;
-        calcYear += 1;
-      }
-      
-      const fSaju = calculateSaju(calcYear, calcMonth, 15);
-      const fortuneStem = normalizeGanZhi(fSaju.monthPillar.charAt(0));
-      const fortuneBranch = normalizeGanZhi(fSaju.monthPillar.charAt(1));
-      const shiShen = calculateShiShen(analysis.dayGan.gan, fortuneStem, true);
-      
-      const scoreResult = computeMonthlyScore(shiShen, fortuneBranch, baseZhis);
-      
-      timeline.push({
-        year_month: `${calcYear}-${calcMonth.toString().padStart(2, '0')}`,
-        scores: {
-          job_change: scoreResult.job_change,
-          negotiation: scoreResult.negotiation,
-          stay: scoreResult.stay
-        },
-        debug: {
-          relations: scoreResult.debug.relations.map(r => r.relation),
-          semantic_signals: scoreResult.debug.semantic_signals
-        }
-      });
-    }
-
-    // 5. Compute Highlights
-    const precomputed_highlights = generateHighlights(timeline);
-
-    // 6. Character Data
-    const dayPillar = analysis.pillars.day.ganHanja + analysis.pillars.day.zhiHanja;
-    const characterData = characters.find(c => c.id === dayPillar) || null;
+    // 실제 생성과 생년월일 QA가 같은 계산 경로를 공유한다.
+    const {
+      analysis,
+      hasTime,
+      timeline,
+      precomputedHighlights: precomputed_highlights,
+      characterData,
+      decisionContext,
+    } = buildPaidReportContext(birth, { now });
 
     const payload = {
       user_data: {
@@ -393,7 +342,12 @@ export async function handlePaidReportRequest(request, env) {
     let generatedRaw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     
     // 8. Validate and Repair Output
-    const finalReport = validateAndRepairPaidReport(generatedRaw, timeline, precomputed_highlights);
+    const analysisPeriod = `${timeline[0]?.year_month || ''} ~ ${timeline.at(-1)?.year_month || ''}`;
+    const finalReport = validateAndRepairPaidReport(generatedRaw, timeline, precomputed_highlights, {
+      generated_at: now.toISOString(),
+      timezone: 'Asia/Seoul',
+      analysis_period: analysisPeriod,
+    }, decisionContext);
     
     const responsePayload = JSON.stringify({
       status: "success",
@@ -418,6 +372,7 @@ export async function handlePaidReportRequest(request, env) {
         responsePayload,
         careerContext: career_context,
         birth,
+        sajuData: analysis,
       });
     } catch (err) {
       // 색인 저장 오류가 이미 완성된 리포트 응답을 막으면 안 된다.

@@ -81,14 +81,26 @@ test('구조와 분량이 올바른 AI JSON만 통과시킨다', () => {
       answer_mode: 'choice',
       constraints: ['현재 IT 경력 활용'],
     },
-    answer: '현재 IT 경력을 바로 버리기보다 기존 경험이 통하는 인접 산업부터 검토하는 편이 낫습니다. '.repeat(6),
+    answer_sections: {
+      conclusion: '현재 IT 경력을 바로 버리기보다 기존 경험이 통하는 인접 산업부터 먼저 검토하는 편을 추천합니다.',
+      reason: '서비스 기획 경험은 문제 정의와 이해관계자 조율이라는 이전 가능한 강점을 갖고 있습니다. 완전히 낯선 업종보다 이 강점을 설명할 수 있는 인접 산업에서 역할 범위와 채용 요건을 비교하면 선택 비용을 줄일 수 있습니다.',
+      action: '오늘 핀테크와 B2B SaaS 공고를 각각 세 개씩 골라 공통 요구조건을 한 장에 적어보세요.',
+    },
   };
 
-  assert.deepEqual(parseFollowUpModelResponse(JSON.stringify(valid)), valid);
+  const parsed = parseFollowUpModelResponse(JSON.stringify(valid));
+  assert.equal(parsed.question_analysis.primary_intent, 'industry');
+  assert.match(parsed.answer, /^① 결론/);
+  assert.match(parsed.answer, /② 왜 그런가/);
+  assert.match(parsed.answer, /③ 지금 할 일 하나/);
   assert.equal(parseFollowUpModelResponse('{not json'), null);
-  assert.equal(parseFollowUpModelResponse(JSON.stringify({ ...valid, answer: '너무 짧음' })), null);
+  assert.equal(parseFollowUpModelResponse(JSON.stringify({ ...valid, answer_sections: { ...valid.answer_sections, reason: '너무 짧음' } })), null);
   assert.equal(parseFollowUpModelResponse(JSON.stringify({
     ...valid,
-    answer: '이 질문의 답은 지금 사주의 큰 흐름 위에서 판단해야 합니다. '.repeat(6),
+    answer_sections: { ...valid.answer_sections, conclusion: '이 질문의 답은 지금 사주의 큰 흐름 위에서 판단해야 합니다. 우선 기다리세요.' },
   })), null);
+  assert.equal(parseFollowUpModelResponse(JSON.stringify({
+    ...valid,
+    answer_sections: { ...valid.answer_sections, action: '공고를 찾으세요. 이력서도 고치세요.' },
+  })), null, '지금 할 일은 한 문장 하나여야 한다');
 });

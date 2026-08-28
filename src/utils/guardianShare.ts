@@ -9,7 +9,6 @@
 import { loadKakaoSdk } from './kakaoSdk.ts';
 import type { GuardianAsset } from './guardianAssets.ts';
 import type { CareerScores } from './reportViewModel.ts';
-import { buildTopScore } from './scorePresentation.ts';
 
 /** 공유 경로. 카카오톡 리치카드와 링크 복사를 분리해서 집계한다. */
 export type GuardianShareMedium = 'kakao' | 'copy';
@@ -98,27 +97,6 @@ export function buildGuardianShareMessage(guardian: GuardianAsset): GuardianShar
   };
 }
 
-/** 이직/잔류/협상 축의 짧은 이름. 공유 문구는 '이직운'보다 '이직'처럼 짧게 쓴다. */
-const SHORT_AXIS_LABEL: Record<keyof CareerScores, string> = {
-  jobChange: '이직',
-  stay: '잔류',
-  negotiation: '협상',
-};
-
-/** 한국어 주격 조사(이/가)를 받침 유무로 고른다. '잔류'→가, '이직'→이. */
-function subjectJosa(word: string): string {
-  const last = word.charCodeAt(word.length - 1);
-  if (Number.isNaN(last) || last < 0xac00 || last > 0xd7a3) return '가';
-  return (last - 0xac00) % 28 !== 0 ? '이' : '가';
-}
-
-/** 'YYYY-MM'에서 월(1~12)만 뽑는다. 형식이 아니면 null. */
-function monthOfYearMonth(yearMonth?: string | null): number | null {
-  if (!yearMonth || !yearMonth.includes('-')) return null;
-  const month = Number.parseInt(yearMonth.split('-')[1], 10);
-  return Number.isInteger(month) && month >= 1 && month <= 12 ? month : null;
-}
-
 /** 유료 리포트가 공유 메시지에 넘기는 타이밍 하이라이트(필요한 필드만). */
 export type PaidShareTiming = {
   best_job_change?: { year_month?: string | null; score?: number | null } | null;
@@ -137,37 +115,12 @@ export type PaidShareTiming = {
  */
 export function buildPaidReportShareMessage(
   guardian: GuardianAsset,
-  scores: CareerScores | null | undefined,
-  timing?: PaidShareTiming,
+  _scores: CareerScores | null | undefined,
+  _timing?: PaidShareTiming,
 ): GuardianShareMessage {
-  // SHARE_TITLE — 추천 선택 + 점수. 점수를 못 구하면 캐릭터 중립 문구로 폴백한다.
-  const top = scores ? buildTopScore(scores) : null;
-  const title = top
-    ? `지금은 ${SHORT_AXIS_LABEL[top.axis]}${subjectJosa(SHORT_AXIS_LABEL[top.axis])} 1순위 · ${SHORT_AXIS_LABEL[top.axis]} ${top.score}`
-    : '내 커리어 흐름을 확인했어요';
-
-  // SHARE_QUESTION — 대표 기회 시기 + 운 점수 + 친구 질문. 이직 적기 우선, 없으면 협상 적기, 둘 다 없으면 일반 질문.
-  const jobMonth = monthOfYearMonth(timing?.best_job_change?.year_month);
-  const jobScore = timing?.best_job_change?.score;
-  const negoMonth = monthOfYearMonth(timing?.best_negotiation?.year_month);
-  const negoScore = timing?.best_negotiation?.score;
-
-  let question: string;
-  if (jobMonth !== null && typeof jobScore === 'number') {
-    question = `${jobMonth}월 이직운 ${jobScore} 🔥 너는 언제 움직이는 게 좋을까?`;
-  } else if (negoMonth !== null && typeof negoScore === 'number') {
-    question = `${negoMonth}월 협상운 ${negoScore} 💰 너는 언제가 좋을까?`;
-  } else {
-    question = '너는 앞으로 6개월 중 언제가 가장 좋을까?';
-  }
-
-  return {
-    title,
-    question,
-    // 136466 템플릿에는 없는 슬롯이지만(무시됨), 다른 템플릿에서 재사용될 때를 위해 채워 둔다.
-    trait: guardian.copy,
-    buttonLabel: '내 커리어 운 확인하기',
-  };
+  // 유료 리포트에서의 공유도 수호신 콘텐츠만 보낸다. 점수·추천 월·전략은 동료에게
+  // 이직 준비 신호가 될 수 있으므로 어떤 템플릿 슬롯에도 넣지 않는다.
+  return buildGuardianShareMessage(guardian);
 }
 
 export type GuardianTemplateArgsInput = {

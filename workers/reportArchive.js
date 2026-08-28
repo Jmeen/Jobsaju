@@ -10,7 +10,7 @@ export function buildReportLabel(careerContext) {
 }
 
 /** D1의 영구 보관과 별개로 이메일 다시보기와 딥링크용 KV 색인을 남긴다. */
-export async function archivePaidReport({ kv, paymentId, responsePayload, careerContext, birth }) {
+export async function archivePaidReport({ kv, paymentId, responsePayload, careerContext, birth, sajuData = null }) {
   if (!kv) return;
   const token = String(paymentId || '').trim();
   if (!token) return;
@@ -22,8 +22,17 @@ export async function archivePaidReport({ kv, paymentId, responsePayload, career
     desired_answer: careerContext?.desired_answer || careerContext?.worry_text || '',
     birth_data: birth || null,
   };
+  let storedSajuData = sajuData;
+  if (!storedSajuData) {
+    try {
+      const existingMeta = JSON.parse(await kv.get(`meta:${token}`) || '{}');
+      storedSajuData = existingMeta.saju_data || null;
+    } catch {
+      storedSajuData = null;
+    }
+  }
   await kv.put(`report:copy-v2:${token}`, responsePayload, { expirationTtl: REPORT_TTL_SECONDS });
-  await kv.put(`meta:${token}`, JSON.stringify({ user_context: userContext }), { expirationTtl: REPORT_TTL_SECONDS });
+  await kv.put(`meta:${token}`, JSON.stringify({ user_context: userContext, saju_data: storedSajuData }), { expirationTtl: REPORT_TTL_SECONDS });
 
   const email = String(careerContext?.email || '').toLowerCase().trim();
   if (!email || !email.includes('@')) return;

@@ -121,11 +121,13 @@ const BANNED_OPENINGS = [
   '질문에 답하기 전에',
 ];
 
+const DIRECT_RECOMMENDATION_PATTERN = /추천|먼저|우선|보다는|보다\s+.+(?:낫|좋)|수락|지원|협상|기다리|유지|확인/i;
+
 export function parseFollowUpModelResponse(raw) {
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const analysis = parsed?.question_analysis;
-    const answer = parsed?.answer;
+    const sections = parsed?.answer_sections;
     if (!analysis || typeof analysis !== 'object') return null;
     if (typeof analysis.summary !== 'string' || analysis.summary.trim().length < 5) return null;
     if (!FOLLOW_UP_INTENTS.includes(analysis.primary_intent)) return null;
@@ -133,9 +135,18 @@ export function parseFollowUpModelResponse(raw) {
       || analysis.secondary_intents.some(intent => !FOLLOW_UP_INTENTS.includes(intent))) return null;
     if (!FOLLOW_UP_ANSWER_MODES.includes(analysis.answer_mode)) return null;
     if (!Array.isArray(analysis.constraints)) return null;
-    if (typeof answer !== 'string' || answer.trim().length < 200 || answer.length > 900) return null;
-    if (BANNED_OPENINGS.some(opening => answer.includes(opening))) return null;
-    return parsed;
+    if (!sections || typeof sections !== 'object') return null;
+    const conclusion = typeof sections.conclusion === 'string' ? sections.conclusion.trim() : '';
+    const reason = typeof sections.reason === 'string' ? sections.reason.trim() : '';
+    const action = typeof sections.action === 'string' ? sections.action.trim() : '';
+    if (conclusion.length < 25 || conclusion.length > 220 || !DIRECT_RECOMMENDATION_PATTERN.test(conclusion)) return null;
+    if (reason.length < 80 || reason.length > 520) return null;
+    if (action.length < 20 || action.length > 160 || action.includes('\n')) return null;
+    if ((action.match(/[.!?。]/g) || []).length > 1) return null;
+    if (BANNED_OPENINGS.some(opening => conclusion.includes(opening) || reason.includes(opening))) return null;
+    const answer = `① 결론\n${conclusion}\n\n② 왜 그런가\n${reason}\n\n③ 지금 할 일 하나\n${action}`;
+    if (answer.length < 200 || answer.length > 900) return null;
+    return { ...parsed, answer_sections: { conclusion, reason, action }, answer };
   } catch {
     return null;
   }

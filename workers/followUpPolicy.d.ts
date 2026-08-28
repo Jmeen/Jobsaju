@@ -22,6 +22,11 @@ export interface ParsedFollowUpResponse {
     answer_mode: FollowUpAnswerMode;
     constraints: string[];
   };
+  answer_sections: {
+    conclusion: string;
+    reason: string;
+    action: string;
+  };
   answer: string;
 }
 

@@ -98,18 +98,27 @@ export function PaywallScreen() {
             </div>
           );
         })}
-        <p>월별로 이직 · 협상 · 잔류 중 어디에 힘을 줄지 알려드려요.</p>
+        <p>외부 탐색 → 내부 협상 → 조건부 이직 판단처럼, 월별 흐름을 실제 행동 순서로 정리해 드려요.</p>
+      </div>
+
+      <div className="jg-preview jg-decision-preview">
+        <div className="jg-preview-title"><strong>내 이직 결단 기준</strong><span className="jg-lock">상세 리포트에서 공개돼요</span></div>
+        <p>✓ 새로운 역할의 범위와 권한 ███████</p>
+        <p>✓ 보상 또는 성장성 █████████</p>
+        <div className="jg-preview-title"><strong>상황별 결정 가이드</strong></div>
+        <p>내부 협상이 성공하면 → █████████</p>
+        <p>오퍼가 들어오면 → R&amp;R·보고라인·6개월 기대성과 확인</p>
       </div>
 
       <div className="jg-followup">
         <h2>정해진 리포트만 보는 게 아니에요</h2>
-        <strong className="jg-followup-lead">내 상황을 딱 하나 더 물어보세요</strong>
+        <strong className="jg-followup-lead">개인 질문 1회가 포함돼요</strong>
         <p>“9월에 오퍼가 오면 옮기는 게 좋을까요?”</p>
         <p>“지금 연봉보다 직급을 먼저 요구해야 할까요?”</p>
         <p>“올해 안에 이직하지 않으면 기다리는 게 나을까요?”</p>
       </div>
 
-      <p className="jg-product-summary">왜 유리한지 · 6개월 타이밍 · 내 상황 맞춤 행동</p>
+      <p className="jg-product-summary">6개월 흐름 · 결정 기준 · 상황별 If–Then · 개인 질문 1회</p>
       <button className="jg-btn" type="button" onClick={() => setShowManualPayModal(true)}>
         내 커리어 선택 리포트 열기 · {price.label}
       </button>

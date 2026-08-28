@@ -166,6 +166,14 @@
 
 /* 추가 질문 */
 .jg-report .followup-card { padding: 16px; border-radius: 18px; background: var(--jg-guardian-soft); border: 0; }
+.jg-report-snapshot { display:flex; justify-content:space-between; gap:8px; margin:0 0 12px; color:var(--jg-muted); font-size:12px; }
+.jg-report-snapshot strong { color:var(--jg-ink); }
+.jg-decision-columns { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:12px 0; }
+.jg-decision-columns > div, .jg-if-then { padding:12px; border-radius:12px; background:var(--jg-guardian-soft); }
+.jg-decision-columns p, .jg-if-then p { margin:8px 0 0; font-size:12px; line-height:1.55; }
+.jg-decision-columns small, .jg-if-then span { display:block; margin-top:4px; color:var(--jg-muted); }
+.jg-if-then { margin:12px 0; }.jg-if-then b { display:block; color:var(--jg-green); }
+@media (max-width: 540px) { .jg-decision-columns { grid-template-columns:1fr; } .jg-report-snapshot { flex-direction:column; } }
 .jg-report .section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 12px; }
 .jg-report .section-heading h3 { margin-top: 4px; color: var(--jg-ink); font-size: 15px; }
 .jg-report .section-heading > span { color: var(--jg-muted); font-size: 11px; white-space: nowrap; }

@@ -6,6 +6,7 @@ import {
   buildRefusalMessage,
   parseFollowUpModelResponse,
 } from './followUpPolicy.js';
+import { loadStoredFollowUpContext } from './followUpContext.js';
 import { handleShareCardRequest } from './shareCard.js';
 import { handleSharePageRequest } from './sharePage.js';
 import { handleAdminPageRequest } from './adminPage.js';
@@ -844,7 +845,7 @@ export default {
 
       // --- [경로 2-2] 추가 질문 API (기본 1회 + 공유 보너스 1회) ---
       if (url.pathname === "/api/followup") {
-        const { unlock_token, question, question_index, saju_summary, user_context } = await request.json();
+        const { unlock_token, question, question_index } = await request.json();
 
         // 해금 토큰 검증
         const isAuthorized = await verifyUnlockToken(env, unlock_token);
@@ -917,6 +918,19 @@ export default {
         }
 
         const generatedAt = formatSeoulDate();
+        if (!env.SAJU_KV) {
+          return new Response(JSON.stringify({ error: "저장된 원본 리포트를 확인할 수 없습니다." }), {
+            status: 503,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          });
+        }
+        const storedContext = await loadStoredFollowUpContext(env.SAJU_KV, unlock_token, generatedAt);
+        if (!storedContext) {
+          return new Response(JSON.stringify({ error: "저장된 원본 리포트를 찾지 못했습니다. 구매 내역에서 리포트를 다시 열어 주세요." }), {
+            status: 404,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          });
+        }
         const followupSystem = `
 당신은 한국 직장인의 이직·잔류·연봉 협상을 상담해 온 시니어 커리어 상담사입니다.
 사용자는 이미 상세 리포트를 읽었고, 남은 궁금증 하나를 추가로 질문했습니다.
@@ -946,6 +960,8 @@ export default {
 3. 건강·법률·투자에 대한 단정적 조언은 하지 마십시오.
 4. 리포트 본문을 다시 쓰지 마십시오. 이미 읽은 내용의 반복은 가치가 없습니다.
 5. 반드시 아래 형태의 유효한 JSON만 반환하십시오. 허용 intent는 industry, role, timing, offer, salary, wait, quit, people, compare, preparation, general입니다.
+6. answer_sections의 conclusion → reason → action 순서로 답하십시오. conclusion은 A보다 B를 먼저 하라는 명확한 추천으로 시작하되 퇴사·이직을 단정하지 말고, action에는 지금 할 행동 하나만 한 문장으로 쓰십시오.
+7. 고정 리포트의 분석기간은 다시 계산하거나 바꾸지 마십시오. 현재 질문 날짜가 해당 기간 안이면 그 월의 원본 흐름 위에서 해석하고, 기간 밖이면 원본 판단을 존중하면서 현재 확인할 조건을 안내하십시오.
 {
   "question_analysis": {
     "summary": "사용자가 실제로 알고 싶은 것",
@@ -954,16 +970,32 @@ export default {
     "answer_mode": "choice",
     "constraints": ["질문에 실제로 나타난 제약"]
   },
-  "answer": "질문에 직접 답하는 한국어 350~550자, 2~4개 문단"
+  "answer_sections": {
+    "conclusion": "질문에 직접 답하는 명확한 추천 결론",
+    "reason": "원본 리포트와 현실 조건을 연결한 이유",
+    "action": "지금 실행할 행동 하나만 담은 한 문장"
+  }
 }
 `;
 
         const followupPrompt = `
-[사주 요약]
-${JSON.stringify(saju_summary || {}, null, 2)}
+[저장된 사주 요약]
+${JSON.stringify(storedContext.saju_summary, null, 2)}
 
-[사용자 상황]
-${JSON.stringify(user_context || {}, null, 2)}
+[저장된 사용자 상황]
+${JSON.stringify(storedContext.user_context, null, 2)}
+
+[서버에 고정 저장된 원본 리포트]
+${JSON.stringify(storedContext.original_report, null, 2)}
+
+[앞선 질문과 답변 - 두 번째 질문일 때 반드시 이어서 답할 것]
+${JSON.stringify(storedContext.previous_followups, null, 2)}
+
+[현재 질문 날짜]
+${generatedAt}
+
+[현재 질문 시점의 원본 분석기간 내 위치]
+${JSON.stringify(storedContext.question_date_position, null, 2)}
 
 [규칙 기반 사전 분석]
 ${JSON.stringify(questionAssessment, null, 2)}
