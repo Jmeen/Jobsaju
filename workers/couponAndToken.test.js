@@ -218,6 +218,48 @@ test('쿠폰 실시간 확인(/api/coupon/check)은 사용 횟수를 소비하�
   assert.equal(coupon.usedCount, 0, '확인만으로는 소비되면 안 된다');
 });
 
+test('부분 할인 쿠폰은 할인 금액으로 결제된 경우에만 해금되고, 그 뒤 사용 횟수를 소비한다', async () => {
+  const kv = createKv();
+  await seedCoupon(kv, 'SALE30', { discountPercent: 30 });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    status: 'PAID', amount: { total: 6230 },
+  }), { status: 200 });
+  try {
+    const req = new Request('https://example.com/api/payment/validate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentId: 'paid-sale30', couponCode: 'SALE30' }),
+    });
+    const res = await worker.fetch(req, { SAJU_KV: kv, DB: createPaymentDb(), PORTONE_API_SECRET: 'test-secret' });
+    assert.equal(res.status, 200);
+    assert.equal(JSON.parse(await kv.get('coupon:SALE30')).usedCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('부분 할인 쿠폰은 원가 결제를 할인 결제로 위장할 수 없고 소비되지 않는다', async () => {
+  const kv = createKv();
+  await seedCoupon(kv, 'SALE30', { discountPercent: 30 });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    status: 'PAID', amount: { total: 8900 },
+  }), { status: 200 });
+  try {
+    const req = new Request('https://example.com/api/payment/validate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentId: 'paid-wrong-total', couponCode: 'SALE30' }),
+    });
+    const res = await worker.fetch(req, { SAJU_KV: kv, PORTONE_API_SECRET: 'test-secret' });
+    assert.equal(res.status, 400);
+    assert.equal(JSON.parse(await kv.get('coupon:SALE30')).usedCount, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('토큰 기반 리포트 조회 엔드포인트(/api/report-by-token)가 정상 작동한다', async () => {
   const kv = createKv();
   const testToken = 'token-report-test-12345';
@@ -357,12 +399,13 @@ test('올바른 관리자 키로 쿠폰을 생성·조회·회수할 수 있다'
   const createRes = await worker.fetch(new Request('https://example.com/api/admin/coupons', {
     method: 'POST',
     headers: authHeaders,
-    body: JSON.stringify({ code: 'friend-may', maxUses: 3, note: '5월 지인 테스터' }),
+    body: JSON.stringify({ code: 'friend-may', discountPercent: 25, maxUses: 3, note: '5월 지인 테스터' }),
   }), env);
   assert.equal(createRes.status, 201);
   const created = (await createRes.json()).coupon;
   assert.equal(created.code, 'FRIEND-MAY');
   assert.equal(created.maxUses, 3);
+  assert.equal(created.discountPercent, 25);
   assert.equal(created.usedCount, 0);
 
   const listRes = await worker.fetch(new Request('https://example.com/api/admin/coupons/list', {

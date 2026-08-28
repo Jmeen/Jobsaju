@@ -635,17 +635,26 @@ export default {
         let appliedCoupon = null;
         let failureReason = null;
 
+        let couponToRedeem = null;
+        let couponDiscountPercent = 0;
         if (couponCode) {
-          // 1. 쿠폰 코드 검증 — 소스에 박힌 문자열이 아니라 SAJU_KV의 coupon:<CODE> 레코드만 인정하고,
-          //    성공 시 usedCount를 소비해 무제한 재사용을 막는다.
-          const result = await redeemCoupon(env, couponCode);
-          if (result.ok) {
-            isPaymentValid = true;
-            appliedCoupon = result.code;
-          } else {
+          // 부분 할인 쿠폰은 우선 소비하지 않는다. PG 결제가 확인된 뒤에만 사용 횟수를 올린다.
+          const result = await evaluateCoupon(env, couponCode);
+          if (!result.ok) {
             failureReason = result.reason;
+          } else if (result.coupon.discountPercent === 100 && !paymentId) {
+            couponToRedeem = result.code;
+            couponDiscountPercent = result.coupon.discountPercent ?? 100;
+            isPaymentValid = true;
+          } else if (!paymentId) {
+            failureReason = "할인 쿠폰은 결제를 완료한 뒤 적용됩니다.";
+          } else {
+            couponToRedeem = result.code;
+            couponDiscountPercent = result.coupon.discountPercent ?? 100;
           }
-        } else if (paymentId) {
+        }
+
+        if (!failureReason && paymentId && !isPaymentValid) {
           // 포트원 결제 상태 교차 검증 (PortOne V2 API 호출)
           const portoneApiSecret = env.PORTONE_API_SECRET || env.PORTONE_API_KEY;
           if (!portoneApiSecret) {
@@ -659,16 +668,19 @@ export default {
 
             if (portoneRes.ok) {
               const paymentData = await portoneRes.json();
-              // 금액 위변조 검증 — 가격 A/B 변형(6,900 / 8,900) 중 하나여야 하며 PAID 상태여야 한다
+              // 금액 위변조 검증 — 쿠폰이 있으면 서버가 할인율로 계산한 금액만 허용한다.
               const VALID_AMOUNTS = [6900, 8900];
-              if (paymentData.status === "PAID" && VALID_AMOUNTS.includes(paymentData.amount?.total)) {
+              const expectedAmounts = VALID_AMOUNTS.map((amount) =>
+                Math.round(amount * (100 - couponDiscountPercent) / 100),
+              );
+              if (paymentData.status === "PAID" && expectedAmounts.includes(paymentData.amount?.total)) {
                 isPaymentValid = true;
               }
             } else {
               failureReason = "포트원에서 결제 완료 내역을 확인하지 못했습니다.";
             }
           }
-        } else if (env.PAYMENT_SANDBOX_MODE === "true") {
+        } else if (!couponCode && env.PAYMENT_SANDBOX_MODE === "true") {
           // 서버 환경변수로만 켤 수 있는 개발/테스트 우회. 클라이언트가 임의로 켤 수 없다
           // (예전엔 paymentId가 "sandbox-"로 시작하기만 하면 통과였는데, 클라이언트가 그 문자열을
           // 매번 스스로 만들어 보냈기 때문에 사실상 전원 무료 통과였다).
@@ -684,6 +696,17 @@ export default {
             status: 400,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
           });
+        }
+
+        if (couponToRedeem) {
+          const result = await redeemCoupon(env, couponToRedeem);
+          if (!result.ok) {
+            return new Response(JSON.stringify({ error: result.reason }), {
+              status: 400,
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+            });
+          }
+          appliedCoupon = result.code;
         }
 
         // 해금용 유일 토큰 발급 (UUIDv4)
@@ -738,6 +761,7 @@ export default {
           code: result.code,
           remainingUses,
           expiresAt: result.coupon.expiresAt,
+          discountPercent: result.coupon.discountPercent ?? 100,
         }), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         });
@@ -787,6 +811,7 @@ export default {
           try {
             const coupon = await upsertCoupon(env, {
               code: body.code,
+              discountPercent: Number(body.discountPercent),
               maxUses: Number(body.maxUses),
               expiresAt: body.expiresAt || null,
               note: body.note || '',

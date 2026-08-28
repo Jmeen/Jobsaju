@@ -59,7 +59,7 @@ export function ManualPayModal() {
                     margin: 0,
                   }}
                 >
-                  {CHECKOUT_COPY.title} {appliedCoupon ? <span style={{ color: '#4ade80', fontSize: 15 }}>(0원 무료 적용)</span> : `(${price.label})`}
+                  {CHECKOUT_COPY.title} {appliedCoupon ? <span style={{ color: '#3f8f5f', fontSize: 15 }}>({appliedCoupon.discountPercent === 100 ? '0원 무료 적용' : `${appliedCoupon.discountPercent}% 할인 적용`})</span> : `(${price.label})`}
                 </h3>
               </div>
               <button 
@@ -198,7 +198,9 @@ export function ManualPayModal() {
 
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 4, textAlign: 'center' }}>
                       {appliedCoupon ? (
-                        '무료 프로모션 쿠폰이 적용된 상태입니다.'
+                        appliedCoupon.discountPercent === 100
+                          ? '100% 할인 쿠폰이 적용된 상태입니다.'
+                          : `${appliedCoupon.discountPercent}% 할인 적용 · ${checkout.finalLabel} 결제`
                       ) : (
                         <span>
                           안전하고 간편한 결제가 지원됩니다.

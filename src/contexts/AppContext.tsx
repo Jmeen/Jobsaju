@@ -187,7 +187,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // === 쿠폰 시스템 상태 ===
   const couponDraftRef = useRef('');
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isCouponChecking, setIsCouponChecking] = useState(false);
@@ -210,8 +210,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   // 매 렌더 새 객체를 만들면 checkoutState 메모가 늘 무효가 된다.
   const checkout = useMemo(
-    () => buildCheckoutPresentation(price.label, Boolean(appliedCoupon)),
-    [price.label, appliedCoupon],
+    () => buildCheckoutPresentation(price.amount, appliedCoupon?.discountPercent ?? null),
+    [price.amount, appliedCoupon],
   );
 
   // 추가 질문 기본 1회 + 친구 공유 보너스 1회
@@ -871,9 +871,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCouponError(data.error || '유효하지 않거나 만료된 쿠폰 번호입니다.');
         return;
       }
-      setAppliedCoupon(raw);
+      const discountPercent = typeof data.discountPercent === 'number' ? data.discountPercent : 100;
+      setAppliedCoupon({ code: raw, discountPercent });
       const remainingHint = typeof data.remainingUses === 'number' ? ` (남은 사용 ${data.remainingUses}회)` : '';
-      setCouponMessage(`🎉 100% 무료 프로모션 쿠폰(${raw})이 적용되었습니다!${remainingHint}`);
+      const discountedLabel = `${Math.round(price.amount * (100 - discountPercent) / 100).toLocaleString()}원`;
+      setCouponMessage(discountPercent === 100
+        ? `🎉 100% 무료 프로모션 쿠폰(${raw})이 적용되었습니다!${remainingHint}`
+        : `🎉 ${discountPercent}% 할인 쿠폰(${raw})이 적용되었습니다. ${discountedLabel}에 결제됩니다!${remainingHint}`);
     } catch {
       setAppliedCoupon(null);
       setCouponMessage(null);
@@ -901,7 +905,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 쿠폰 코드는 결제 수단일 뿐 리포트 ID가 아니다. 같은 쿠폰·같은 이메일로 다시
     // 구매해도 리포트별 추가 질문권과 다시보기 이력이 분리되도록 매번 새 토큰을 쓴다.
-    let paymentId = appliedCoupon ? `coupon-${appliedCoupon}-${crypto.randomUUID()}` : '';
+    // 100% 쿠폰은 PG 거래 자체가 없으므로 빈 결제번호로 서버에 전달한다.
+    let paymentId = '';
 
     if (!paymentId) {
       try {
@@ -910,7 +915,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const paymentRes = await requestPortOnePayment({
             paymentId: createPortOnePaymentId(),
             orderName: '잡사주 유료 리포트',
-            totalAmount: price.amount,
+            totalAmount: appliedCoupon ? Math.round(price.amount * (100 - appliedCoupon.discountPercent) / 100) : price.amount,
             currency: 'KRW',
             payMethod: 'CARD'
           });
@@ -936,7 +941,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let unlockToken: string;
     try {
       // PG 결제 완료 응답만 신뢰하지 않고 Worker가 포트원 V2 API에서 상태와 금액을 재검증한다.
-      unlockToken = await validatePayment(paymentId, appliedCoupon || undefined);
+      unlockToken = await validatePayment(paymentId, appliedCoupon?.code);
     } catch (err: any) {
       setUnlockError(err?.message || '결제 검증에 실패했습니다. 잠시 후 다시 시도해 주세요.');
       return;
