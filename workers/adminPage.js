@@ -59,7 +59,7 @@ export function handleAdminPageRequest(request) {
   <div class="card">
     <label for="adminKey">관리자 키 (COUPON_ADMIN_KEY)</label>
     <div class="row">
-      <div style="flex:3"><input id="adminKey" type="password" placeholder="Bearer 키 값" /></div>
+      <div style="flex:3"><input id="adminKey" type="password" placeholder="Cloudflare 키 값만 붙여넣기 (Bearer 제외)" /></div>
       <div style="flex:1; min-width:100px;"><button class="btn-secondary" style="width:100%" onclick="saveKeyAndLoad()">불러오기</button></div>
     </div>
     <div id="status"></div>
@@ -95,14 +95,19 @@ export function handleAdminPageRequest(request) {
   </div>
 
 <script>
-function getKey() { return localStorage.getItem('couponAdminKey') || ''; }
+function normalizeAdminKey(value) {
+  // 페이지가 Authorization 앞에 Bearer를 붙인다. 예전 안내를 보고 'Bearer abc' 전체를
+  // 붙여넣은 경우도 정상 처리해, 'Bearer Bearer abc' 인증 오류를 막는다.
+  return String(value || '').trim().replace(/^Bearer\\s+/i, '');
+}
+function getKey() { return normalizeAdminKey(localStorage.getItem('couponAdminKey')); }
 function setStatus(msg, isError) {
   const el = document.getElementById('status');
   el.textContent = msg;
   el.style.color = isError ? '#f87171' : '#9ca3af';
 }
 function saveKeyAndLoad() {
-  const key = document.getElementById('adminKey').value.trim();
+  const key = normalizeAdminKey(document.getElementById('adminKey').value);
   if (!key) { setStatus('관리자 키를 입력해 주세요.', true); return; }
   localStorage.setItem('couponAdminKey', key);
   loadCoupons();
@@ -127,7 +132,7 @@ function escapeHtml(v) {
   return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
 }
 async function loadCoupons() {
-  const key = document.getElementById('adminKey').value.trim() || getKey();
+  const key = normalizeAdminKey(document.getElementById('adminKey').value) || getKey();
   if (key) { document.getElementById('adminKey').value = key; localStorage.setItem('couponAdminKey', key); }
   if (!key) { setStatus('관리자 키를 입력해 주세요.', true); return; }
   setStatus('불러오는 중...');

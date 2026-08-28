@@ -17,6 +17,13 @@ test('쿠폰 발급 항목과 기존 쿠폰의 할인율 열을 명확하게 표
   }
 });
 
+test('관리자 키 안내는 값만 입력하도록 명확하고, 실수로 붙인 Bearer도 정규화한다', async () => {
+  const response = handleAdminPageRequest(new Request('https://job-saju.example/admin/coupons'));
+  const html = await response.text();
+  assert.match(html, /Cloudflare 키 값만 붙여넣기/);
+  assert.ok(html.includes('/^Bearer\\s+/i'));
+});
+
 test('관련 없는 경로·메서드는 null을 반환해 다른 라우팅으로 넘긴다', () => {
   assert.equal(handleAdminPageRequest(new Request('https://job-saju.example/admin/other')), null);
   assert.equal(handleAdminPageRequest(new Request('https://job-saju.example/admin/coupons', { method: 'POST' })), null);
