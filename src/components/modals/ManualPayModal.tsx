@@ -151,12 +151,12 @@ export function ManualPayModal() {
                     </div>
 
                     {couponMessage && (
-                      <p style={{ color: '#4ade80', fontSize: 12, marginTop: 8, marginBottom: 0, fontWeight: 500 }}>
+                      <p role="status" className="coupon-notice coupon-notice-success">
                         {couponMessage}
                       </p>
                     )}
                     {couponError && (
-                      <p style={{ color: '#f87171', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+                      <p role="alert" className="coupon-notice coupon-notice-error">
                         {couponError}
                       </p>
                     )}

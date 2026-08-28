@@ -1093,6 +1093,26 @@ h1 {
 .unlock-error span { font-size: 12px; line-height: 1.55; }
 .unlock-error small { color: #c8a8ad; font-size: 10px; line-height: 1.45; }
 
+/* 쿠폰 적용 결과는 밝은 결제 모달 위에서도 바로 읽혀야 한다. */
+.coupon-notice {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.coupon-notice-success {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+.coupon-notice-error {
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+}
+
 /* 결제 후 리포트 생성 대기 — 소요 시간이 길어 진행감과 "닫아도 된다"는 안심을 함께 준다 */
 .unlock-loading { display: flex; flex-direction: column; align-items: center; padding: 22px 6px 8px; text-align: center; }
 .unlock-loading-spinner {
