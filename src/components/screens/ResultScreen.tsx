@@ -14,6 +14,43 @@ import { ChemistryBlock } from '../guardian/ChemistryBlock';
 
 const FOLLOW_UP_EXAMPLES = ['몇 월에 지원하는 게 좋을까요?', '연봉을 얼마나 불러도 될까요?', '승진을 1년 더 기다려도 될까요?', '지금 받은 오퍼를 수락해도 될까요?'];
 
+function shortMonth(yearMonth?: string): string {
+  const month = String(yearMonth || '').split('-')[1];
+  return month ? `${Number(month)}월` : '';
+}
+
+function monthSpan(start?: string, end?: string): string {
+  if (!start || !end || start === end) return shortMonth(start || end);
+  return `${Number(start.split('-')[1])}~${Number(end.split('-')[1])}월`;
+}
+
+function fallbackStrategyRoadmap(decision: any, timeline: any[], timing: any): any[] {
+  const months = Array.isArray(timeline) ? timeline.slice(0, 6) : [];
+  if (!months.length) return [];
+  const lastIndex = months.length - 1;
+  const decisionYm = timing?.best_job_change?.year_month || timing?.best_negotiation?.year_month || months[Math.min(2, lastIndex)].year_month;
+  const decisionIndex = Math.max(0, months.findIndex(month => month.year_month === decisionYm));
+  const fallbackStart = Math.min(decisionIndex + 1, lastIndex);
+  const fallbackEnd = Math.max(fallbackStart, lastIndex - 1);
+  const lastPhase = decision?.steps?.find((step: any) => step.year_month === months[lastIndex].year_month)?.phase || '다음 선택 준비';
+  const decisionAction = timing?.best_job_change?.year_month ? '외부 제안 판단' : timing?.best_negotiation?.year_month ? '내부 조건 협상' : '선택지 비교';
+  return [
+    { when: monthSpan(months[0].year_month, months[Math.max(0, decisionIndex - 1)].year_month), action: '선택 기준 정비' },
+    { when: shortMonth(decisionYm), action: decisionAction },
+    { when: monthSpan(months[fallbackStart].year_month, months[fallbackEnd].year_month), action: '기준 미충족 시 관망' },
+    { when: shortMonth(months[lastIndex].year_month), action: lastPhase },
+  ];
+}
+
+function scenarioSummary(item: any, index: number): string {
+  if (item?.summary) return item.summary;
+  const text = `${item?.if || ''} ${item?.then || ''}`;
+  if (/보상은 높|보상만/.test(text)) return '보상만 높다면 → 보류';
+  if (/더 좋은 외부 제안|외부 제안이 들어/.test(text)) return '더 좋은 외부 제안이 왔다면 → 서면 검증';
+  if (/내부 협상|개선안|현 직장/.test(text)) return '내부 조건이 좋아졌다면 → 비교';
+  return `상황 ${index + 1} → 조건 확인`;
+}
+
 function WorkEnvironmentSections({ sajuResult, guardian, guardianDetail }: any) {
   const maxVal = 5;
   const w = Math.max(0.5, Math.min(maxVal, sajuResult.elementsCount.wood));
@@ -136,6 +173,9 @@ export function ResultScreen() {
 
   const decision = report?.decision;
   const decisionGuide = decision?.decision_guide;
+  const strategyRoadmap = Array.isArray(decision?.strategy_roadmap)
+    ? decision.strategy_roadmap.slice(0, 4)
+    : fallbackStrategyRoadmap(decision, report?.timeline || [], th);
   const snapshotDate = report?.snapshot?.generated_at ? new Date(report.snapshot.generated_at) : null;
 
   return (
@@ -178,6 +218,20 @@ export function ResultScreen() {
                 <div className="jg-report-hero-action">
                   <span>지금 가장 먼저 할 일</span>
                   <strong>💡 {report.report_summary.one_line_action}</strong>
+                </div>
+              )}
+              {strategyRoadmap.length === 4 && (
+                <div className="jg-strategy-roadmap">
+                  <strong className="jg-strategy-roadmap-title">6개월 전략</strong>
+                  <div className="jg-strategy-roadmap-steps">
+                    {strategyRoadmap.map((step: any, index: number) => (
+                      <div className="jg-strategy-roadmap-step" key={`${index}-${step.when}-${step.action}`}>
+                        <span>{index + 1}</span>
+                        <b>{step.when}</b>
+                        <p>{step.action}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>
@@ -293,18 +347,18 @@ export function ResultScreen() {
               <h3 className="jg-card-title">이번 6개월의 결정 가이드</h3>
               <div className="jg-decision-columns">
                 <div className="jg-decision-card is-must">
-                  <div className="jg-decision-card-head"><strong>Must Have</strong><span>꼭 갖춰야 할 조건</span></div>
-                  {decisionGuide.must_haves?.map((item: string) => <p key={item}>✓ {item}</p>)}
+                  <div className="jg-decision-card-head"><strong>꼭 갖춰야 할 조건</strong><span>MUST HAVE</span></div>
+                  {decisionGuide.must_haves?.slice(0, 3).map((item: string) => <p key={item}>✓ {item}</p>)}
                 </div>
                 <div className="jg-decision-card is-check">
-                  <div className="jg-decision-card-head"><strong>Check</strong><span>오퍼에서 확인할 질문</span></div>
-                  {decisionGuide.checks?.map((item: any) => (
+                  <div className="jg-decision-card-head"><strong>오퍼에서 확인할 질문</strong><span>CHECK</span></div>
+                  {decisionGuide.checks?.slice(0, 4).map((item: any) => (
                     <p key={item.text}>• {item.text}{item.reason && <small className="jg-decision-reason"><b>특히 확인하세요</b>{item.reason}</small>}</p>
                   ))}
                 </div>
                 <div className="jg-decision-card is-redflag">
-                  <div className="jg-decision-card-head"><strong>Red Flag</strong><span>멈춰서 확인할 신호</span></div>
-                  {decisionGuide.red_flags?.map((item: any) => {
+                  <div className="jg-decision-card-head"><strong>멈춰야 할 신호</strong><span>RED FLAG</span></div>
+                  {decisionGuide.red_flags?.slice(0, 3).map((item: any) => {
                   const text = typeof item === 'string' ? item : item.text;
                   const reason = typeof item === 'string' ? null : item.reason;
                   return <p key={text}>⚠️ {text}{reason && <small>특히 중요한 이유: {reason}</small>}</p>;
@@ -313,8 +367,9 @@ export function ResultScreen() {
               </div>
               <div className="jg-if-then">
                 <div className="jg-if-then-head"><strong>상황별 행동</strong><span>If–Then 가이드</span></div>
-                {decisionGuide.if_then?.map((item: any, index: number) => (
+                {decisionGuide.if_then?.slice(0, 3).map((item: any, index: number) => (
                   <article className="jg-scenario" key={item.if}>
+                    <strong className="jg-scenario-summary">{scenarioSummary(item, index)}</strong>
                     <small>상황 {index + 1}</small>
                     <div><b>만약</b><p>{item.if}</p></div>
                     <i aria-hidden="true">↓</i>

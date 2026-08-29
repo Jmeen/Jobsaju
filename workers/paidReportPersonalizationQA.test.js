@@ -58,8 +58,12 @@ test('실제 생년월일 20개로 전체 결정 리포트 QA를 통과한다', 
     assert.equal(report.snapshot.analysis_period, '2026-08 ~ 2027-01');
     assert.equal(report.decision.personalization.character_id, context.characterData.id);
     assert.equal(report.decision.decision_guide.must_haves.length >= 2, true);
-    assert.equal(report.decision.decision_guide.checks.length >= 3, true);
-    assert.equal(report.decision.decision_guide.red_flags.length >= 2, true);
+    assert.ok(report.decision.decision_guide.must_haves.length <= 3);
+    assert.ok(report.decision.decision_guide.checks.length >= 3 && report.decision.decision_guide.checks.length <= 4);
+    assert.ok(report.decision.decision_guide.red_flags.length >= 2 && report.decision.decision_guide.red_flags.length <= 3);
+    assert.equal(report.decision.decision_guide.if_then.length, 3);
+    assert.ok(report.decision.decision_guide.if_then.every(item => item.summary));
+    assert.equal(report.decision.strategy_roadmap.length, 4);
     assert.equal(report.decision.decision_guide.now_actions.length, 3);
     assert.ok(report.decision.decision_guide.red_flags.every(flag => flag.text));
     assert.ok(report.decision.decision_guide.checks.filter(item => item.reason).length <= 1);

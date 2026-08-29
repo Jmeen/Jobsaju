@@ -79,6 +79,11 @@ function formatShortMonth(yearMonth) {
   return month ? `${Number(month)}월` : String(yearMonth || '');
 }
 
+function formatMonthSpan(start, end) {
+  if (!start || !end || start.year_month === end.year_month) return formatShortMonth(start?.year_month || end?.year_month);
+  return `${Number(String(start.year_month).split('-')[1])}~${Number(String(end.year_month).split('-')[1])}월`;
+}
+
 function actionWindowLabel(current, next, generatedAt) {
   const regularLabel = formatMonth(current.year_month);
   if (!generatedAt) return regularLabel;
@@ -186,6 +191,25 @@ function combinedAction(month, { isJob, isNegotiation, isRisk, isLast }) {
   return currentAction(month);
 }
 
+function buildStrategyRoadmap({ timeline, steps, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation }) {
+  const lastIndex = timeline.length - 1;
+  const decisionMonth = hasJobPeak ? bestJob : hasNegotiationPeak ? bestNegotiation : timeline[Math.min(2, lastIndex)];
+  const decisionIndex = Math.max(0, timeline.findIndex(month => month.year_month === decisionMonth.year_month));
+  const preparationEnd = Math.max(0, decisionIndex - 1);
+  const fallbackStart = Math.min(decisionIndex + 1, lastIndex);
+  const fallbackEnd = Math.max(fallbackStart, lastIndex - 1);
+  const decisionAction = hasJobPeak
+    ? riskSharesJobMonth ? '외부 제안 판단' : '외부 제안 비교'
+    : hasNegotiationPeak ? '내부 조건 협상' : '선택지 비교';
+
+  return [
+    { when: formatMonthSpan(timeline[0], timeline[preparationEnd]), action: '선택 기준 정비' },
+    { when: formatShortMonth(decisionMonth.year_month), action: decisionAction },
+    { when: formatMonthSpan(timeline[fallbackStart], timeline[fallbackEnd]), action: '기준 미충족 시 관망' },
+    { when: formatShortMonth(timeline[lastIndex].year_month), action: steps[lastIndex].phase },
+  ];
+}
+
 function buildDecisionGuide({ timeline, generatedAt, isFlat, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, current, personalization }) {
   const { characterProfile, elementProfile } = personalization;
   const currentWindow = actionWindowLabel(current, timeline[1], generatedAt);
@@ -216,27 +240,29 @@ function buildDecisionGuide({ timeline, generatedAt, isFlat, hasJobPeak, hasNego
   let ifThen;
   if (isFlat) {
     ifThen = [
-      { if: '외부 제안이 생긴다', then: '비교는 하되 이번 6개월 안에 이동해야 한다고 보지 말고 Must Have를 모두 충족할 때만 다음 단계로 가세요.' },
-      { if: '기준을 충족하는 제안이 없다', then: '현 직장의 역할·보상 개선 가능성을 확인하고 다음 사이클의 비교 기준을 남기세요.' },
+      { summary: '외부 제안이 생겼다면 → 기준 충족 시 검토', if: '외부 제안이 생긴다', then: '비교는 하되 이번 6개월 안에 이동해야 한다고 보지 말고 Must Have를 모두 충족할 때만 다음 단계로 가세요.' },
+      { summary: '맞는 제안이 없다면 → 다음 사이클 준비', if: '기준을 충족하는 제안이 없다', then: '현 직장의 역할·보상 개선 가능성을 확인하고 다음 사이클의 비교 기준을 남기세요.' },
+      { summary: '내부 조건을 바꿀 수 있다면 → 협상', if: '현 직장에서 조정 가능한 역할이나 보상 조건이 확인된다', then: '바로 이동하기보다 실행 일정과 책임자를 문서로 합의하세요.' },
     ];
   } else if (hasNegotiationPeak && !hasJobPeak) {
     ifThen = [
-      { if: `${negotiationMonth} 내부 협상에서 역할·보상 개선안이 문서로 나온다`, then: '즉시 이동하기보다 합의한 조건의 실행 일정을 먼저 확인하세요.' },
-      { if: '협상 결과가 구두 약속에 그친다', then: '외부 제안을 비교하되 특정 달을 이직 적기로 단정하지 말고 Must Have 충족 여부로 판단하세요.' },
+      { summary: '내부 조건이 좋아졌다면 → 실행 일정 확인', if: `${negotiationMonth} 내부 협상에서 역할·보상 개선안이 문서로 나온다`, then: '즉시 이동하기보다 합의한 조건의 실행 일정을 먼저 확인하세요.' },
+      { summary: '구두 약속에 그쳤다면 → 외부 비교', if: '협상 결과가 구두 약속에 그친다', then: '외부 제안을 비교하되 특정 달을 이직 적기로 단정하지 말고 Must Have 충족 여부로 판단하세요.' },
+      { summary: '외부 역할이 불명확하다면 → 보류', if: '외부 제안의 역할이나 보고 체계가 불명확하다', then: '수락을 미루고 첫 6개월 기대성과와 의사결정 구조를 서면으로 확인하세요.' },
     ];
   } else {
     ifThen = [
-      { if: hasNegotiationPeak ? `${negotiationMonth} 내부 협상 결과가 만족스럽다` : '현 직장에서 역할·보상 개선안이 문서로 확인된다', then: `${jobMonth} 외부 제안은 즉시 이동하기보다 현재 조건과 비교하는 기준으로 활용하세요.` },
-      { if: `${jobMonth}에 더 좋은 외부 제안이 들어온다`, then: riskSharesJobMonth ? '역할·보고라인·6개월 기대성과가 서면으로 확인될 때만 최종 결정을 검토하세요.' : '보상과 함께 역할 범위·보고라인·6개월 기대성과를 확인한 뒤 결정하세요.' },
-      { if: '보상은 높지만 역할과 조직 구조가 불명확하다', then: '수락을 미루고 R&R·보고라인·평가 기준을 먼저 확인하세요.' },
+      { summary: '내부 조건이 좋아졌다면 → 비교', if: hasNegotiationPeak ? `${negotiationMonth} 내부 협상 결과가 만족스럽다` : '현 직장에서 역할·보상 개선안이 문서로 확인된다', then: `${jobMonth} 외부 제안은 즉시 이동하기보다 현재 조건과 비교하는 기준으로 활용하세요.` },
+      { summary: '더 좋은 외부 제안이 왔다면 → 서면 검증', if: `${jobMonth}에 더 좋은 외부 제안이 들어온다`, then: riskSharesJobMonth ? '역할·보고라인·6개월 기대성과가 서면으로 확인될 때만 최종 결정을 검토하세요.' : '보상과 함께 역할 범위·보고라인·6개월 기대성과를 확인한 뒤 결정하세요.' },
+      { summary: '보상만 높다면 → 보류', if: '보상은 높지만 역할과 조직 구조가 불명확하다', then: '수락을 미루고 R&R·보고라인·평가 기준을 먼저 확인하세요.' },
     ];
   }
 
   return {
     must_haves: mustHaves,
-    checks,
+    checks: checks.slice(0, 4),
     red_flags: redFlags,
-    if_then: ifThen,
+    if_then: ifThen.slice(0, 3),
     now_actions: [
       `${currentWindow} 현재 역할에서 유지할 것과 바꿀 것을 각각 3개씩 적기`,
       '오퍼 비교에 사용할 Must Have와 Red Flag 기준을 미리 한 장으로 만들기',
@@ -277,6 +303,7 @@ export function deriveReportDecision(timeline, context = {}) {
     }),
   }));
   const strategy = steps.map(step => `${formatShortMonth(step.year_month)} ${step.phase}`).join(' → ');
+  const strategyRoadmap = buildStrategyRoadmap({ timeline, steps, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation });
   const decisionGuide = buildDecisionGuide({ timeline, generatedAt: context.generatedAt, isFlat, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, current, personalization });
   const jobPeakStats = summarizePeak(timeline, month => scoreOf(month, 'job_change'));
   const negotiationPeakStats = summarizePeak(timeline, month => scoreOf(month, 'negotiation'));
@@ -324,6 +351,7 @@ export function deriveReportDecision(timeline, context = {}) {
       } : null,
     },
     strategy,
+    strategy_roadmap: strategyRoadmap,
     steps,
     is_flat: isFlat,
     has_distinct_job_peak: hasJobPeak,
