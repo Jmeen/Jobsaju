@@ -84,6 +84,13 @@ body {
 
 .jg-app * { box-sizing: border-box; }
 
+/* 버튼 위에 장식 요소가 겹쳐도 보이는 버튼 전체가 그대로 입력 영역이 되게 한다. */
+.jg-app button {
+  position: relative;
+  z-index: 1;
+  touch-action: manipulation;
+}
+
 /* 목업의 jg-phone 폭(390px)을 그대로 본문 최대폭으로 쓴다. */
 .jg-screen {
   width: min(100%, 390px);
@@ -98,7 +105,7 @@ body {
 .jg-sub { margin: 9px 0 0; color: var(--jg-muted); font-size: 13px; line-height: 1.65; word-break: keep-all; }
 
 .jg-btn {
-  width: 100%; margin-top: 16px; padding: 14px 16px; border: 0; border-radius: 15px;
+  width: 100%; min-height: 48px; margin-top: 16px; padding: 14px 16px; border: 0; border-radius: 15px;
   background: var(--jg-green); color: var(--jg-phone); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
 }
 .jg-btn[disabled] { opacity: .45; cursor: not-allowed; }
@@ -243,7 +250,7 @@ body {
 .jg-summon-sub { margin: 8px 0 0; color: var(--jg-muted); font-size: 10px; }
 .jg-summon-guardian {
   position: absolute; width: 190px; height: 190px; object-fit: contain; opacity: 0; filter: blur(10px); transform: scale(.8);
-  transition: opacity .6s ease, filter .6s ease, transform .6s ease;
+  pointer-events: none; transition: opacity .6s ease, filter .6s ease, transform .6s ease;
 }
 .jg-summon.is-revealing .jg-pouch { opacity: 0; }
 .jg-summon.is-revealing .jg-summon-guardian { opacity: .24; filter: blur(3px); transform: scale(1); }
