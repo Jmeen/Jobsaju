@@ -430,6 +430,15 @@ body {
 .jg-followup-lead { display: block; margin: -4px 0 10px; color: var(--jg-ink); font-size: 13px; font-weight: 500; }
 .jg-followup p { margin: 7px 0 0; color: var(--jg-muted); font-size: 10px; line-height: 1.55; }
 .jg-product-summary { margin: 15px 0 -3px; color: var(--jg-muted); text-align: center; font-size: 10px; }
+.jg-decision-preview .jg-preview-title + p { margin-top: 12px; }
+.jg-decision-preview .jg-preview-title:not(:first-child) {
+  margin-top: 15px; padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--jg-line) 75%, transparent);
+}
+.jg-decision-preview p {
+  margin: 8px 0 0; color: var(--jg-ink);
+  font-size: 12px; line-height: 1.6; word-break: keep-all;
+}
 
 /* --- 7. 결제 후 입력 --- */
 .jg-onboarding-guardian { display: block; width: 112px; height: 112px; object-fit: contain; margin: 0 auto 2px; }

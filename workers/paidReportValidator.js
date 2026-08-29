@@ -73,7 +73,10 @@ export function validateAndRepairPaidReport(rawJsonText, timeline, precomputed_h
   // 2. 타임라인에서 핵심 시기·요약 결론·복합 행동 전략을 다시 계산한다.
   // LLM 출력이나 사주 원국의 별도 점수는 이 판단에 개입하지 않는다.
   const decisionSourceTimeline = timeline.map((month, index) => ({ ...month, index }));
-  const decision = deriveReportDecision(decisionSourceTimeline, decisionContext);
+  const decision = deriveReportDecision(decisionSourceTimeline, {
+    ...decisionContext,
+    generatedAt: snapshot?.generated_at || decisionContext.generatedAt,
+  });
   report.report_summary = decision.report_summary;
   report.timing_highlights = decision.timing_highlights;
   report.decision = decision;
@@ -93,6 +96,8 @@ export function validateAndRepairPaidReport(rawJsonText, timeline, precomputed_h
   report.personalized_advice.recommendation = decision.recommendation;
   report.personalized_advice.action_steps = decision.decision_guide.now_actions;
   report.personalized_advice.watch_out = decision.watch_out;
+  // 질문은 분석 결과를 전제로 되풀이하지 않고 실제 사용자가 먼저 물을 법한 형태로 고정한다.
+  report.personalized_advice.question_summary = '앞으로 6개월 동안 이직·협상·현 직장 유지 중 무엇을 우선하는 것이 좋을까요?';
 
   return report;
 }

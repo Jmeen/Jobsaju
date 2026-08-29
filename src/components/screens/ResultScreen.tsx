@@ -204,7 +204,7 @@ export function ResultScreen() {
                 {th.best_job_change && (
                   <div className="jg-timing is-best">
                     <div className="jg-timing-head">
-                      <strong>🔥 {th.best_job_change.title || '가장 좋은 이직 시기'}</strong>
+                      <strong>{th.best_job_change.kind === 'flat' ? '—' : '🔥'} {th.best_job_change.title || '가장 좋은 이직 시기'}</strong>
                       {th.best_job_change.year_month && <span className="jg-timing-ym">{formatYm(th.best_job_change.year_month)}</span>}
                     </div>
                     {th.best_job_change.score != null && <div className="jg-timing-score">이직운 {th.best_job_change.score}</div>}
@@ -247,7 +247,9 @@ export function ResultScreen() {
                   const isBestNego = th?.best_negotiation?.year_month === item.year_month;
                   const isCaution = th?.caution_month?.year_month === item.year_month;
                   const isOpen = expandedMonths.includes(item.year_month);
-                  const badge = isBestJob ? '이직 적기' : isBestNego ? '협상 적기' : isCaution ? '주의' : null;
+                  const badge = isBestJob
+                    ? Number(th?.best_job_change?.score) >= 75 ? '이직 적기' : '이동 기회'
+                    : isBestNego ? '협상 적기' : isCaution ? '주의' : null;
                   return (
                     <div className={`jg-month ${badge ? 'is-flag' : ''}`} key={item.year_month}>
                       <div className="jg-month-head">
@@ -290,15 +292,36 @@ export function ResultScreen() {
             <section className="jg-card jg-decision-guide">
               <h3 className="jg-card-title">이번 6개월의 결정 가이드</h3>
               <div className="jg-decision-columns">
-                <div><strong>Must Have</strong>{decisionGuide.must_haves?.map((item: string) => <p key={item}>✓ {item}</p>)}</div>
-                <div><strong>Check</strong>{decisionGuide.checks?.map((item: any) => <p key={item.text}>• {item.text}{item.reason && <small>특히 중요한 이유: {item.reason}</small>}</p>)}</div>
-                <div><strong>Red Flag</strong>{decisionGuide.red_flags?.map((item: any) => {
+                <div className="jg-decision-card is-must">
+                  <div className="jg-decision-card-head"><strong>Must Have</strong><span>꼭 갖춰야 할 조건</span></div>
+                  {decisionGuide.must_haves?.map((item: string) => <p key={item}>✓ {item}</p>)}
+                </div>
+                <div className="jg-decision-card is-check">
+                  <div className="jg-decision-card-head"><strong>Check</strong><span>오퍼에서 확인할 질문</span></div>
+                  {decisionGuide.checks?.map((item: any) => (
+                    <p key={item.text}>• {item.text}{item.reason && <small className="jg-decision-reason"><b>특히 확인하세요</b>{item.reason}</small>}</p>
+                  ))}
+                </div>
+                <div className="jg-decision-card is-redflag">
+                  <div className="jg-decision-card-head"><strong>Red Flag</strong><span>멈춰서 확인할 신호</span></div>
+                  {decisionGuide.red_flags?.map((item: any) => {
                   const text = typeof item === 'string' ? item : item.text;
                   const reason = typeof item === 'string' ? null : item.reason;
                   return <p key={text}>⚠️ {text}{reason && <small>특히 중요한 이유: {reason}</small>}</p>;
-                })}</div>
+                  })}
+                </div>
               </div>
-              <div className="jg-if-then"><strong>If–Then</strong>{decisionGuide.if_then?.map((item: any) => <p key={item.if}><b>IF {item.if}</b><span>THEN {item.then}</span></p>)}</div>
+              <div className="jg-if-then">
+                <div className="jg-if-then-head"><strong>상황별 행동</strong><span>If–Then 가이드</span></div>
+                {decisionGuide.if_then?.map((item: any, index: number) => (
+                  <article className="jg-scenario" key={item.if}>
+                    <small>상황 {index + 1}</small>
+                    <div><b>만약</b><p>{item.if}</p></div>
+                    <i aria-hidden="true">↓</i>
+                    <div><b>이렇게 하세요</b><p>{item.then}</p></div>
+                  </article>
+                ))}
+              </div>
               <div className="jg-todos"><strong>지금 해야 할 3가지</strong>{decisionGuide.now_actions?.map((item: string) => <div className="jg-todo" key={item}><span>☐</span><span>{item}</span></div>)}</div>
               <div className="jg-watch"><strong>가장 중요한 주의점</strong><span>⚠️ {decisionGuide.caution}</span></div>
             </section>

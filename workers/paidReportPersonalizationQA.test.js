@@ -61,7 +61,11 @@ test('실제 생년월일 20개로 전체 결정 리포트 QA를 통과한다', 
     assert.equal(report.decision.decision_guide.checks.length >= 3, true);
     assert.equal(report.decision.decision_guide.red_flags.length >= 2, true);
     assert.equal(report.decision.decision_guide.now_actions.length, 3);
-    assert.ok(report.decision.decision_guide.red_flags.every(flag => flag.text && flag.reason));
+    assert.ok(report.decision.decision_guide.red_flags.every(flag => flag.text));
+    assert.ok(report.decision.decision_guide.checks.filter(item => item.reason).length <= 1);
+    assert.equal(report.decision.steps.at(-1).year_month, report.timeline.at(-1).year_month);
+    assert.match(report.personalized_advice.question_summary, /무엇을 우선하는 것이 좋을까요/);
+    assert.doesNotMatch(report.personalized_advice.question_summary, /예상되는 가운데|흐름이 강해/);
     assert.equal(new Set(report.timeline.map(month => month.action)).size, 6);
     if (!report.decision.has_distinct_job_peak) {
       assert.equal(report.timing_highlights.best_job_change.year_month, null);

@@ -60,7 +60,7 @@ const SYSTEM_PROMPT = `
 * 각 \`action\`에는 해당 \`year_month\`의 실제 연도와 월을 쓰십시오. "이번 달", "다음 달", "곧" 같은 상대 날짜는 쓰지 마십시오.
 
 ### D. Personalized Advice
-* \`question_summary\`: 고민을 실제 의사결정 문제로 재정의 (최대 120자)
+* \`question_summary\`: 분석 결과를 전제로 넣지 말고 사용자가 실제로 먼저 물을 법한 질문으로 작성 (최대 120자). 예: "앞으로 6개월 동안 이직·협상·현 직장 유지 중 무엇을 우선하는 것이 좋을까요?"
 * \`diagnosis\`: 현재 흐름과 상황을 종합한 판단 (최대 180자)
 * \`character_connection\`: 60갑자 성향과 행동 패턴 연결 (최대 150자)
 * \`recommendation\`: 현 시점 권하는 방향 (최대 180자)
