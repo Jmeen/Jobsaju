@@ -50,7 +50,10 @@ test('평탄하고 낮은 점수는 억지 이직 고점 대신 기반 정리 �
   assert.equal(decision.timing_highlights.best_job_change.score, null);
   assert.equal(decision.timing_highlights.best_negotiation, null);
   assert.equal(decision.steps.some(step => step.phase.includes('이직')), false);
-  assert.match(decision.decision_guide.if_then[1].then, /반드시 이동해야 한다고 보지/);
+  assert.equal(decision.entry_axis, 'stay');
+  assert.equal(decision.decision_guide.check_title, '현재 회사에서 확인할 질문');
+  assert.match(decision.decision_guide.if_then[1].then, /적용일|다시 판단/);
+  assert.doesNotMatch(JSON.stringify(decision.decision_guide), /입사 후|면접관|오퍼 비교/);
 });
 
 test('분포 기준 경계 아래의 작은 최고점은 이직 적기로 만들지 않는다', () => {
@@ -74,8 +77,8 @@ test('캐릭터와 오행은 관찰 가능한 Red Flag와 Must Have를 바꾼다
   const relationship = deriveReportDecision(timeline, { character: { id: '乙丑', keywords: ['관계감각'] }, elements: { wood: 0, fire: 1, earth: 1, metal: 0, water: 4 } });
   assert.notDeepEqual(autonomy.decision_guide.must_haves, relationship.decision_guide.must_haves);
   assert.notDeepEqual(autonomy.decision_guide.red_flags, relationship.decision_guide.red_flags);
-  assert.match(autonomy.decision_guide.red_flags[1].text, /결정권자 설명도 계속 바뀜/);
-  assert.match(relationship.decision_guide.red_flags[1].text, /면접 내내 갈등 수습 사례/);
+  assert.match(autonomy.decision_guide.red_flags[1].text, /승인 권한과 결정 범위/);
+  assert.match(relationship.decision_guide.red_flags[1].text, /갈등 조정 책임/);
   assert.equal(autonomy.decision_guide.checks.filter(item => item.reason).length, 1);
 });
 
@@ -96,18 +99,48 @@ test('파동형 안정성을 단순 하락으로 말하지 않고 마지막 달 
   assert.equal(decision.steps.at(-1).year_month, '2027-01');
   assert.match(decision.strategy, /1월 조건 재협상$/);
   assert.deepEqual(decision.strategy_roadmap, [
-    { when: '8~10월', action: '기준 정비' },
-    { when: '11월', action: '외부 제안 판단' },
-    { when: '12월', action: '기준 미충족 시 관망' },
+    { when: '8~10월', action: '현재 조건 점검' },
+    { when: '11월', action: '다음 이동 시점 판단' },
+    { when: '12월', action: '개선안 실행 여부 확인' },
     { when: '1월', action: '조건 재협상' },
   ]);
   assert.deepEqual(decision.decision_guide.if_then.map(item => item.summary), [
-    '내부 조건이 개선됐다면 → 비교 유지',
-    '더 좋은 외부 제안이 왔다면 → 서면 검증',
-    '보상만 좋아졌다면 → 보류',
+    '역할·보상 개선 확정 → 잔류',
+    '일부 개선·구두 약속 → 기한 설정',
+    '기한까지 변화 없음 → 이동 준비',
   ]);
   assert.match(decision.decision_guide.now_actions[0], /8월 말부터 9월 초까지/);
   assert.notEqual(decision.report_summary.one_line_action, decision.decision_guide.now_actions[0]);
+});
+
+test('무료 진입 축에 따라 결정 기준과 행동 순서가 달라진다', () => {
+  const timeline = [
+    month('2026-08', 50, 50, 50, 0), month('2026-09', 45, 70, 55, 0),
+    month('2026-10', 72, 42, 35, 4), month('2026-11', 48, 58, 60, 0),
+    month('2026-12', 52, 49, 62, 0), month('2027-01', 55, 50, 58, 0),
+  ];
+  const stay = deriveReportDecision(timeline, { entryAxis: 'stay' });
+  const negotiation = deriveReportDecision(timeline, { entryAxis: 'negotiation' });
+  const jobChange = deriveReportDecision(timeline, { entryAxis: 'jobChange' });
+
+  assert.equal(stay.decision_guide.check_title, '현재 회사에서 확인할 질문');
+  assert.match(stay.decision_guide.if_then.at(-1).summary, /이동 준비/);
+  assert.doesNotMatch(JSON.stringify(stay.decision_guide), /입사 후|면접관|오퍼 비교/);
+
+  assert.equal(negotiation.decision_guide.check_title, '협상 전에 확인할 근거');
+  assert.match(negotiation.decision_guide.now_actions.join(' '), /성과|최소 수용 조건/);
+  assert.doesNotMatch(JSON.stringify(negotiation.decision_guide), /입사 후|면접관|오퍼 비교/);
+
+  assert.equal(jobChange.decision_guide.check_title, '오퍼에서 확인할 질문');
+  assert.match(jobChange.decision_guide.checks[0].text, /입사 후 첫 6개월/);
+});
+
+test('유료 첫 달 동점도 무료와 같이 협상 → 잔류 → 이직 순으로 판정한다', () => {
+  const decision = deriveReportDecision([
+    month('2026-08', 50, 50, 50, 0), month('2026-09', 50, 50, 50, 0),
+  ]);
+  assert.equal(decision.entry_axis, 'negotiation');
+  assert.equal(decision.steps[0].phase, '내부 협상');
 });
 
 test('월별 배열의 형태를 상승·하락·파동·평탄으로 구분한다', () => {

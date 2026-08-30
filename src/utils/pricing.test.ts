@@ -46,7 +46,7 @@ test('폴백 답변은 실제 사주 신호를 담는다', () => {
 
 test('질문 유형을 구분한다', () => {
   assert.equal(classifyFollowUp('몇 월에 지원하는 게 좋을까요?'), 'timing');
-  assert.equal(classifyFollowUp('연봉을 얼마나 불러도 될까요?'), 'salary');
+  assert.equal(classifyFollowUp('연봉 협상은 언제 꺼내는 게 좋을까요?'), 'salary');
   assert.equal(classifyFollowUp('받은 오퍼를 수락해도 될까요?'), 'offer');
   assert.equal(classifyFollowUp('승진을 1년 더 기다려도 될까요?'), 'wait');
   assert.equal(classifyFollowUp('일단 퇴사하고 좀 쉬어도 될까요?'), 'quit');
@@ -85,7 +85,7 @@ test('질문마다 다른 답이 나온다 (엉뚱한 답변 회귀 방지)', ()
   const saju = getSajuAnalysis(1993, 8, 12, 13, 30, 1, { isSolar: true, hasTime: true });
 
   const timing = buildLocalFollowUpAnswer('몇 월에 지원하는 게 좋을까요?', saju);
-  const salary = buildLocalFollowUpAnswer('연봉을 얼마나 불러도 될까요?', saju);
+  const salary = buildLocalFollowUpAnswer('연봉 협상은 언제 꺼내는 게 좋을까요?', saju);
   const wait = buildLocalFollowUpAnswer('승진을 1년 더 기다려도 될까요?', saju);
   const people = buildLocalFollowUpAnswer('팀장과 갈등이 심한데 어떻게 할까요?', saju);
 

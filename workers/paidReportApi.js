@@ -41,6 +41,7 @@ const SYSTEM_PROMPT = `
 * 월별 \`timeline\`이 리포트의 유일한 판단 원천입니다. 최종 요약, 핵심 시기, 추천 방향, 행동 단계는 서버가 timeline에서 다시 계산해 확정합니다.
 * 따라서 \`report_summary\`와 \`personalized_advice.recommendation/action_steps/watch_out\`에는 timeline과 다른 결론을 만들지 말고, 월별 흐름을 설명하는 문장만 작성하십시오.
 * \`stay\`는 장기적으로 회사를 계속 다녀야 한다는 추천 점수가 아닙니다. **그 달의 내부 안정성**입니다.
+* \`entry_axis\`는 사용자가 무료 결과에서 이미 본 지금의 1순위 선택입니다. \`personalized_advice.diagnosis\`는 이 선택에서 출발해 이유를 설명하고, 이후 타임라인에서 조건이 바뀌면 잔류 확인 → 협상 → 이동 판단처럼 시간순으로 연결하십시오. 다른 선택으로 조용히 바꿔치기하지 마십시오.
 
 ## 4. LLM Core Task & Structured Output
 당신은 반드시 사전에 정의된 JSON Schema 구조로만 답변해야 합니다. 
@@ -290,6 +291,7 @@ export async function handlePaidReportRequest(request, env) {
         analysis_scope: { birth_time_known: hasTime, daewoon_included: false },
         natal_chart: analysis,
         character_data: characterData,
+        entry_axis: decisionContext.entryAxis,
         timeline,
         precomputed_highlights
       }

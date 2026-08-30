@@ -71,7 +71,7 @@ export function ManualPayModal() {
             </div>
 
             {isAILoading ? (
-              // 리포트 생성이 수십 초 걸릴 수 있어, 진행 중임을 계속 보여주고 창을 닫아도 완료 시 알려준다
+              // 리포트 생성이 3~5분 걸릴 수 있어, 진행 중임을 계속 보여주고 창을 닫아도 완료 시 알려준다
               <div className="unlock-loading">
                 <div className="unlock-loading-spinner" />
                 <p>{unlockLoadingText}</p>

@@ -2,6 +2,8 @@
  * 유료 리포트의 의사결정 척추.
  * 월별 점수가 판단의 원천이고, 오행·캐릭터는 우선 확인할 조건의 맥락만 보강한다.
  */
+import { resolveCareerAxis } from '../src/utils/careerSignal.ts';
+
 function scoreOf(month, axis) {
   return Number(month?.scores?.[axis] ?? 0);
 }
@@ -169,12 +171,36 @@ function resolvePersonalization(context = {}) {
   };
 }
 
+const PROFILE_AXIS_RED_FLAGS = {
+  stay: {
+    autonomy: '책임 범위는 넓어진다고 하지만 실제 승인 권한과 결정 범위는 그대로임',
+    precision: '평가 기준과 검토 책임자를 합의할 때마다 설명이 달라짐',
+    relationship: '갈등 조정 책임만 늘고 공식 역할과 평가에는 반영되지 않음',
+    stability: '인력·예산 보강 없이 현재 책임 범위만 계속 확대됨',
+  },
+  negotiation: {
+    autonomy: '책임 확대는 요구하면서 그에 맞는 권한과 조건 조정은 피함',
+    precision: '성과 기준을 인정하면서도 어떤 결과가 보상에 반영되는지는 설명하지 않음',
+    relationship: '협업 기여는 칭찬하지만 공식 역할과 보상 논의에서는 제외함',
+    stability: '추가 책임은 바로 맡기면서 인력·예산·보상 적용 시점은 미룸',
+  },
+};
+
+function resolveEntryAxis(context, current) {
+  if (['jobChange', 'negotiation', 'stay'].includes(context?.entryAxis)) return context.entryAxis;
+  return resolveCareerAxis({
+    jobChange: scoreOf(current, 'job_change'),
+    negotiation: scoreOf(current, 'negotiation'),
+    stay: scoreOf(current, 'stay'),
+  });
+}
+
 function currentAction(month) {
-  const scores = month.scores;
-  if (scores.job_change >= scores.negotiation && scores.job_change >= scores.stay) {
+  const axis = resolveEntryAxis({}, month);
+  if (axis === 'jobChange') {
     return { phase: '외부 탐색', detail: '목표 역할과 최소 조건을 먼저 적고 맞는 공고를 비교하세요.' };
   }
-  if (scores.negotiation >= scores.stay) {
+  if (axis === 'negotiation') {
     return { phase: '내부 협상', detail: '최근 성과와 원하는 조건을 정리해 역할·보상 대화를 준비하세요.' };
   }
   return { phase: '내부 안정 정비', detail: '현재 역할의 성과·관계·업무 범위를 점검해 다음 선택 기준을 남기세요.' };
@@ -191,54 +217,114 @@ function combinedAction(month, { isJob, isNegotiation, isRisk, isLast }) {
   return currentAction(month);
 }
 
-function buildStrategyRoadmap({ timeline, steps, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation }) {
+function buildStrategyRoadmap({ timeline, steps, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, entryAxis }) {
   const lastIndex = timeline.length - 1;
   const decisionMonth = hasJobPeak ? bestJob : hasNegotiationPeak ? bestNegotiation : timeline[Math.min(2, lastIndex)];
   const decisionIndex = Math.max(0, timeline.findIndex(month => month.year_month === decisionMonth.year_month));
   const preparationEnd = Math.max(0, decisionIndex - 1);
   const fallbackStart = Math.min(decisionIndex + 1, lastIndex);
   const fallbackEnd = Math.max(fallbackStart, lastIndex - 1);
-  const decisionAction = hasJobPeak
-    ? riskSharesJobMonth ? '외부 제안 판단' : '외부 제안 비교'
-    : hasNegotiationPeak ? '내부 조건 협상' : '선택지 비교';
+  const firstAction = entryAxis === 'stay'
+    ? '현재 조건 점검'
+    : entryAxis === 'negotiation'
+      ? '성과·시장 근거 정리'
+      : '다음 회사 기준 정리';
+  const decisionAction = entryAxis === 'stay'
+    ? hasJobPeak ? '다음 이동 시점 판단' : '역할·보상 개선 확인'
+    : entryAxis === 'negotiation'
+      ? hasNegotiationPeak ? '요구 조건 협상' : hasJobPeak ? '협상 결과와 외부 제안 비교' : '협상 결과 판단'
+      : hasJobPeak
+        ? riskSharesJobMonth ? '외부 제안 판단' : '외부 제안 비교'
+        : hasNegotiationPeak ? '내부 조건 협상' : '선택지 비교';
+  const fallbackAction = entryAxis === 'stay'
+    ? '개선안 실행 여부 확인'
+    : entryAxis === 'negotiation'
+      ? '결과별 다음 행동'
+      : '기준 미충족 시 관망';
 
   return [
-    { when: formatMonthSpan(timeline[0], timeline[preparationEnd]), action: '기준 정비' },
+    { when: formatMonthSpan(timeline[0], timeline[preparationEnd]), action: firstAction },
     { when: formatShortMonth(decisionMonth.year_month), action: decisionAction },
-    { when: formatMonthSpan(timeline[fallbackStart], timeline[fallbackEnd]), action: '기준 미충족 시 관망' },
+    { when: formatMonthSpan(timeline[fallbackStart], timeline[fallbackEnd]), action: fallbackAction },
     { when: formatShortMonth(timeline[lastIndex].year_month), action: steps[lastIndex].phase },
   ];
 }
 
-function buildDecisionGuide({ timeline, generatedAt, isFlat, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, current, personalization }) {
+function buildDecisionGuide({ timeline, generatedAt, isFlat, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, current, personalization, entryAxis }) {
   const { characterProfile, elementProfile } = personalization;
   const currentWindow = actionWindowLabel(current, timeline[1], generatedAt);
   const jobMonth = formatMonth(bestJob.year_month);
   const negotiationMonth = formatMonth(bestNegotiation.year_month);
+  const moveMonth = hasJobPeak ? jobMonth : formatMonth(timeline.at(-1).year_month);
+  const axisMustHave = entryAxis === 'stay'
+    ? '역할·보상 개선 내용과 적용 시점이 서면으로 확인될 것'
+    : entryAxis === 'negotiation'
+      ? '요구 조건과 최소 수용 범위, 결렬 시 다음 행동이 정리될 것'
+      : '보상 또는 성장성 중 하나가 현재보다 분명하게 개선될 것';
   const mustHaves = uniqueBy([
     characterProfile.must,
     elementProfile.must,
-    '보상 또는 성장성 중 하나가 현재보다 분명하게 개선될 것',
+    axisMustHave,
   ], item => item).slice(0, 3);
-  const checks = uniqueBy([
-    { text: '입사 후 첫 6개월에 가장 먼저 기대하는 결과는 무엇인가?', reason: characterProfile.checkReason },
-    { text: '이 역할은 누구에게 직접 보고하고, 주요 의사결정은 어떤 회의에서 확정되는가?' },
-    { text: '기존 담당자가 있었다면 왜 자리가 비었는가?' },
-    { text: '평가와 인센티브 조건은 서면으로 확인 가능한가?' },
-    { text: '합류 전 반드시 완료될 인수인계와 지원은 무엇인가?' },
-  ], item => item.text).slice(0, 5);
+  const checksByAxis = {
+    stay: [
+      { text: characterProfile.check, reason: characterProfile.checkReason },
+      { text: '역할·보상 개선안은 무엇이며 언제부터 적용되는가?' },
+      { text: '변화를 다시 판단할 날짜와 실행 책임자는 누구인가?' },
+      { text: '개선이 어렵다면 회사가 제시할 수 있는 현실적인 대안은 무엇인가?' },
+    ],
+    negotiation: [
+      { text: characterProfile.check, reason: characterProfile.checkReason },
+      { text: '내 성과가 보상·직급·역할 중 어디에 반영될 수 있는가?' },
+      { text: '합의 가능한 범위와 최종 승인권자는 누구인가?' },
+      { text: '합의 내용과 적용일을 서면으로 확인할 수 있는가?' },
+    ],
+    jobChange: [
+      { text: '입사 후 첫 6개월에 가장 먼저 기대하는 결과는 무엇인가?', reason: characterProfile.checkReason },
+      { text: '이 역할은 누구에게 직접 보고하고, 주요 의사결정은 어떤 회의에서 확정되는가?' },
+      { text: '기존 담당자가 있었다면 왜 자리가 비었는가?' },
+      { text: '평가와 인센티브 조건은 서면으로 확인 가능한가?' },
+    ],
+  };
+  const checks = uniqueBy(checksByAxis[entryAxis], item => item.text).slice(0, 4);
 
-  const patternRedFlag = riskSharesJobMonth
-    ? { text: '빠른 합류를 요구하면서 계약 조건 확인 일정은 계속 미룸' }
-    : { text: '면접관마다 역할과 첫 6개월 성공 기준 설명이 다름' };
-  const redFlags = uniqueBy([
-    patternRedFlag,
-    { text: characterProfile.redFlag },
-    { text: '채용이 진행될수록 보상·직급·근무 조건이 처음 설명보다 계속 축소됨' },
-  ], item => item.text).slice(0, 3);
+  const jobPatternRedFlag = riskSharesJobMonth
+    ? '빠른 합류를 요구하면서 계약 조건 확인 일정은 계속 미룸'
+    : '면접관마다 역할과 첫 6개월 성공 기준 설명이 다름';
+  const profileRedFlag = PROFILE_AXIS_RED_FLAGS[entryAxis]?.[characterProfile.id] || characterProfile.redFlag;
+  const redFlagsByAxis = {
+    stay: [
+      { text: '역할과 책임은 늘어나는데 보상·권한 적용일은 계속 미뤄짐' },
+      { text: profileRedFlag },
+      { text: '개선 약속이 구두로만 반복되고 책임자·재검토 날짜가 정해지지 않음' },
+    ],
+    negotiation: [
+      { text: '성과 근거를 인정하면서도 조정 가능 범위와 결정권자를 밝히지 않음' },
+      { text: profileRedFlag },
+      { text: '합의한 조건을 서면으로 남기거나 적용일을 정하는 일을 계속 미룸' },
+    ],
+    jobChange: [
+      { text: jobPatternRedFlag },
+      { text: characterProfile.redFlag },
+      { text: '채용이 진행될수록 보상·직급·근무 조건이 처음 설명보다 계속 축소됨' },
+    ],
+  };
+  const redFlags = uniqueBy(redFlagsByAxis[entryAxis], item => item.text).slice(0, 3);
 
   let ifThen;
-  if (isFlat) {
+  if (entryAxis === 'stay') {
+    ifThen = [
+      { summary: '역할·보상 개선 확정 → 잔류', if: '역할·보상 개선 내용과 적용일이 서면으로 확인된다', then: '합의한 변화가 실행되는지 재검토 날짜까지 확인하며 현재 회사에 남으세요.' },
+      { summary: '일부 개선·구두 약속 → 기한 설정', if: '일부 조건만 바뀌거나 구두 약속만 나온다', then: '실행 책임자와 적용일을 정하고, 그 날짜를 넘기면 다시 판단하세요.' },
+      { summary: '기한까지 변화 없음 → 이동 준비', if: '약속한 시점까지 역할·보상 변화가 확인되지 않는다', then: `${moveMonth}을 다음 판단 시점으로 두고 목표 역할과 이동 조건을 정리하세요.` },
+    ];
+  } else if (entryAxis === 'negotiation') {
+    ifThen = [
+      { summary: '핵심 조건 수용 → 적용일 확인', if: `${hasNegotiationPeak ? negotiationMonth : currentWindow} 협상에서 핵심 요구 조건이 받아들여진다`, then: '합의 내용·적용일·다음 평가 시점을 서면으로 확인하세요.' },
+      { summary: '일부 조건 수용 → 우선순위 재협상', if: '일부 조건만 받아들여진다', then: '반드시 필요한 조건과 양보 가능한 조건을 나눠 한 번 더 조정하세요.' },
+      { summary: '핵심 조건 거절 → 다음 행동 결정', if: '핵심 역할·보상 조건이 거절된다', then: `${moveMonth}까지 잔류 조건과 이동 준비 중 어느 쪽을 실행할지 결정하세요.` },
+    ];
+  } else if (isFlat) {
     ifThen = [
       { summary: '내부 조건이 개선됐다면 → 비교 유지', if: '현 직장에서 조정 가능한 역할이나 보상 조건이 확인된다', then: '실행 일정과 책임자를 문서로 합의한 뒤 외부 선택지와의 비교 기준은 유지하세요.' },
       { summary: '더 좋은 외부 제안이 왔다면 → 서면 검증', if: '더 좋은 외부 제안이 생긴다', then: '이번 6개월 안에 반드시 이동해야 한다고 보지 말고 꼭 갖춰야 할 조건이 모두 서면으로 확인될 때만 다음 단계로 가세요.' },
@@ -258,21 +344,45 @@ function buildDecisionGuide({ timeline, generatedAt, isFlat, hasJobPeak, hasNego
     ];
   }
 
-  return {
-    must_haves: mustHaves,
-    checks: checks.slice(0, 4),
-    red_flags: redFlags,
-    if_then: ifThen.slice(0, 3),
-    now_actions: [
+  const nowActionsByAxis = {
+    stay: [
+      `${currentWindow} 현재 역할에서 유지할 것과 바꿀 것을 각각 3개씩 적기`,
+      '역할·보상 개선안을 요청하고 답변 기한을 일정에 남기기',
+      characterProfile.preparation,
+    ],
+    negotiation: [
+      `${currentWindow} 최근 성과를 문제·행동·수치 결과로 정리하기`,
+      '요구 조건·최소 수용 조건·거절 시 다음 행동을 한 장에 적기',
+      characterProfile.preparation,
+    ],
+    jobChange: [
       `${currentWindow} 현재 역할에서 유지할 것과 바꿀 것을 각각 3개씩 적기`,
       '오퍼 비교에 사용할 Must Have와 Red Flag 기준을 미리 한 장으로 만들기',
       characterProfile.preparation,
     ],
-    caution: isFlat
-      ? '뚜렷한 이동·협상 고점이 없는 6개월입니다. 제안이 와도 조급함 때문에 기준을 낮추지 마세요.'
-      : riskSharesJobMonth
-        ? '기회와 리스크가 같은 달에 겹칩니다. 검토를 시작하는 속도와 최종 서명하는 속도를 같게 두지 마세요.'
-        : '변동 신호가 큰 달에는 감정적인 퇴사나 구두 약속만으로 결론 내리지 마세요.',
+  };
+  const caution = entryAxis === 'stay'
+    ? '기한과 책임자가 없는 개선 약속을 잔류 근거로 삼지 마세요.'
+    : entryAxis === 'negotiation'
+      ? '희망 조건과 최소 수용선을 구분하고, 합의 내용은 반드시 서면으로 남기세요.'
+      : isFlat
+        ? '뚜렷한 이동·협상 고점이 없는 6개월입니다. 제안이 와도 조급함 때문에 기준을 낮추지 마세요.'
+        : riskSharesJobMonth
+          ? '기회와 리스크가 같은 달에 겹칩니다. 검토를 시작하는 속도와 최종 서명하는 속도를 같게 두지 마세요.'
+          : '변동 신호가 큰 달에는 감정적인 퇴사나 구두 약속만으로 결론 내리지 마세요.';
+
+  return {
+    check_title: entryAxis === 'stay'
+      ? '현재 회사에서 확인할 질문'
+      : entryAxis === 'negotiation'
+        ? '협상 전에 확인할 근거'
+        : '오퍼에서 확인할 질문',
+    must_haves: mustHaves,
+    checks,
+    red_flags: redFlags,
+    if_then: ifThen.slice(0, 3),
+    now_actions: nowActionsByAxis[entryAxis],
+    caution,
   };
 }
 
@@ -290,6 +400,7 @@ export function deriveReportDecision(timeline, context = {}) {
   const hasRisk = riskOf(highestRisk) > 0;
   const riskSharesJobMonth = hasJobPeak && hasRisk && highestRisk.year_month === bestJob.year_month;
   const personalization = resolvePersonalization(context);
+  const entryAxis = resolveEntryAxis(context, current);
   const stayPattern = classifyScorePattern(timeline, month => scoreOf(month, 'stay'));
 
   const steps = timeline.map((month, index) => ({
@@ -303,8 +414,8 @@ export function deriveReportDecision(timeline, context = {}) {
     }),
   }));
   const strategy = steps.map(step => `${formatShortMonth(step.year_month)} ${step.phase}`).join(' → ');
-  const strategyRoadmap = buildStrategyRoadmap({ timeline, steps, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation });
-  const decisionGuide = buildDecisionGuide({ timeline, generatedAt: context.generatedAt, isFlat, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, current, personalization });
+  const strategyRoadmap = buildStrategyRoadmap({ timeline, steps, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, entryAxis });
+  const decisionGuide = buildDecisionGuide({ timeline, generatedAt: context.generatedAt, isFlat, hasJobPeak, hasNegotiationPeak, riskSharesJobMonth, bestJob, bestNegotiation, current, personalization, entryAxis });
   const jobPeakStats = summarizePeak(timeline, month => scoreOf(month, 'job_change'));
   const negotiationPeakStats = summarizePeak(timeline, month => scoreOf(month, 'negotiation'));
 
@@ -331,11 +442,22 @@ export function deriveReportDecision(timeline, context = {}) {
           ? '내부 안정성이 비교적 일정하게 이어지는 가운데'
           : '내부 안정성이 오르내리는 가운데';
   const headline = `${patternLead}, ${jobMoment} ${lastExit}`;
+  const entryAction = entryAxis === 'stay'
+    ? '현재 회사의 역할·보상 개선 가능성과 확인 기한을 먼저 정하세요.'
+    : entryAxis === 'negotiation'
+      ? '최근 성과와 시장 근거를 정리하고 요구 조건과 최소 수용선을 나누세요.'
+      : '다음 회사에서 원하는 역할·권한·보상 기준을 먼저 적으세요.';
+  const entryRecommendation = entryAxis === 'stay'
+    ? '지금은 현재 회사의 역할·보상 개선 가능성을 먼저 확인하세요.'
+    : entryAxis === 'negotiation'
+      ? '지금은 성과 근거를 갖추고 역할·보상 협상을 먼저 시도하세요.'
+      : '지금은 외부 기회를 열어두고 다음 회사의 조건을 비교하세요.';
 
   return {
+    entry_axis: entryAxis,
     report_summary: {
       headline,
-      one_line_action: `${actionWindowLabel(current, timeline[1], context.generatedAt)} ${currentAction(current).detail}`,
+      one_line_action: `${actionWindowLabel(current, timeline[1], context.generatedAt)} ${entryAction}`,
     },
     timing_highlights: {
       best_job_change: hasJobPeak ? {
@@ -363,7 +485,9 @@ export function deriveReportDecision(timeline, context = {}) {
       character_mode: personalization.characterProfile.id,
       dominant_element: personalization.dominantElement,
     },
-    recommendation: isFlat ? `특정 달에 이동을 서두르기보다 ${strategy} 순서로 마지막 달까지 조건을 점검하세요.` : `추천 전략: ${strategy}.`,
+    recommendation: isFlat
+      ? `${entryRecommendation} 특정 달에 이동을 서두르기보다 ${strategy} 순서로 마지막 달까지 조건을 점검하세요.`
+      : `${entryRecommendation} 이후 ${strategy} 순서로 조건 변화를 확인하세요.`,
     decision_guide: decisionGuide,
     watch_out: [decisionGuide.caution],
   };

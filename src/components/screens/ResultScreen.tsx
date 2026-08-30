@@ -8,11 +8,12 @@ import { STORAGE_KEY } from '../../utils/session';
 import { getGuardianAsset } from '../../utils/guardianAssets';
 import { getGuardianCharacter } from '../../utils/guardianCharacters';
 import { buildElementInsight } from '../../utils/reportInsights';
+import { FOLLOW_UP_EXAMPLES } from '../../utils/reportCopy';
 import { FollowUpLoading, FormattedAnswer } from '../FollowUpContent';
 import { FOLLOW_UP_MAX_LENGTH } from '../../utils/followUpValidation';
+import { buildCareerSignal } from '../../utils/careerSignal';
+import { getPaywallDecisionCopy } from '../../utils/paywallDecisionCopy';
 import { ChemistryBlock } from '../guardian/ChemistryBlock';
-
-const FOLLOW_UP_EXAMPLES = ['몇 월에 지원하는 게 좋을까요?', '연봉을 얼마나 불러도 될까요?', '승진을 1년 더 기다려도 될까요?', '지금 받은 오퍼를 수락해도 될까요?'];
 
 function shortMonth(yearMonth?: string): string {
   const month = String(yearMonth || '').split('-')[1];
@@ -70,7 +71,7 @@ function WorkEnvironmentSections({ sajuResult, guardian, guardianDetail }: any) 
   return (
     <>
       <section className="jg-card jg-chapter-section">
-        <h3 className="jg-chapter-title"><span aria-hidden="true">02</span>나에게 맞는 환경</h3>
+        <h3 className="jg-chapter-title"><span aria-hidden="true">03</span>나에게 맞는 환경 · 일하는 방식</h3>
         <div className="radar-wrapper">
           <svg className="radar-svg" width="220" height="220" viewBox="0 0 220 220">
             <polygon points="110,10 205,79 169,191 51,191 15,79" fill="none" stroke="var(--jg-line)" strokeWidth="1" />
@@ -173,6 +174,10 @@ export function ResultScreen() {
 
   const decision = report?.decision;
   const decisionGuide = decision?.decision_guide;
+  const entryAxis = ['jobChange', 'negotiation', 'stay'].includes(decision?.entry_axis)
+    ? decision.entry_axis
+    : buildCareerSignal(sajuResult.scores).topAxis;
+  const decisionCopy = getPaywallDecisionCopy(entryAxis);
   const strategyRoadmap = Array.isArray(decision?.strategy_roadmap) && decision.strategy_roadmap.length >= 3
     ? decision.strategy_roadmap.slice(0, 4)
     : fallbackStrategyRoadmap(decision, report?.timeline || [], th);
@@ -330,29 +335,16 @@ export function ResultScreen() {
             </section>
           )}
 
-          <WorkEnvironmentSections sajuResult={sajuResult} guardian={guardian} guardianDetail={guardianDetail} />
-
-          {/* 왜 이 선택이 잘 맞나 (캐릭터 연결) */}
-          {report.personalized_advice?.character_connection && (
-            <div className="jg-card jg-report-character jg-subsection-card">
-              <img className="jg-report-guardian-image" src={guardian.imageUrl} alt={`${guardian.nickname} 수호신`} />
-              <div>
-                <span>{guardian.nickname} · 왜 이런 선택이 당신에게 잘 맞나</span>
-                <p>{report.personalized_advice.character_connection}</p>
-              </div>
-            </div>
-          )}
-
           {decisionGuide && (
             <section className="jg-card jg-decision-guide jg-chapter-section">
-              <h3 className="jg-chapter-title"><span aria-hidden="true">03</span>이번 이직의 결정 기준</h3>
+              <h3 className="jg-chapter-title"><span aria-hidden="true">02</span>내 커리어 결정 기준</h3>
               <div className="jg-decision-columns">
                 <div className="jg-decision-card is-must">
                   <div className="jg-decision-card-head"><strong>꼭 갖춰야 할 조건</strong><span>MUST HAVE</span></div>
                   {decisionGuide.must_haves?.slice(0, 3).map((item: string) => <p key={item}>✓ {item}</p>)}
                 </div>
                 <div className="jg-decision-card is-check">
-                  <div className="jg-decision-card-head"><strong>오퍼에서 확인할 질문</strong><span>CHECK</span></div>
+                  <div className="jg-decision-card-head"><strong>{decisionGuide.check_title || decisionCopy.reportCheckTitle}</strong><span>CHECK</span></div>
                   {decisionGuide.checks?.slice(0, 4).map((item: any) => (
                     <p key={item.text}>• {item.text}{item.reason && <small className="jg-decision-reason"><b>특히 확인하세요</b>{item.reason}</small>}</p>
                   ))}
@@ -381,6 +373,19 @@ export function ResultScreen() {
               <div className="jg-todos"><strong>지금 해야 할 3가지</strong>{decisionGuide.now_actions?.map((item: string) => <div className="jg-todo" key={item}><span>☐</span><span>{item}</span></div>)}</div>
               <div className="jg-watch"><strong>가장 중요한 주의점</strong><span>⚠️ {decisionGuide.caution}</span></div>
             </section>
+          )}
+
+          <WorkEnvironmentSections sajuResult={sajuResult} guardian={guardian} guardianDetail={guardianDetail} />
+
+          {/* 왜 이 선택이 잘 맞나 (캐릭터 연결) */}
+          {report.personalized_advice?.character_connection && (
+            <div className="jg-card jg-report-character jg-subsection-card">
+              <img className="jg-report-guardian-image" src={guardian.imageUrl} alt={`${guardian.nickname} 수호신`} />
+              <div>
+                <span>{guardian.nickname} · 왜 이런 선택이 당신에게 잘 맞나</span>
+                <p>{report.personalized_advice.character_connection}</p>
+              </div>
+            </div>
           )}
 
           {aiReport.closing_advice && (

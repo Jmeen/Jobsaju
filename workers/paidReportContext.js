@@ -1,5 +1,6 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSajuAnalysis, calculateShiShen, normalizeGanZhi } from '../src/utils/sajuCore.ts';
+import { resolveCareerAxis } from '../src/utils/careerSignal.ts';
 import characters from '../free_engine_characters.js';
 import { computeMonthlyScore, generateHighlights } from './scoreEngine.js';
 
@@ -80,6 +81,9 @@ export function buildPaidReportContext(birth, { now = new Date() } = {}) {
     precomputedHighlights: generateHighlights(timeline.map((month, index) => ({ ...month, index }))),
     characterData,
     decisionContext: {
+      // 무료 결과에서 사용자가 본 ◎ 축. 유료 리포트는 이 결론에서 출발하되,
+      // 이후 6개월 타임라인에 따라 협상이나 이동 시점으로 자연스럽게 확장한다.
+      entryAxis: resolveCareerAxis(analysis.scores),
       elements: analysis.elementsCount,
       character: characterData ? {
         id: characterData.id,

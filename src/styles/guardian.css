@@ -55,7 +55,7 @@ body {
 
 .jg-app {
   --jg-ink: #2f3732;
-  --jg-muted: #858b83;
+  --jg-muted: #686f68;
   --jg-page: #faf8f2;
   --jg-phone: #faf8f2;
   --jg-card: #f3f0e7;
@@ -74,6 +74,25 @@ body {
   color: var(--jg-ink);
   background: var(--jg-page);
   font-family: var(--font-body);
+}
+
+.jg-personalization-note {
+  margin: 18px 0;
+  padding: 15px 16px;
+  border: 1px solid color-mix(in srgb, var(--jg-guardian-accent) 24%, var(--jg-line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--jg-guardian-accent) 7%, var(--jg-card));
+}
+.jg-personalization-note strong {
+  display: block;
+  color: var(--jg-ink);
+  font-size: 13px;
+}
+.jg-personalization-note p {
+  margin: 6px 0 0;
+  color: var(--jg-muted);
+  font-size: 12px;
+  line-height: 1.65;
 }
 
 [data-element='wood']  { --jg-guardian-accent:#7fae9a; --jg-guardian-soft:#eef6f1; --jg-guardian-pressed:#e5f1ea; }

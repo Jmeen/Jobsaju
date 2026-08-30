@@ -26,6 +26,18 @@ export const REPORT_HEADINGS = {
   shareCard: '공유용 커리어 카드',
 } as const;
 
+export const FOLLOW_UP_EXAMPLES = [
+  '몇 월에 지원하는 게 좋을까요?',
+  '연봉 협상은 언제 꺼내는 게 좋을까요?',
+  '승진을 1년 더 기다려도 될까요?',
+  '지금 받은 오퍼를 수락해도 될까요?',
+] as const;
+
+export const PAID_REPORT_WAIT_COPY = '리포트 작성에는 보통 3~5분 정도 걸려요';
+export const PAID_REPORT_GENERATING_COPY = '수만 가지 경우의 수를 분석하여 리포트를 작성하고 있습니다...';
+export const PAID_REPORT_POLL_INTERVAL_MS = 5_000;
+export const PAID_REPORT_MAX_POLL_ATTEMPTS = 60;
+
 export function buildCharacterTypeLabel(
   elementLabel: string,
   characterTitle: string,

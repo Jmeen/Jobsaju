@@ -3,12 +3,18 @@
 // 목업에서 결제 뒤로 옮겼고, 건너뛰면 기본 분석으로 바로 넘어간다.
 import { useRef, useState } from 'react';
 import { useAppActions, useAppCheckout, useAppReport } from '../../contexts/AppContext';
+import { buildCareerSignal } from '../../utils/careerSignal';
+import { getPaywallDecisionCopy } from '../../utils/paywallDecisionCopy';
+import { PAID_REPORT_WAIT_COPY } from '../../utils/reportCopy';
 import { GuardianImage } from '../guardian/GuardianImage';
 
 export function PersonalizeScreen() {
-  const { guardian } = useAppReport();
+  const { guardian, sajuResult } = useAppReport();
   const { isAILoading, unlockLoadingText, unlockError } = useAppCheckout();
   const { submitPersonalization } = useAppActions();
+  const decisionCopy = getPaywallDecisionCopy(
+    sajuResult ? buildCareerSignal(sajuResult.scores).topAxis : 'jobChange',
+  );
 
   // 입력 중 컨텍스트가 리렌더되지 않도록 값은 로컬에만 둔다.
   const [job, setJob] = useState('');
@@ -37,7 +43,7 @@ export function PersonalizeScreen() {
         {guardian && <GuardianImage className="jg-summon-guardian" guardian={guardian} eager />}
         <div className="jg-pouch" aria-hidden="true">📄</div>
         <p className="jg-summon-copy" aria-live="polite">{unlockLoadingText}</p>
-        <p className="jg-summon-sub">최대 30초까지 걸릴 수 있어요</p>
+        <p className="jg-summon-sub">{PAID_REPORT_WAIT_COPY}</p>
       </section>
     );
   }
@@ -66,7 +72,7 @@ export function PersonalizeScreen() {
         <div className="jg-field">
           <label htmlFor="jg-situation">3. 지금 가장 고민되는 상황은 무엇인가요?</label>
           <textarea id="jg-situation" value={situation} onChange={e => setSituation(e.target.value)}
-            placeholder="예: 이직 제안을 받았는데 연봉 협상을 세게 해도 괜찮을지 궁금해요." />
+            placeholder={decisionCopy.personalizePlaceholder} />
           <small>이 질문에는 리포트 마지막에 직접 답해드려요.</small>
         </div>
       </div>

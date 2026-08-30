@@ -59,11 +59,20 @@ const BRIDGE: Record<CareerAxis, string> = {
  * 3축 점수를 방향 신호로 바꾼다. 점수 자체는 노출하지 않는다 — 순위만 ◎/○/△로 남긴다.
  * 순위가 같은(동점) 경우 TIE_PRIORITY로 결정론적으로 가른다.
  */
-export function buildCareerSignal(scores: CareerScores): CareerSignalView {
-  const ranked = [...DISPLAY_ORDER].sort((a, b) => {
+export function rankCareerAxes(scores: CareerScores): CareerAxis[] {
+  return [...DISPLAY_ORDER].sort((a, b) => {
     if (scores[b] !== scores[a]) return scores[b] - scores[a];
     return TIE_PRIORITY.indexOf(a) - TIE_PRIORITY.indexOf(b);
   });
+}
+
+/** 무료 결과와 유료 리포트가 같은 출발 결론을 쓰도록 공유하는 축 판정 함수. */
+export function resolveCareerAxis(scores: CareerScores): CareerAxis {
+  return rankCareerAxes(scores)[0];
+}
+
+export function buildCareerSignal(scores: CareerScores): CareerSignalView {
+  const ranked = rankCareerAxes(scores);
 
   const MARKS: SignalMark[] = ['◎', '○', '△'];
   const markByAxis = new Map<CareerAxis, SignalMark>();

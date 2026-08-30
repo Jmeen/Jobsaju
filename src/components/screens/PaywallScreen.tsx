@@ -6,6 +6,7 @@ import { useAppActions, useAppCheckout, useAppReport } from '../../contexts/AppC
 import { buildCareerSignal } from '../../utils/careerSignal';
 import type { CareerAxis } from '../../utils/careerSignal';
 import { buildMonthlyFlow } from '../../utils/monthlyFlow';
+import { getPaywallDecisionCopy } from '../../utils/paywallDecisionCopy';
 
 /** "9월 [평가·승진 어필]" 형태의 배지 문구에서 대괄호 안만 뽑는다. */
 function phraseOf(label: string): string {
@@ -31,6 +32,7 @@ export function PaywallScreen() {
 
   const signal = buildCareerSignal(sajuResult.scores);
   const topSubject = AXIS_SUBJECT[signal.topAxis];
+  const decisionCopy = getPaywallDecisionCopy(signal.topAxis);
 
   const natalZhis = [
     sajuResult.pillars.year.zhi,
@@ -45,9 +47,13 @@ export function PaywallScreen() {
       <div className="jg-kicker">{guardian.nickname}가 지금 흐름을 뜯어봤어요</div>
       <h1 className="jg-title">왜 지금 {topSubject}<br />더 유리할까요?</h1>
       <p className="jg-sub">
-        방향은 무료에서 봤으니, 이제 이유·타이밍·행동을 봐요.<br />
-        생년월일 운세가 아니라 내 직무·목표·상황까지 반영해요.
+        방향은 무료에서 봤으니, 이제 이유·타이밍·행동을 봐요.
       </p>
+
+      <div className="jg-personalization-note">
+        <strong>생년월일만으로 끝나는 일반 운세가 아니에요.</strong>
+        <p>결제 후 현재 직무 · 원하는 방향 · 지금 상황을 입력하면 리포트에 함께 반영해요.</p>
+      </div>
 
       <div className="jg-preview">
         <div className="jg-preview-title">
@@ -80,8 +86,8 @@ export function PaywallScreen() {
         <div className="jg-value-row">
           <span className="jg-value-tag">어떻게</span>
           <div>
-            <strong>지금부터 할 것 · 피할 것</strong>
-            <p>이직을 준비한다면 볼 조건, 협상한다면 우선할 조건까지 행동으로 연결해요.</p>
+            <strong>{decisionCopy.howTitle}</strong>
+            <p>{decisionCopy.howBody}</p>
           </div>
         </div>
       </div>
@@ -98,29 +104,27 @@ export function PaywallScreen() {
             </div>
           );
         })}
-        <p>외부 탐색 → 내부 협상 → 조건부 이직 판단처럼, 월별 흐름을 실제 행동 순서로 정리해 드려요.</p>
+        <p>{decisionCopy.roadmap}</p>
       </div>
 
       <div className="jg-preview jg-decision-preview">
-        <div className="jg-preview-title"><strong>내 이직 결단 기준</strong><span className="jg-lock">상세 리포트에서 공개돼요</span></div>
-        <p>✓ 새로운 역할의 범위와 권한 ███████</p>
-        <p>✓ 보상 또는 성장성 █████████</p>
+        <div className="jg-preview-title"><strong>내 커리어 결정 기준</strong><span className="jg-lock">상세 리포트에서 공개돼요</span></div>
+        {decisionCopy.criteria.map((criterion, index) => (
+          <p key={criterion}>✓ {criterion} <span aria-hidden="true">{index === 0 ? '███████' : '█████████'}</span></p>
+        ))}
         <div className="jg-preview-title"><strong>상황별 결정 가이드</strong></div>
-        <p>내부 협상이 성공하면 → █████████</p>
-        <p>오퍼가 들어오면 → R&amp;R·보고라인·6개월 기대성과 확인</p>
+        {decisionCopy.scenarios.map(scenario => <p key={scenario}>{scenario}</p>)}
       </div>
 
       <div className="jg-followup">
         <h2>정해진 리포트만 보는 게 아니에요</h2>
         <strong className="jg-followup-lead">개인 질문 1회가 포함돼요</strong>
-        <p>“9월에 오퍼가 오면 옮기는 게 좋을까요?”</p>
-        <p>“지금 연봉보다 직급을 먼저 요구해야 할까요?”</p>
-        <p>“올해 안에 이직하지 않으면 기다리는 게 나을까요?”</p>
+        {decisionCopy.questionExamples.map(example => <p key={example}>{example}</p>)}
       </div>
 
       <p className="jg-product-summary">6개월 흐름 · 결정 기준 · 상황별 If–Then · 개인 질문 1회</p>
       <button className="jg-btn" type="button" onClick={() => setShowManualPayModal(true)}>
-        내 커리어 선택 리포트 열기 · {price.label}
+        내 커리어 선택 리포트 보기 · {price.label}
       </button>
       <button className="jg-text-link" type="button" onClick={() => setStep('result')}>
         내 수호신 다시 보기

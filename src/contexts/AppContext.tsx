@@ -6,6 +6,11 @@ import { daysInMonth, CURRENT_YEAR } from '../utils/birthWheel';
 import type { SavedSession } from '../utils/session';
 import type { SajuCoreResult } from '../utils/sajuCore';
 import { buildVerdictView } from '../utils/reportViewModel';
+import {
+  PAID_REPORT_GENERATING_COPY,
+  PAID_REPORT_MAX_POLL_ATTEMPTS,
+  PAID_REPORT_POLL_INTERVAL_MS,
+} from '../utils/reportCopy';
 export type { MonthTone } from '../utils/monthlyFlow';
 import { buildCharacterName } from '../utils/reportInsights';
 import { buildTopScore, buildAllScoreViews, AXIS_ICON } from '../utils/scorePresentation';
@@ -1084,11 +1089,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      // We'll poll up to 6 times (about 30 seconds) if it returns 429
+      // 서버가 생성 중(202)이면 5초 간격으로 최대 5분까지 결과를 확인한다.
       let retries = 0;
       let finalData = null;
 
-      while (retries < 6) {
+      while (retries < PAID_REPORT_MAX_POLL_ATTEMPTS) {
         const res = await fetch('/api/paid-report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1097,8 +1102,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         if (res.status === 202) {
           // Generating...
-          setUnlockLoadingText('수만 가지 경우의 수를 분석하여 리포트를 작성하고 있습니다... (최대 15초 소요)');
-          await new Promise(r => setTimeout(r, 5000));
+          setUnlockLoadingText(PAID_REPORT_GENERATING_COPY);
+          await new Promise(r => setTimeout(r, PAID_REPORT_POLL_INTERVAL_MS));
           retries++;
           continue;
         }
@@ -1134,7 +1139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           guardianId: guardianIdFor(sajuResult),
         });
       }
-      // 생성에 최대 30초까지 걸려 그 사이 탭을 떠나 있을 수 있다.
+      // 생성에 3~5분 정도 걸려 그 사이 탭을 떠나 있을 수 있다.
       // handleUnlock 진입 때 알림 권한을 받아둔 이유가 이것이다.
       notifyReportReady(true);
     } catch (error: any) {
