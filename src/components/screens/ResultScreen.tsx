@@ -35,7 +35,7 @@ function fallbackStrategyRoadmap(decision: any, timeline: any[], timing: any): a
   const lastPhase = decision?.steps?.find((step: any) => step.year_month === months[lastIndex].year_month)?.phase || '다음 선택 준비';
   const decisionAction = timing?.best_job_change?.year_month ? '외부 제안 판단' : timing?.best_negotiation?.year_month ? '내부 조건 협상' : '선택지 비교';
   return [
-    { when: monthSpan(months[0].year_month, months[Math.max(0, decisionIndex - 1)].year_month), action: '선택 기준 정비' },
+    { when: monthSpan(months[0].year_month, months[Math.max(0, decisionIndex - 1)].year_month), action: '기준 정비' },
     { when: shortMonth(decisionYm), action: decisionAction },
     { when: monthSpan(months[fallbackStart].year_month, months[fallbackEnd].year_month), action: '기준 미충족 시 관망' },
     { when: shortMonth(months[lastIndex].year_month), action: lastPhase },
@@ -43,11 +43,11 @@ function fallbackStrategyRoadmap(decision: any, timeline: any[], timing: any): a
 }
 
 function scenarioSummary(item: any, index: number): string {
-  if (item?.summary) return item.summary;
   const text = `${item?.if || ''} ${item?.then || ''}`;
-  if (/보상은 높|보상만/.test(text)) return '보상만 높다면 → 보류';
+  if (/보상은 높|보상만/.test(text)) return '보상만 좋아졌다면 → 보류';
   if (/더 좋은 외부 제안|외부 제안이 들어/.test(text)) return '더 좋은 외부 제안이 왔다면 → 서면 검증';
-  if (/내부 협상|개선안|현 직장/.test(text)) return '내부 조건이 좋아졌다면 → 비교';
+  if (/내부 협상|개선안|현 직장|내부 조건/.test(text)) return '내부 조건이 개선됐다면 → 비교 유지';
+  if (item?.summary) return item.summary;
   return `상황 ${index + 1} → 조건 확인`;
 }
 
@@ -69,8 +69,8 @@ function WorkEnvironmentSections({ sajuResult, guardian, guardianDetail }: any) 
 
   return (
     <>
-      <section className="jg-card">
-        <h3 className="jg-card-title">나에게 맞는 환경 · 일하는 방식</h3>
+      <section className="jg-card jg-chapter-section">
+        <h3 className="jg-chapter-title"><span aria-hidden="true">02</span>나에게 맞는 환경</h3>
         <div className="radar-wrapper">
           <svg className="radar-svg" width="220" height="220" viewBox="0 0 220 220">
             <polygon points="110,10 205,79 169,191 51,191 15,79" fill="none" stroke="var(--jg-line)" strokeWidth="1" />
@@ -95,7 +95,7 @@ function WorkEnvironmentSections({ sajuResult, guardian, guardianDetail }: any) 
         </div>
       </section>
 
-      <section className="jg-card">
+      <section className="jg-card jg-subsection-card">
         <h3 className="jg-card-title">{guardian.nickname}의 일하는 방식</h3>
         <p className="jg-report-history-note" style={{ marginBottom: 14 }}>{guardian.copy}</p>
         <div className="jg-strengths">
@@ -173,7 +173,7 @@ export function ResultScreen() {
 
   const decision = report?.decision;
   const decisionGuide = decision?.decision_guide;
-  const strategyRoadmap = Array.isArray(decision?.strategy_roadmap)
+  const strategyRoadmap = Array.isArray(decision?.strategy_roadmap) && decision.strategy_roadmap.length >= 3
     ? decision.strategy_roadmap.slice(0, 4)
     : fallbackStrategyRoadmap(decision, report?.timeline || [], th);
   const snapshotDate = report?.snapshot?.generated_at ? new Date(report.snapshot.generated_at) : null;
@@ -214,13 +214,7 @@ export function ResultScreen() {
             <section className="jg-report-hero">
               <span className="jg-eyebrow">지금의 결론</span>
               <h2>{report.report_summary.headline}</h2>
-              {report.report_summary.one_line_action && (
-                <div className="jg-report-hero-action">
-                  <span>지금 가장 먼저 할 일</span>
-                  <strong>💡 {report.report_summary.one_line_action}</strong>
-                </div>
-              )}
-              {strategyRoadmap.length === 4 && (
+              {strategyRoadmap.length >= 3 && (
                 <div className="jg-strategy-roadmap">
                   <strong className="jg-strategy-roadmap-title">6개월 전략</strong>
                   <div className="jg-strategy-roadmap-steps">
@@ -234,12 +228,19 @@ export function ResultScreen() {
                   </div>
                 </div>
               )}
+              {report.report_summary.one_line_action && (
+                <div className="jg-report-hero-action">
+                  <span>지금 가장 먼저 할 일</span>
+                  <strong>💡 {report.report_summary.one_line_action}</strong>
+                </div>
+              )}
             </section>
           )}
 
           {/* 유료 리포트의 첫 번째 답은 "왜"다. 질문별 답변에 묻히지 않게 결론 바로 아래에 둔다. */}
           {report.personalized_advice && (
-            <section className="jg-card jg-decision-basis">
+            <section className="jg-card jg-decision-basis jg-chapter-section">
+              <h3 className="jg-chapter-title"><span aria-hidden="true">01</span>앞으로 6개월</h3>
               <span className="jg-eyebrow">이 판단의 핵심 근거</span>
               <p className="jg-advice-q"><strong>Q.</strong> {report.personalized_advice.question_summary}</p>
               <p className="jg-advice-diagnosis">{report.personalized_advice.diagnosis}</p>
@@ -252,7 +253,7 @@ export function ResultScreen() {
 
           {/* ② 이 판단이 나온 이유 · 핵심 시기 */}
           {th && (
-            <section className="jg-card">
+            <section className="jg-card jg-detail-section">
               <span className="jg-eyebrow">이 판단이 나온 이유 · 핵심 시기</span>
               <div className="jg-timings">
                 {th.best_job_change && (
@@ -293,7 +294,7 @@ export function ResultScreen() {
 
           {/* ⑤ 현재 월부터 앞으로 6개월 흐름 */}
           {report.timeline && (
-            <section className="jg-card">
+            <section className="jg-card jg-detail-section">
               <h3 className="jg-card-title">현재부터 앞으로 6개월 흐름</h3>
               <div className="jg-months">
                 {report.timeline.slice(0, 6).map((item: any) => {
@@ -333,7 +334,7 @@ export function ResultScreen() {
 
           {/* 왜 이 선택이 잘 맞나 (캐릭터 연결) */}
           {report.personalized_advice?.character_connection && (
-            <div className="jg-card jg-report-character">
+            <div className="jg-card jg-report-character jg-subsection-card">
               <img className="jg-report-guardian-image" src={guardian.imageUrl} alt={`${guardian.nickname} 수호신`} />
               <div>
                 <span>{guardian.nickname} · 왜 이런 선택이 당신에게 잘 맞나</span>
@@ -343,8 +344,8 @@ export function ResultScreen() {
           )}
 
           {decisionGuide && (
-            <section className="jg-card jg-decision-guide">
-              <h3 className="jg-card-title">이번 6개월의 결정 가이드</h3>
+            <section className="jg-card jg-decision-guide jg-chapter-section">
+              <h3 className="jg-chapter-title"><span aria-hidden="true">03</span>이번 이직의 결정 기준</h3>
               <div className="jg-decision-columns">
                 <div className="jg-decision-card is-must">
                   <div className="jg-decision-card-head"><strong>꼭 갖춰야 할 조건</strong><span>MUST HAVE</span></div>
@@ -392,11 +393,11 @@ export function ResultScreen() {
       )}
 
       {/* 추가 질문 */}
-      <section className="followup-card">
+      <section className="followup-card jg-chapter-section">
         <div className="section-heading">
           <div>
-            <span className="jg-eyebrow">내 상황으로 한 번 더 확인하기</span>
-            <h3>{isFollowUpLoading ? '질문을 살펴보고 있어요' : '실제 상황 하나에 집중해 답합니다'}</h3>
+            <h3 className="jg-chapter-title"><span aria-hidden="true">04</span>내 상황 질문하기</h3>
+            <span className="jg-eyebrow">{isFollowUpLoading ? '질문을 살펴보고 있어요' : '실제 상황 하나에 집중해 답합니다'}</span>
           </div>
           <span>{isFollowUpLoading ? '답변 생성 중' : '질문 1회 · 공유하면 1회 추가'}</span>
         </div>

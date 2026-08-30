@@ -28,6 +28,8 @@ test('월별 흐름만으로 핵심 시기와 복합 행동 순서를 만든다'
   assert.match(decision.strategy, /8월 외부 탐색 → 9월 내부 협상 → 10월 조건부 이직 판단 → 11월 조건 재협상/);
   assert.equal(decision.steps.at(-1).year_month, '2026-11');
   assert.equal(decision.strategy_roadmap.length, 4);
+  assert.equal(decision.decision_guide.must_haves.length, 3);
+  assert.equal(decision.decision_guide.red_flags.length, 3);
   assert.equal(decision.decision_guide.now_actions.length, 3);
   assert.ok(decision.decision_guide.checks.length <= 4);
   assert.ok(decision.decision_guide.if_then.length <= 3);
@@ -48,7 +50,7 @@ test('평탄하고 낮은 점수는 억지 이직 고점 대신 기반 정리 �
   assert.equal(decision.timing_highlights.best_job_change.score, null);
   assert.equal(decision.timing_highlights.best_negotiation, null);
   assert.equal(decision.steps.some(step => step.phase.includes('이직')), false);
-  assert.match(decision.decision_guide.if_then[0].then, /이동해야 한다고 보지/);
+  assert.match(decision.decision_guide.if_then[1].then, /반드시 이동해야 한다고 보지/);
 });
 
 test('분포 기준 경계 아래의 작은 최고점은 이직 적기로 만들지 않는다', () => {
@@ -94,15 +96,15 @@ test('파동형 안정성을 단순 하락으로 말하지 않고 마지막 달 
   assert.equal(decision.steps.at(-1).year_month, '2027-01');
   assert.match(decision.strategy, /1월 조건 재협상$/);
   assert.deepEqual(decision.strategy_roadmap, [
-    { when: '8~10월', action: '선택 기준 정비' },
+    { when: '8~10월', action: '기준 정비' },
     { when: '11월', action: '외부 제안 판단' },
     { when: '12월', action: '기준 미충족 시 관망' },
     { when: '1월', action: '조건 재협상' },
   ]);
   assert.deepEqual(decision.decision_guide.if_then.map(item => item.summary), [
-    '내부 조건이 좋아졌다면 → 비교',
+    '내부 조건이 개선됐다면 → 비교 유지',
     '더 좋은 외부 제안이 왔다면 → 서면 검증',
-    '보상만 높다면 → 보류',
+    '보상만 좋아졌다면 → 보류',
   ]);
   assert.match(decision.decision_guide.now_actions[0], /8월 말부터 9월 초까지/);
   assert.notEqual(decision.report_summary.one_line_action, decision.decision_guide.now_actions[0]);
