@@ -24,7 +24,7 @@ export interface ParsedFollowUpResponse {
   };
   answer_sections: {
     conclusion: string;
-    reason: string;
+    reasons: [string, string] | [string, string, string];
     action: string;
   };
   answer: string;

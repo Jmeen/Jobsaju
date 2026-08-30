@@ -2,6 +2,8 @@ import { Fragment, useEffect, useState } from 'react';
 import {
   getFollowUpLoadingMessage,
   parseFollowUpAnswer,
+  parseInline,
+  parseStructuredFollowUpAnswer,
 } from '../utils/followUpFormat';
 import type { InlineToken } from '../utils/followUpFormat';
 
@@ -20,6 +22,31 @@ export function FormattedAnswer({ answer }: { answer: string }) {
   const text = typeof answer === 'string'
     ? answer
     : ((answer as { answer?: string } | null)?.answer ?? '');
+  const structuredAnswer = parseStructuredFollowUpAnswer(text);
+
+  if (structuredAnswer) {
+    return (
+      <div className="formatted-answer followup-answer-structured">
+        <section className="followup-answer-conclusion">
+          <strong className="followup-answer-label">결론부터</strong>
+          <p><InlineContent tokens={parseInline(structuredAnswer.conclusion)} /></p>
+        </section>
+        <section className="followup-answer-reasons">
+          <strong className="followup-answer-label">왜 그렇게 보는지</strong>
+          <ul>
+            {structuredAnswer.reasons.map((reason, index) => (
+              <li key={index}><InlineContent tokens={parseInline(reason)} /></li>
+            ))}
+          </ul>
+        </section>
+        <section className="followup-answer-action">
+          <strong className="followup-answer-label">지금 할 일</strong>
+          <p><InlineContent tokens={parseInline(structuredAnswer.action)} /></p>
+        </section>
+      </div>
+    );
+  }
+
   const blocks = parseFollowUpAnswer(text);
 
   return (

@@ -123,6 +123,22 @@ const BANNED_OPENINGS = [
 
 const DIRECT_RECOMMENDATION_PATTERN = /추천|먼저|우선|보다는|보다\s+.+(?:낫|좋)|수락|지원|협상|기다리|유지|확인/i;
 
+function splitReasonText(reason) {
+  const bulletItems = String(reason || '')
+    .split('\n')
+    .map(line => line.replace(/^\s*[-*•]\s*/, '').trim())
+    .filter(Boolean);
+  if (bulletItems.length >= 2) return bulletItems.slice(0, 3);
+
+  const sentences = String(reason || '')
+    .match(/[^.!?。]+[.!?。]?/g)
+    ?.map(sentence => sentence.trim())
+    .filter(Boolean) || [];
+  if (sentences.length < 2) return [];
+  if (sentences.length <= 3) return sentences;
+  return [sentences[0], sentences[1], sentences.slice(2).join(' ')];
+}
+
 export function parseFollowUpModelResponse(raw) {
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -137,16 +153,21 @@ export function parseFollowUpModelResponse(raw) {
     if (!Array.isArray(analysis.constraints)) return null;
     if (!sections || typeof sections !== 'object') return null;
     const conclusion = typeof sections.conclusion === 'string' ? sections.conclusion.trim() : '';
-    const reason = typeof sections.reason === 'string' ? sections.reason.trim() : '';
+    const reasons = Array.isArray(sections.reasons)
+      ? sections.reasons.map(reason => typeof reason === 'string' ? reason.trim() : '')
+      : splitReasonText(sections.reason);
     const action = typeof sections.action === 'string' ? sections.action.trim() : '';
-    if (conclusion.length < 25 || conclusion.length > 220 || !DIRECT_RECOMMENDATION_PATTERN.test(conclusion)) return null;
-    if (reason.length < 80 || reason.length > 520) return null;
-    if (action.length < 20 || action.length > 160 || action.includes('\n')) return null;
+    if (conclusion.length < 25 || conclusion.length > 180 || !DIRECT_RECOMMENDATION_PATTERN.test(conclusion)) return null;
+    if (reasons.length < 2 || reasons.length > 3) return null;
+    if (reasons.some(reason => reason.length < 25 || reason.length > 220)) return null;
+    if (reasons.join(' ').length < 60 || reasons.join(' ').length > 520) return null;
+    if (action.length < 20 || action.length > 120 || action.includes('\n')) return null;
     if ((action.match(/[.!?。]/g) || []).length > 1) return null;
-    if (BANNED_OPENINGS.some(opening => conclusion.includes(opening) || reason.includes(opening))) return null;
-    const answer = `① 결론\n${conclusion}\n\n② 왜 그런가\n${reason}\n\n③ 지금 할 일 하나\n${action}`;
-    if (answer.length < 200 || answer.length > 900) return null;
-    return { ...parsed, answer_sections: { conclusion, reason, action }, answer };
+    if (BANNED_OPENINGS.some(opening => conclusion.includes(opening) || reasons.some(reason => reason.includes(opening)))) return null;
+    const reasonList = reasons.map(reason => `- ${reason}`).join('\n');
+    const answer = `결론부터\n${conclusion}\n\n왜 그렇게 보는지\n${reasonList}\n\n지금 할 일\n${action}`;
+    if (answer.length < 160 || answer.length > 760) return null;
+    return { ...parsed, answer_sections: { conclusion, reasons, action }, answer };
   } catch {
     return null;
   }

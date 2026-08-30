@@ -4,6 +4,7 @@ import {
   getFollowUpLoadingMessage,
   parseFollowUpAnswer,
   parseInline,
+  parseStructuredFollowUpAnswer,
 } from './followUpFormat.ts';
 
 test('닫힌 이중 별표만 굵은 강조 토큰으로 변환한다', () => {
@@ -42,6 +43,47 @@ test('답변을 문단과 순서 없는 목록 블록으로 나눈다', () => {
       ],
     },
   ]);
+});
+
+test('결론, 근거, 행동을 화면용 세 구역으로 분리한다', () => {
+  assert.deepEqual(parseStructuredFollowUpAnswer([
+    '결론부터',
+    '지금은 A보다 B를 먼저 하는 편을 추천합니다.',
+    '',
+    '왜 그렇게 보는지',
+    '- 현재 역할을 개선할 여지가 남아 있습니다.',
+    '- 보상 조건을 문서로 확인할 수 있습니다.',
+    '',
+    '지금 할 일',
+    '오늘 리더와 면담 일정을 잡으세요.',
+  ].join('\n')), {
+    conclusion: '지금은 A보다 B를 먼저 하는 편을 추천합니다.',
+    reasons: [
+      '현재 역할을 개선할 여지가 남아 있습니다.',
+      '보상 조건을 문서로 확인할 수 있습니다.',
+    ],
+    action: '오늘 리더와 면담 일정을 잡으세요.',
+  });
+});
+
+test('이전 ①/②/③ 답변의 긴 근거도 최대 세 항목으로 나눈다', () => {
+  const parsed = parseStructuredFollowUpAnswer([
+    '① 결론',
+    '현재 회사를 먼저 확인하는 편을 추천합니다.',
+    '',
+    '② 왜 그런가',
+    '역할을 넓힐 여지가 있습니다. 보상 개선 가능성도 확인할 수 있습니다. 다만 약속에는 기한이 필요합니다. 기한이 없으면 기다림이 길어질 수 있습니다.',
+    '',
+    '③ 지금 할 일 하나',
+    '오늘 면담을 요청하세요.',
+  ].join('\n'));
+
+  assert.equal(parsed?.reasons.length, 3);
+  assert.match(parsed?.reasons[2] ?? '', /기한이 없으면/);
+});
+
+test('일반 문단 답변은 구조화 답변으로 오인하지 않는다', () => {
+  assert.equal(parseStructuredFollowUpAnswer('일반적인 한 문단 답변입니다.'), null);
 });
 
 test('HTML처럼 보이는 입력도 실행 가능한 마크업으로 바꾸지 않는다', () => {

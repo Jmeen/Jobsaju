@@ -173,7 +173,41 @@ export function buildLocalFollowUpAnswer(
     ],
   };
 
-  const body = answers[intent]().filter(Boolean).join('\n\n');
-  const tail = '\n\n사주는 방향을 좁혀주는 참고 자료이고, 최종 판단은 확인한 조건과 감당 가능한 위험을 기준으로 내리시는 편이 좋습니다.';
-  return body + tail;
+  const actions: Record<FollowUpIntent, () => string> = {
+    industry: () => '오늘 관심 산업의 공고 세 개를 골라 현재 경험과 겹치는 요구 역량을 표시하세요.',
+    role: () => '오늘 목표 역할의 공고 하나를 골라 지금 경력으로 증명할 수 있는 성과 한 가지를 연결하세요.',
+    timing: () => movePeak
+      ? `오늘 ${monthLabel(movePeak)} 지원을 목표로 이력서와 포트폴리오 완성일을 정하세요.`
+      : '오늘 좋은 공고가 열리면 바로 지원할 수 있도록 이력서 완성일을 정하세요.',
+    offer: () => '오늘 채용 담당자에게 입사 후 90일 목표와 실제 결정 권한을 문서로 확인하세요.',
+    salary: () => '오늘 최근 성과 세 가지와 동종 직무의 보상 범위를 한 장에 정리하세요.',
+    wait: () => '오늘 리더에게 역할·보상 개선 조건과 확인 기한을 문서로 요청하세요.',
+    quit: () => '오늘 월 필수생활비와 현재 현금을 기준으로 버틸 수 있는 개월 수를 계산하세요.',
+    people: () => '오늘 가장 힘든 장면 하나를 역할 경계·평가·소통 중 어디의 문제인지 적어보세요.',
+    compare: () => '오늘 두 선택지를 보상·권한·성장·생활 리듬·리더의 같은 기준으로 한 장에 비교하세요.',
+    preparation: () => '오늘 목표 공고 하나에 맞춰 가장 가까운 성과 한 가지를 문제·행동·결과 순서로 다시 쓰세요.',
+    general: () => '오늘 역할·보상·리더·생활 리듬 중 이번 선택에서 포기할 수 없는 조건 하나를 정하세요.',
+  };
+
+  const answerParts = answers[intent]().filter(Boolean);
+  const openingSentences = answerParts[0]
+    .match(/[^.!?。]+[.!?。]?/g)
+    ?.map(sentence => sentence.trim())
+    .filter(Boolean) ?? [answerParts[0]];
+  const conclusion = openingSentences[0];
+  const reasons = [
+    openingSentences.slice(1).join(' '),
+    ...answerParts.slice(1),
+  ].filter(Boolean).slice(0, 3);
+
+  return [
+    '결론부터',
+    conclusion,
+    '',
+    '왜 그렇게 보는지',
+    ...reasons.map(reason => `- ${reason}`),
+    '',
+    '지금 할 일',
+    actions[intent](),
+  ].join('\n');
 }

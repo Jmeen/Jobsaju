@@ -260,13 +260,28 @@
 .jg-report .section-heading > span { color: var(--jg-muted); font-size: 11px; white-space: nowrap; }
 .jg-report .followup-thread { margin-bottom: 12px; }
 .jg-report .followup-q { margin: 0 0 6px; color: var(--jg-ink); font-size: 13px; font-weight: 600; }
-.jg-report .followup-a { padding: 12px 14px; border-radius: 12px; background: var(--jg-phone); }
+.jg-report .followup-a { padding: 14px; border: 1px solid var(--jg-line); border-radius: 14px; background: var(--jg-phone); }
 .jg-report .formatted-answer p { margin: 0 0 10px; color: var(--jg-ink); font-size: 13px; line-height: 1.65; }
 .jg-report .formatted-answer p:last-child, .jg-report .formatted-answer ul:last-child { margin-bottom: 0; }
 .jg-report .formatted-answer strong { color: var(--jg-green); font-weight: 600; }
 .jg-report .formatted-answer ul { margin: 4px 0; padding-left: 18px; }
 .jg-report .formatted-answer li { margin: 4px 0; color: var(--jg-ink); font-size: 13px; line-height: 1.55; }
 .jg-report .formatted-answer li::marker { color: var(--jg-green); }
+.jg-report .followup-answer-structured { display: grid; gap: 14px; }
+.jg-report .followup-answer-structured section { min-width: 0; }
+.jg-report .followup-answer-label {
+  display: block; margin-bottom: 6px; color: var(--jg-green); font-size: 11px; font-weight: 700; letter-spacing: -.01em;
+}
+.jg-report .followup-answer-structured p { margin: 0; font-size: 13px; line-height: 1.65; word-break: keep-all; }
+.jg-report .followup-answer-reasons { padding: 13px 14px; border-radius: 12px; background: color-mix(in srgb, var(--jg-guardian-soft) 54%, #fff); }
+.jg-report .followup-answer-reasons ul { display: grid; gap: 8px; margin: 0; padding-left: 18px; }
+.jg-report .followup-answer-reasons li { margin: 0; line-height: 1.6; word-break: keep-all; }
+.jg-report .followup-answer-action {
+  padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--jg-guardian-accent) 34%, var(--jg-line));
+  border-radius: 12px; background: color-mix(in srgb, var(--jg-guardian-soft) 72%, #fff);
+}
+.jg-report .followup-answer-action .followup-answer-label { color: var(--jg-guardian-accent); }
+.jg-report .followup-answer-action p { font-weight: 650; }
 .jg-report .followup-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .jg-report .followup-examples button {
   appearance: none; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--jg-line);

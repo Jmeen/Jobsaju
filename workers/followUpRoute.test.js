@@ -60,7 +60,10 @@ function modelOutput(overrides = {}) {
     question_analysis: { summary: '지원하기 좋은 구체적인 시점을 알고 싶다', primary_intent: 'timing', secondary_intents: [], answer_mode: 'timing', constraints: [] },
     answer_sections: {
       conclusion: '지금 바로 지원하기보다 목표 공고의 요구조건을 확인한 뒤 준비가 맞는 곳부터 먼저 지원하는 편을 추천합니다.',
-      reason: '원본 리포트에서는 현재 달을 조건을 정리하고 비교를 시작하는 구간으로 봅니다. 채용 일정만 보고 날짜를 정하기보다 지금까지의 성과와 목표 역할이 공고 요구조건에 얼마나 맞는지 확인해야 지원 시점을 현실적으로 고를 수 있습니다.',
+      reasons: [
+        '원본 리포트에서는 현재 달을 조건을 정리하고 비교를 시작하는 구간으로 봅니다.',
+        '채용 일정만 보고 날짜를 정하기보다 지금까지의 성과와 목표 역할이 공고 요구조건에 얼마나 맞는지 확인해야 지원 시점을 현실적으로 고를 수 있습니다.',
+      ],
       action: '오늘 목표 회사 공고 세 개를 골라 공통 요구조건과 부족한 근거를 한 장에 적어보세요.',
     },
     ...overrides,
@@ -185,6 +188,7 @@ test('허용 질문은 구조화 분석 계약과 사용자 커리어 정보를 
     assert.equal(body.question_analysis.primary_intent, 'industry');
     assert.match(systemText, /question_analysis/);
     assert.match(systemText, /질문을 먼저 정리/);
+    assert.match(systemText, /서로 겹치지 않는 근거를 정확히 2~3개/);
     assert.match(promptText, /서버 저장 7년차 IT 서비스 기획자/);
     assert.match(promptText, /서버 저장 핀테크 프로덕트 리더/);
     assert.match(promptText, /서버 원본 전략/);
@@ -209,7 +213,7 @@ test('허용 질문은 구조화 분석 계약과 사용자 커리어 정보를 
 test('잘못된 AI JSON은 질문권을 소진하지 않고 502를 반환한다', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({
-    candidates: [{ content: { parts: [{ text: JSON.stringify({ answer_sections: { conclusion: '짧음', reason: '짧음', action: '짧음' } }) }] } }],
+    candidates: [{ content: { parts: [{ text: JSON.stringify({ answer_sections: { conclusion: '짧음', reasons: ['짧음'], action: '짧음' } }) }] } }],
   }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   const kv = createKv();
 

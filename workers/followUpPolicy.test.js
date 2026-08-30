@@ -83,18 +83,22 @@ test('구조와 분량이 올바른 AI JSON만 통과시킨다', () => {
     },
     answer_sections: {
       conclusion: '현재 IT 경력을 바로 버리기보다 기존 경험이 통하는 인접 산업부터 먼저 검토하는 편을 추천합니다.',
-      reason: '서비스 기획 경험은 문제 정의와 이해관계자 조율이라는 이전 가능한 강점을 갖고 있습니다. 완전히 낯선 업종보다 이 강점을 설명할 수 있는 인접 산업에서 역할 범위와 채용 요건을 비교하면 선택 비용을 줄일 수 있습니다.',
+      reasons: [
+        '서비스 기획 경험은 문제 정의와 이해관계자 조율이라는 이전 가능한 강점을 갖고 있습니다.',
+        '완전히 낯선 업종보다 이 강점을 설명할 수 있는 인접 산업에서 역할 범위와 채용 요건을 비교하면 선택 비용을 줄일 수 있습니다.',
+      ],
       action: '오늘 핀테크와 B2B SaaS 공고를 각각 세 개씩 골라 공통 요구조건을 한 장에 적어보세요.',
     },
   };
 
   const parsed = parseFollowUpModelResponse(JSON.stringify(valid));
   assert.equal(parsed.question_analysis.primary_intent, 'industry');
-  assert.match(parsed.answer, /^① 결론/);
-  assert.match(parsed.answer, /② 왜 그런가/);
-  assert.match(parsed.answer, /③ 지금 할 일 하나/);
+  assert.match(parsed.answer, /^결론부터/);
+  assert.match(parsed.answer, /왜 그렇게 보는지\n- /);
+  assert.match(parsed.answer, /지금 할 일/);
+  assert.equal(parsed.answer_sections.reasons.length, 2);
   assert.equal(parseFollowUpModelResponse('{not json'), null);
-  assert.equal(parseFollowUpModelResponse(JSON.stringify({ ...valid, answer_sections: { ...valid.answer_sections, reason: '너무 짧음' } })), null);
+  assert.equal(parseFollowUpModelResponse(JSON.stringify({ ...valid, answer_sections: { ...valid.answer_sections, reasons: ['너무 짧음'] } })), null);
   assert.equal(parseFollowUpModelResponse(JSON.stringify({
     ...valid,
     answer_sections: { ...valid.answer_sections, conclusion: '이 질문의 답은 지금 사주의 큰 흐름 위에서 판단해야 합니다. 우선 기다리세요.' },
@@ -103,4 +107,24 @@ test('구조와 분량이 올바른 AI JSON만 통과시킨다', () => {
     ...valid,
     answer_sections: { ...valid.answer_sections, action: '공고를 찾으세요. 이력서도 고치세요.' },
   })), null, '지금 할 일은 한 문장 하나여야 한다');
+});
+
+test('이전 reason 문자열도 2~3개 근거로 정규화한다', () => {
+  const parsed = parseFollowUpModelResponse({
+    question_analysis: {
+      summary: '현재 회사에 남을 조건을 알고 싶다',
+      primary_intent: 'wait',
+      secondary_intents: [],
+      answer_mode: 'choice',
+      constraints: [],
+    },
+    answer_sections: {
+      conclusion: '조건 없이 옮기기보다 현재 회사의 역할 개선 가능성을 먼저 확인하는 편을 추천합니다.',
+      reason: '현재 회사에서 역할 범위를 넓힐 여지가 아직 남아 있습니다. 보상과 권한의 개선 시점을 문서로 확인하면 막연한 기다림을 피할 수 있습니다.',
+      action: '오늘 리더에게 역할과 보상 개선 조건을 확인하는 면담 일정을 요청하세요.',
+    },
+  });
+
+  assert.equal(parsed.answer_sections.reasons.length, 2);
+  assert.match(parsed.answer, /- 현재 회사에서/);
 });
