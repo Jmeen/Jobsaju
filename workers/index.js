@@ -17,6 +17,7 @@ import {
   revokeCoupon,
   upsertCoupon,
 } from './coupons.js';
+import { REPORT_PRICE_AMOUNT } from '../src/utils/pricing.ts';
 import {
   buildRepairInstruction,
   formatSeoulDate,
@@ -637,21 +638,21 @@ export default {
         let failureReason = null;
 
         let couponToRedeem = null;
-        let couponDiscountPercent = 0;
+        let couponDiscountAmount = 0;
         if (couponCode) {
           // 부분 할인 쿠폰은 우선 소비하지 않는다. PG 결제가 확인된 뒤에만 사용 횟수를 올린다.
           const result = await evaluateCoupon(env, couponCode);
           if (!result.ok) {
             failureReason = result.reason;
-          } else if (result.coupon.discountPercent === 100 && !paymentId) {
+          } else if (result.coupon.discountAmount >= REPORT_PRICE_AMOUNT && !paymentId) {
             couponToRedeem = result.code;
-            couponDiscountPercent = result.coupon.discountPercent ?? 100;
+            couponDiscountAmount = result.coupon.discountAmount;
             isPaymentValid = true;
           } else if (!paymentId) {
             failureReason = "할인 쿠폰은 결제를 완료한 뒤 적용됩니다.";
           } else {
             couponToRedeem = result.code;
-            couponDiscountPercent = result.coupon.discountPercent ?? 100;
+            couponDiscountAmount = result.coupon.discountAmount;
           }
         }
 
@@ -669,11 +670,8 @@ export default {
 
             if (portoneRes.ok) {
               const paymentData = await portoneRes.json();
-              // 금액 위변조 검증 — 쿠폰이 있으면 서버가 할인율로 계산한 금액만 허용한다.
-              const VALID_AMOUNTS = [6900, 8900];
-              const expectedAmounts = VALID_AMOUNTS.map((amount) =>
-                Math.round(amount * (100 - couponDiscountPercent) / 100),
-              );
+              // 금액 위변조 검증 — 쿠폰이 있으면 서버가 정액 할인으로 계산한 금액만 허용한다.
+              const expectedAmounts = [Math.max(0, REPORT_PRICE_AMOUNT - couponDiscountAmount)];
               if (paymentData.status === "PAID" && expectedAmounts.includes(paymentData.amount?.total)) {
                 isPaymentValid = true;
               }
@@ -762,7 +760,7 @@ export default {
           code: result.code,
           remainingUses,
           expiresAt: result.coupon.expiresAt,
-          discountPercent: result.coupon.discountPercent ?? 100,
+          discountAmount: result.coupon.discountAmount,
         }), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         });
@@ -812,7 +810,7 @@ export default {
           try {
             const coupon = await upsertCoupon(env, {
               code: body.code,
-              discountPercent: Number(body.discountPercent),
+              discountAmount: Number(body.discountAmount),
               maxUses: Number(body.maxUses),
               expiresAt: body.expiresAt || null,
               note: body.note || '',

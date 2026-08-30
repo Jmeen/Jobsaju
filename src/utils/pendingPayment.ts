@@ -8,7 +8,7 @@ export type PendingPayment = {
   paymentId: string;
   email: string;
   couponCode?: string;
-  discountPercent?: number;
+  discountAmount?: number;
   // 취소 후에는 결제 전 결과 화면을 즉시 그리기 위한 표시용 데이터다.
   // 해금·금액 판단에는 사용하지 않는다.
   sajuResult?: SajuCoreResult;
@@ -38,8 +38,8 @@ export function loadPendingPayment(): PendingPayment | null {
     if (typeof parsed?.paymentId !== 'string' || !parsed.paymentId) return null;
     if (typeof parsed?.email !== 'string' || !parsed.email) return null;
     if (parsed.couponCode !== undefined && typeof parsed.couponCode !== 'string') return null;
-    if (parsed.discountPercent !== undefined
-      && (!Number.isInteger(parsed.discountPercent) || parsed.discountPercent < 1 || parsed.discountPercent > 100)) return null;
+    if (parsed.discountAmount !== undefined
+      && (!Number.isInteger(parsed.discountAmount) || parsed.discountAmount < 1)) return null;
     if (parsed.sajuResult !== undefined && (typeof parsed.sajuResult !== 'object' || !parsed.sajuResult)) return null;
     return parsed;
   } catch {

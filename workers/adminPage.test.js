@@ -9,10 +9,10 @@ test('GET /admin/coupons는 인증 없이 뼈대 HTML을 내려준다(데이터�
   assert.equal(response.headers.get('X-Robots-Tag'), 'noindex');
 });
 
-test('쿠폰 발급 항목과 기존 쿠폰의 할인율 열을 명확하게 표기한다', async () => {
+test('쿠폰 발급 항목과 기존 쿠폰의 할인 금액 열을 명확하게 표기한다', async () => {
   const response = handleAdminPageRequest(new Request('https://job-saju.example/admin/coupons'));
   const html = await response.text();
-  for (const label of ['프로모 코드', '할인율', '최대 사용 횟수', '만료일', '관리자 메모', '100% = 무료']) {
+  for (const label of ['프로모 코드', '할인 금액', '최대 사용 횟수', '만료일', '관리자 메모', '12,900원 = 무료']) {
     assert.match(html, new RegExp(label));
   }
 });

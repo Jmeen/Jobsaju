@@ -7,13 +7,15 @@
  * - 코드마다 사용 횟수 상한·만료일을 둘 수 있다
  * - 재배포 없이 코드를 추가·회수할 수 있다 (관리자 API)
  *
- * 레코드 형태: { code, discountPercent(1-100), maxUses, usedCount, expiresAt(ISO|null), note, revoked, createdAt, updatedAt }
+ * 레코드 형태: { code, discountAmount(1-12900), maxUses, usedCount, expiresAt(ISO|null), note, revoked, createdAt, updatedAt }
  *
  * 주의: KV는 원자적 증가(atomic increment)를 지원하지 않는다. redeemCoupon은 읽고-쓰는 방식이라
  * 아주 짧은 시간에 같은 코드로 동시에 여러 명이 요청하면 usedCount가 maxUses를 한두 개 넘길 수
  * 있다. 지인 테스터용 소규모 쿠폰에는 문제없는 수준이지만, 대량 트래픽에 노출할 코드라면
  * Durable Object 등으로 바꿔야 한다.
  */
+
+import { REPORT_PRICE_AMOUNT } from '../src/utils/pricing.ts';
 
 const kvKey = (code) => `coupon:${code}`;
 
@@ -27,6 +29,20 @@ function isExpired(coupon) {
 
 function isExhausted(coupon) {
   return typeof coupon.maxUses === 'number' && coupon.usedCount >= coupon.maxUses;
+}
+
+function normalizeDiscountAmount(coupon) {
+  if (Number.isInteger(coupon.discountAmount)) {
+    return Math.min(REPORT_PRICE_AMOUNT, Math.max(1, coupon.discountAmount));
+  }
+  // 이미 발급된 퍼센트 쿠폰은 새 정가를 기준으로 정액 할인으로 한 번 환산한다.
+  // 새 쿠폰 발급·API 응답에는 discountAmount만 사용한다.
+  if (Number.isInteger(coupon.discountPercent)) {
+    return Math.min(REPORT_PRICE_AMOUNT, Math.max(1,
+      Math.round(REPORT_PRICE_AMOUNT * coupon.discountPercent / 100)));
+  }
+  // 할인 필드가 생기기 전의 쿠폰은 모두 무료 프로모션이었다.
+  return REPORT_PRICE_AMOUNT;
 }
 
 /** 쿠폰이 지금 시점에 사용 가능한지 판정만 한다(소비하지 않음) — UI에서 실시간 확인용. */
@@ -45,8 +61,7 @@ export async function evaluateCoupon(env, rawCode) {
     return { ok: false, code, reason: '유효하지 않거나 만료된 쿠폰 번호입니다.' };
   }
 
-  // 할인율 필드가 도입되기 전에 발급한 쿠폰은 모두 무료 쿠폰이었다.
-  if (!Number.isInteger(coupon.discountPercent)) coupon.discountPercent = 100;
+  coupon.discountAmount = normalizeDiscountAmount(coupon);
 
   if (coupon.revoked) return { ok: false, code, reason: '유효하지 않거나 만료된 쿠폰 번호입니다.' };
   if (isExpired(coupon)) return { ok: false, code, reason: '유효하지 않거나 만료된 쿠폰 번호입니다.' };
@@ -66,7 +81,7 @@ export async function redeemCoupon(env, rawCode) {
 }
 
 /** 관리자 API — 코드를 새로 만들거나(기존 코드면) 설정을 덮어쓴다. usedCount는 보존한다. */
-export async function upsertCoupon(env, { code, discountPercent, maxUses, expiresAt, note }) {
+export async function upsertCoupon(env, { code, discountAmount, maxUses, expiresAt, note }) {
   const normalized = normalizeCode(code);
   if (!normalized) throw new Error('코드가 필요합니다.');
 
@@ -75,10 +90,9 @@ export async function upsertCoupon(env, { code, discountPercent, maxUses, expire
 
   const record = {
     code: normalized,
-    // 이전에 만든 쿠폰은 무료 쿠폰이었다. discountPercent가 없으면 그 의미를 보존한다.
-    discountPercent: Number.isFinite(discountPercent)
-      ? Math.min(100, Math.max(1, Math.trunc(discountPercent)))
-      : (existing?.discountPercent ?? 100),
+    discountAmount: Number.isFinite(discountAmount)
+      ? Math.min(REPORT_PRICE_AMOUNT, Math.max(1, Math.trunc(discountAmount)))
+      : normalizeDiscountAmount(existing || {}),
     maxUses: Number.isFinite(maxUses) ? Math.max(0, Math.trunc(maxUses)) : (existing?.maxUses ?? 1),
     usedCount: existing?.usedCount ?? 0,
     expiresAt: expiresAt || existing?.expiresAt || null,
@@ -107,7 +121,9 @@ export async function listCoupons(env) {
   const listResult = await env.SAJU_KV.list({ prefix: 'coupon:' });
   const records = await Promise.all(listResult.keys.map(async (entry) => {
     const raw = await env.SAJU_KV.get(entry.name);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const coupon = JSON.parse(raw);
+    return { ...coupon, discountAmount: normalizeDiscountAmount(coupon) };
   }));
   return records.filter(Boolean);
 }

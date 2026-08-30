@@ -19,28 +19,28 @@ test('사용자용 결제 문구는 커리어 선택 리포트 표현을 사용�
 });
 
 test('쿠폰이 없으면 유료 가격과 포트원 결제 액션을 제공한다', () => {
-  assert.deepEqual(buildCheckoutPresentation(8900, null), {
+  assert.deepEqual(buildCheckoutPresentation(12900, null), {
     originalLabel: null,
-    finalLabel: '8,900원',
-    buttonLabel: '⚡ 리포트 결제하기 (8,900원)',
+    finalLabel: '12,900원',
+    buttonLabel: '⚡ 리포트 결제하기 (12,900원)',
     action: 'unlock',
   });
 });
 
-test('100% 쿠폰이 적용되면 현재 가격을 0원과 커리어 선택 리포트 액션으로 바꾼다', () => {
-  assert.deepEqual(buildCheckoutPresentation(8900, 100), {
-    originalLabel: '8,900원',
+test('정가 전체 금액 쿠폰이 적용되면 현재 가격을 0원과 커리어 선택 리포트 액션으로 바꾼다', () => {
+  assert.deepEqual(buildCheckoutPresentation(12900, 12900), {
+    originalLabel: '12,900원',
     finalLabel: '0원',
     buttonLabel: '🎉 0원으로 커리어 선택 리포트 보기',
     action: 'unlock',
   });
 });
 
-test('부분 할인 쿠폰은 할인율과 할인된 결제 금액을 보여준다', () => {
-  assert.deepEqual(buildCheckoutPresentation(8900, 30), {
-    originalLabel: '8,900원',
-    finalLabel: '6,230원',
-    buttonLabel: '⚡ 리포트 결제하기 (6,230원)',
+test('4,000원 할인 쿠폰은 할인액과 8,900원 결제 금액을 보여준다', () => {
+  assert.deepEqual(buildCheckoutPresentation(12900, 4000), {
+    originalLabel: '12,900원',
+    finalLabel: '8,900원',
+    buttonLabel: '⚡ 리포트 결제하기 (8,900원)',
     action: 'unlock',
   });
 });

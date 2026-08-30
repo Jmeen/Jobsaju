@@ -9,11 +9,11 @@ export const CHECKOUT_COPY = {
 
 export type CheckoutAction = 'unlock';
 
-export function buildCheckoutPresentation(priceAmount: number, discountPercent: number | null) {
+export function buildCheckoutPresentation(priceAmount: number, discountAmount: number | null) {
   const priceLabel = `${priceAmount.toLocaleString()}원`;
-  const hasCoupon = discountPercent !== null;
+  const hasCoupon = discountAmount !== null && discountAmount > 0;
   const finalAmount = hasCoupon
-    ? Math.round(priceAmount * (100 - discountPercent) / 100)
+    ? Math.max(0, priceAmount - discountAmount)
     : priceAmount;
   const finalLabel = `${finalAmount.toLocaleString()}원`;
 
@@ -21,7 +21,7 @@ export function buildCheckoutPresentation(priceAmount: number, discountPercent: 
     ? {
         originalLabel: priceLabel,
         finalLabel,
-        buttonLabel: discountPercent === 100
+        buttonLabel: finalAmount === 0
           ? CHECKOUT_COPY.freeButton
           : CHECKOUT_COPY.paymentButton(finalLabel),
         action: 'unlock' as const,

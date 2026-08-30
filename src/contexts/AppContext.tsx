@@ -67,7 +67,7 @@ function guardianIdFor(result: SajuCoreResult): string {
   return guardianIdFromPillar(result.pillars.day.ganHanja, result.pillars.day.zhiHanja);
 }
 
-// 리포트 가격은 utils/pricing.ts 의 A/B 변형이 결정한다 (?p=6900 / ?p=8900)
+// 리포트 가격은 utils/pricing.ts의 공개 정가로 고정한다.
 
 const AppFlowContext = createContext<any>(null);
 const AppReportContext = createContext<any>(null);
@@ -194,7 +194,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // === 쿠폰 시스템 상태 ===
   const couponDraftRef = useRef('');
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number } | null>(null);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isCouponChecking, setIsCouponChecking] = useState(false);
@@ -208,7 +208,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     )),
   );
 
-  // 가격 A/B — ?p=6900 / ?p=8900, 배정 후 고정 (기본 8,900원)
+  // 공개 정가는 12,900원으로 모든 유입에서 동일하다.
   const [price] = useState(() =>
     resolvePriceVariant(
       typeof window === 'undefined' ? '' : window.location.search,
@@ -217,7 +217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   // 매 렌더 새 객체를 만들면 checkoutState 메모가 늘 무효가 된다.
   const checkout = useMemo(
-    () => buildCheckoutPresentation(price.amount, appliedCoupon?.discountPercent ?? null),
+    () => buildCheckoutPresentation(price.amount, appliedCoupon?.discountAmount ?? null),
     [price.amount, appliedCoupon],
   );
 
@@ -443,8 +443,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       emailDraftRef.current = pending.email;
       couponDraftRef.current = pending.couponCode || '';
-      if (pending.couponCode && pending.discountPercent) {
-        setAppliedCoupon({ code: pending.couponCode, discountPercent: pending.discountPercent });
+      if (pending.couponCode && pending.discountAmount) {
+        setAppliedCoupon({ code: pending.couponCode, discountAmount: pending.discountAmount });
         setShowSecretCoupon(true);
       }
       restoreSavedSession('paywall', pending.sajuResult);
@@ -961,11 +961,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCouponError(data.error || '유효하지 않거나 만료된 쿠폰 번호입니다.');
         return;
       }
-      const discountPercent = typeof data.discountPercent === 'number' ? data.discountPercent : 100;
-      setAppliedCoupon({ code: raw, discountPercent });
-      setCouponMessage(discountPercent === 100
-        ? `🎉 100% 무료 프로모션 쿠폰(${raw})이 적용되었습니다!`
-        : `🎉 ${discountPercent}% 할인 쿠폰(${raw})이 적용되었습니다!`);
+      const discountAmount = typeof data.discountAmount === 'number' ? data.discountAmount : 0;
+      if (!Number.isInteger(discountAmount) || discountAmount < 1 || discountAmount > price.amount) {
+        setAppliedCoupon(null);
+        setCouponMessage(null);
+        setCouponError('쿠폰 할인 금액을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      setAppliedCoupon({ code: raw, discountAmount });
+      setCouponMessage(discountAmount >= price.amount
+        ? `🎉 전액 할인 쿠폰(${raw})이 적용되었습니다!`
+        : `🎉 ${discountAmount.toLocaleString()}원 할인 쿠폰(${raw})이 적용되었습니다!`);
     } catch {
       setAppliedCoupon(null);
       setCouponMessage(null);
@@ -993,10 +999,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 쿠폰 코드는 결제 수단일 뿐 리포트 ID가 아니다. 같은 쿠폰·같은 이메일로 다시
     // 구매해도 리포트별 추가 질문권과 다시보기 이력이 분리되도록 매번 새 토큰을 쓴다.
-    // 100% 쿠폰은 PG 거래 자체가 없으므로 빈 결제번호로 서버에 전달한다.
+    // 전액 할인 쿠폰은 PG 거래 자체가 없으므로 빈 결제번호로 서버에 전달한다.
     let paymentId = '';
 
-    if (appliedCoupon?.discountPercent !== 100) {
+    if (appliedCoupon?.discountAmount !== price.amount) {
       try {
         const { createPortOnePaymentId, isPortOneConfigured, requestPortOnePayment } = await import('../utils/portone');
         if (isPortOneConfigured()) {
@@ -1007,7 +1013,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             email: email.trim(),
             ...(appliedCoupon ? {
               couponCode: appliedCoupon.code,
-              discountPercent: appliedCoupon.discountPercent,
+              discountAmount: appliedCoupon.discountAmount,
             } : {}),
             sajuResult: sajuResult ?? undefined,
           });
@@ -1018,7 +1024,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const paymentRes = await requestPortOnePayment({
             paymentId: requestedPaymentId,
             orderName: '잡사주 유료 리포트',
-            totalAmount: appliedCoupon ? Math.round(price.amount * (100 - appliedCoupon.discountPercent) / 100) : price.amount,
+            totalAmount: appliedCoupon ? Math.max(0, price.amount - appliedCoupon.discountAmount) : price.amount,
             currency: 'KRW',
             payMethod: 'CARD',
             customerEmail: email.trim(),

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolvePriceVariant, PRICE_VARIANTS } from './pricing.ts';
+import { REPORT_PRICE_AMOUNT, resolvePriceVariant } from './pricing.ts';
 import { validateFollowUpQuestion, buildLocalFollowUpAnswer, classifyFollowUp, FOLLOW_UP_MAX_LENGTH } from './followUp.ts';
 import { getSajuAnalysis } from './sajuCore.ts';
 
@@ -12,21 +12,15 @@ function fakeStorage(): Storage {
   } as unknown as Storage;
 }
 
-test('가격은 기본 8,900원이고 URL 파라미터로 6,900원을 열 수 있다', () => {
+test('가격은 유입 경로와 관계없이 12,900원 정가로 고정된다', () => {
   const s1 = fakeStorage();
   const natural = resolvePriceVariant('', s1);
-  assert.equal(natural.amount, 8900);
-  assert.equal(natural.label, '8,900원');
+  assert.equal(natural.amount, 12900);
+  assert.equal(natural.label, '12,900원');
+  assert.equal(natural.amount, REPORT_PRICE_AMOUNT);
 
-  const s2 = fakeStorage();
-  const low = resolvePriceVariant('?p=6900', s2);
-  assert.equal(low.amount, 6900);
-  // 배정 후에는 파라미터가 없어도 같은 가격이 유지된다
-  assert.equal(resolvePriceVariant('', s2).amount, 6900);
-
-  // 임의의 금액은 무시하고 기본가로 처리한다
-  const s3 = fakeStorage();
-  assert.equal(resolvePriceVariant('?p=100', s3).amount, PRICE_VARIANTS.high);
+  assert.equal(resolvePriceVariant('?p=6900', fakeStorage()).amount, REPORT_PRICE_AMOUNT);
+  assert.equal(resolvePriceVariant('?p=8900', fakeStorage()).amount, REPORT_PRICE_AMOUNT);
 });
 
 test('추가 질문은 길이를 검증한다', () => {

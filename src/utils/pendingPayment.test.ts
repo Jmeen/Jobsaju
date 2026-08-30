@@ -14,8 +14,8 @@ function installStore() {
 beforeEach(() => { installStore(); });
 
 test('모바일 결제 리디렉션에 필요한 결제 문맥을 탭 세션에 보관한다', () => {
-  savePendingPayment({ paymentId: 'p-123', email: 'user@example.com', couponCode: 'SALE30', discountPercent: 30 });
-  assert.deepEqual(loadPendingPayment(), { paymentId: 'p-123', email: 'user@example.com', couponCode: 'SALE30', discountPercent: 30 });
+  savePendingPayment({ paymentId: 'p-123', email: 'user@example.com', couponCode: 'SALE4000', discountAmount: 4000 });
+  assert.deepEqual(loadPendingPayment(), { paymentId: 'p-123', email: 'user@example.com', couponCode: 'SALE4000', discountAmount: 4000 });
   clearPendingPayment();
   assert.equal(loadPendingPayment(), null);
 });

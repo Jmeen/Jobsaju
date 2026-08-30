@@ -69,7 +69,7 @@ export function handleAdminPageRequest(request) {
     <label>새 쿠폰 발급</label>
     <div class="row" style="margin-bottom:10px; align-items:flex-end;">
       <div><label class="field-label" for="newCode">프로모 코드</label><input id="newCode" placeholder="예: FRIEND-KIM" /></div>
-      <div style="max-width:120px;"><label class="field-label" for="newDiscountPercent">할인율</label><input id="newDiscountPercent" type="number" min="1" max="100" value="100" placeholder="예: 30" /><div class="field-help">100% = 무료</div></div>
+      <div style="max-width:120px;"><label class="field-label" for="newDiscountAmount">할인 금액</label><input id="newDiscountAmount" type="number" min="1" max="12900" value="4000" placeholder="예: 4000" /><div class="field-help">12,900원 = 무료</div></div>
       <div style="max-width:120px;"><label class="field-label" for="newMaxUses">최대 사용 횟수</label><input id="newMaxUses" type="number" min="1" value="1" /></div>
       <div style="max-width:180px;"><label class="field-label" for="newExpiresAt">만료일</label><input id="newExpiresAt" type="date" /><div class="field-help">비워두면 제한 없음</div></div>
       <div style="flex:2;"><label class="field-label" for="newNote">관리자 메모</label><input id="newNote" placeholder="예: 김OO 테스터" /></div>
@@ -86,7 +86,7 @@ export function handleAdminPageRequest(request) {
       <table>
         <thead>
           <tr>
-            <th>프로모 코드</th><th>할인율</th><th>상태</th><th>사용</th><th>만료일</th><th>관리자 메모</th><th>생성일</th><th></th>
+            <th>프로모 코드</th><th>할인 금액</th><th>상태</th><th>사용</th><th>만료일</th><th>관리자 메모</th><th>생성일</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody"><tr><td colspan="8" class="muted">관리자 키를 입력하고 "불러오기"를 눌러주세요.</td></tr></tbody>
@@ -146,7 +146,7 @@ async function loadCoupons() {
       tbody.innerHTML = coupons.map(c => \`
         <tr>
           <td><strong>\${escapeHtml(c.code)}</strong></td>
-          <td><strong>\${Number.isFinite(c.discountPercent) ? c.discountPercent : 100}%</strong></td>
+          <td><strong>\${Number.isFinite(c.discountAmount) ? c.discountAmount.toLocaleString() : '12,900'}원</strong></td>
           <td>\${statusBadge(c)}</td>
           <td>\${c.usedCount} / \${c.maxUses}</td>
           <td>\${c.expiresAt ? escapeHtml(c.expiresAt.slice(0, 10)) : '<span class="muted">없음</span>'}</td>
@@ -162,25 +162,25 @@ async function loadCoupons() {
 }
 async function createCoupon() {
   const code = document.getElementById('newCode').value.trim();
-  const discountPercent = Number(document.getElementById('newDiscountPercent').value);
+  const discountAmount = Number(document.getElementById('newDiscountAmount').value);
   const maxUses = Number(document.getElementById('newMaxUses').value) || 1;
   const expiresAtRaw = document.getElementById('newExpiresAt').value;
   const note = document.getElementById('newNote').value.trim();
   if (!code) { setStatus('발급할 코드를 입력해 주세요.', true); return; }
-  if (!Number.isInteger(discountPercent) || discountPercent < 1 || discountPercent > 100) { setStatus('할인율은 1~100 사이의 정수로 입력해 주세요.', true); return; }
+  if (!Number.isInteger(discountAmount) || discountAmount < 1 || discountAmount > 12900) { setStatus('할인 금액은 1~12,900원 사이의 정수로 입력해 주세요.', true); return; }
   setStatus('발급 중...');
   try {
     await authedFetch('/api/admin/coupons', {
       method: 'POST',
       // 날짜만 고르면 "그 날짜 자정(UTC)"으로 저장돼 한국 시간 기준 당일 오전 9시에 이미 만료돼버린다.
       // "이 날짜까지는 쓸 수 있게" 하려는 의도이므로 그날 23:59:59(KST)까지로 저장한다.
-      body: JSON.stringify({ code, discountPercent, maxUses, note, expiresAt: expiresAtRaw ? new Date(expiresAtRaw + 'T23:59:59+09:00').toISOString() : null }),
+      body: JSON.stringify({ code, discountAmount, maxUses, note, expiresAt: expiresAtRaw ? new Date(expiresAtRaw + 'T23:59:59+09:00').toISOString() : null }),
     });
     document.getElementById('newCode').value = '';
     document.getElementById('newNote').value = '';
     document.getElementById('newExpiresAt').value = '';
     document.getElementById('newMaxUses').value = '1';
-    document.getElementById('newDiscountPercent').value = '100';
+    document.getElementById('newDiscountAmount').value = '4000';
     await loadCoupons();
   } catch (err) {
     setStatus(err.message, true);
