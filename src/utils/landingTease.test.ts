@@ -28,6 +28,20 @@ test('카피가 순번대로 맞는 수호신에 붙어 있다', () => {
   });
 });
 
+test('확정한 랜딩 축약 문구가 해당 수호신에 붙는다', () => {
+  const fixtures = [
+    ['저지르쥐', '기회부터 잡고 씨앗은 다 흘림'],
+    ['보고또보고뱀', '확인 끝났는데 한 번만 더'],
+    ['스리슬쩍뱀', '스리슬쩍 숨었다 아무도 못 찾음'],
+    ['잎하나토끼', '잎 하나 시들어도 하루 종일 신경'],
+    ['쉬어야돼지', '칼퇴 지키려다 내가 먼저 방전'],
+  ] as const;
+
+  for (const [nickname, copy] of fixtures) {
+    assert.equal(LANDING_TEASES.find(tease => tease.guardian.nickname === nickname)?.copy, copy);
+  }
+});
+
 test('랜딩 카피는 한눈에 읽히는 길이여야 한다', () => {
   // 캐러셀이 1.8초마다 넘어간다. 이보다 길면 다 못 읽고 넘어가 아무것도 남지 않는다.
   for (const { guardian, copy } of LANDING_TEASES) {
