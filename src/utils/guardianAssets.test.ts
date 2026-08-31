@@ -72,7 +72,7 @@ test('이미지 로드 실패 시 기존 수호신 이모지를 보여줄 data U
 test('60종 전체가 고유한 별명과 카피를 갖는다', () => {
   assert.equal(getGuardianAsset('甲寅').nickname, '새싹호랑이');   // 51
   assert.equal(getGuardianAsset('甲子').nickname, '저지르쥐');     // 1
-  assert.equal(getGuardianAsset('乙卯').nickname, '예민보스토끼'); // 52
+  assert.equal(getGuardianAsset('乙卯').nickname, '잎하나토끼');   // 52
   assert.equal(getGuardianAsset('戊寅').nickname, '허당호랑이');   // 15
   assert.equal(getGuardianAsset('乙丑').nickname, '조금늦소');     // 2
 
@@ -81,6 +81,23 @@ test('60종 전체가 고유한 별명과 카피를 갖는다', () => {
   assert.equal(new Set(assets.map(a => a.copy)).size, GUARDIAN_TOTAL, '카피가 겹친다');
   for (const asset of assets) {
     assert.ok(asset.nickname && asset.copy && asset.ganzhiKo && asset.animalEmoji);
+  }
+});
+
+test('확정한 수호신 이름과 한 줄 설명은 해당 60갑자에 붙는다', () => {
+  const fixtures = [
+    ['甲子', '저지르쥐', '기회는 남들보다 먼저 잡는데, 신나게 뛰어가다 씨앗을 다 흘리고 온다.'],
+    ['己巳', '보고또보고뱀', '확인했고 또 확인했는데, 그래도 혹시 몰라 한 번 더 들여다본다.'],
+    ['己丑', '조금만더해소', '쉴 시간이 됐는데도 “딱 이것만 하고”를 벌써 세 번째 말하고 있다.'],
+    ['癸巳', '스리슬쩍뱀', '복잡한 상황에서 스리슬쩍 빠져나오는 건 천재급인데, 너무 잘 숨어서 아무도 못 찾을 때가 있다.'],
+    ['乙卯', '잎하나토끼', '작은 가능성도 정성껏 키우는데, 잎 하나만 시들어도 하루 종일 마음에 걸린다.'],
+    ['癸亥', '쉬어야돼지', '주인의 칼퇴를 지켜주려 마법까지 쓰지만, 한 번에 힘을 다 써 자기가 먼저 방전된다.'],
+  ] as const;
+
+  for (const [id, nickname, copy] of fixtures) {
+    const asset = getGuardianAsset(id);
+    assert.equal(asset.nickname, nickname);
+    assert.equal(asset.copy, copy);
   }
 });
 
