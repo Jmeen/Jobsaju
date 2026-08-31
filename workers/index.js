@@ -485,10 +485,26 @@ export default {
 
     // --- 프론트엔드가 카카오 웹훅 도착 여부를 짧은 간격으로 확인하는 폴링 API ---
     if (request.method === "POST" && new URL(request.url).pathname === "/api/share-bonus/status") {
-      const { unlock_token: unlockToken } = await request.json().catch(() => ({}));
+      const { unlock_token: unlockToken, share_id: shareId } = await request.json().catch(() => ({}));
       let granted = false;
       if (env.SAJU_KV && unlockToken) {
         granted = Boolean(await env.SAJU_KV.get(`share-bonus:${unlockToken}`));
+      }
+      // 브라우저의 share-auth KV 쓰기와 카카오 웹훅 읽기가 서로 다른 엣지에서 연달아 일어나면
+      // KV 전파 전에 웹훅이 도착할 수 있다. 이때도 웹훅이 D1에 남긴 confirmed 이벤트를 유료 토큰과
+      // 함께 다시 확인해 보상을 복구한다. 임의 share_id를 써도 유효한 결제 토큰당 보상은 1회뿐이다.
+      if (!granted && env.SAJU_KV && env.DB && UUID_V4_PATTERN.test(String(shareId || ''))
+        && await verifyUnlockToken(env, unlockToken)) {
+        const confirmed = await env.DB.prepare(`
+          SELECT 1 AS confirmed
+          FROM guardian_analytics_events
+          WHERE share_id = ? AND event_name = 'guardian_share_confirmed'
+          LIMIT 1
+        `).bind(shareId).first();
+        if (confirmed) {
+          await env.SAJU_KV.put(`share-bonus:${unlockToken}`, new Date().toISOString());
+          granted = true;
+        }
       }
       return new Response(JSON.stringify({ granted }), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -835,8 +851,34 @@ export default {
 
       // --- [경로 2-1] 공유 완료 후 보너스 질문권 등록 ---
       if (url.pathname === "/api/share-bonus") {
-        return new Response(JSON.stringify({ error: "공유 보너스는 카카오 공유 완료 후에만 지급됩니다." }), {
+        return new Response(JSON.stringify({ error: "공유 보너스는 카카오 확인 또는 링크 복사 전용 경로에서만 지급됩니다." }), {
           status: 403,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      // --- [경로 2-1a] 결제 사용자의 링크 복사 보상 ---
+      // 클립보드 성공은 브라우저에서만 알 수 있으므로 이 전용 경로는 유효한 유료 토큰 자체를 자격으로 본다.
+      // 같은 토큰의 같은 KV 키를 덮어쓰는 방식이라 여러 번 눌러도 추가 질문은 최대 1회뿐이다.
+      if (url.pathname === "/api/share-bonus/copy") {
+        const { unlock_token } = await request.json().catch(() => ({}));
+        if (!(await verifyUnlockToken(env, unlock_token))) {
+          return new Response(JSON.stringify({ error: "해금 토큰이 유효하지 않습니다." }), {
+            status: 403,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          });
+        }
+        if (!env.SAJU_KV) {
+          return new Response(JSON.stringify({ error: "공유 보상 저장소를 사용할 수 없습니다." }), {
+            status: 503,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          });
+        }
+        const bonusKey = `share-bonus:${unlock_token}`;
+        if (!(await env.SAJU_KV.get(bonusKey))) {
+          await env.SAJU_KV.put(bonusKey, new Date().toISOString());
+        }
+        return new Response(JSON.stringify({ status: "success" }), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         });
       }

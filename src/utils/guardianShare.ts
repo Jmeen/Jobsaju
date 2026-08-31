@@ -104,14 +104,8 @@ export type PaidShareTiming = {
 } | null;
 
 /**
- * 유료 리포트용 공유 메시지. 카카오 템플릿 136466의 두 텍스트 슬롯에 넣는다.
- *
- * 무료는 "너의 수호신은 누구일까?"로 캐릭터 호기심을 판다. 유료는 결제한 값 중 핵심 둘만 티저로 노출한다:
- * - SHARE_TITLE(title):    지금 무엇이 가장 유리한가 — 추천 선택 + 점수
- * - SHARE_QUESTION(question): 언제가 가장 좋은가 — 대표 기회 시기 + 운 점수 + 친구 대상 질문
- *
- * 추천 선택·점수는 유료 리포트 UI가 쓰는 것과 같은 값(buildTopScore ← sajuResult.scores)이다. 새로 계산하지 않는다.
- * 대표 시기는 best_job_change → best_negotiation 순으로 고르고, caution_month는 쓰지 않는다.
+ * 유료 리포트용 공유 메시지. 유료 결과의 점수·추천 시기·전략은 사적인 커리어 정보이므로
+ * 템플릿에 넣지 않고, 무료 공유와 같은 수호신 캐릭터 정보만 공개한다.
  */
 export function buildPaidReportShareMessage(
   guardian: GuardianAsset,
@@ -141,7 +135,7 @@ export type GuardianTemplateArgsInput = {
  */
 export function buildGuardianTemplateArgs(
   { guardian, imageUrl, shareUrl, shareQuery, shareSessionId }: GuardianTemplateArgsInput,
-  // 유료 리포트는 결제한 값(점수·타이밍)이 담긴 별도 메시지를 넘긴다. 없으면 무료 기본 문구를 쓴다.
+  // 유료 리포트도 공개 가능한 수호신 메시지만 넘긴다. 없으면 무료 기본 문구를 쓴다.
   message: GuardianShareMessage = buildGuardianShareMessage(guardian),
 ): Record<string, string> {
   return {

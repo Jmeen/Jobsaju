@@ -279,3 +279,28 @@ test('공유 보너스 상태 조회는 웹훅 도착 후 granted:true를 반환
   assert.equal(response.status, 200);
   assert.equal(data.granted, true);
 });
+
+test('share-auth KV 전파를 놓쳐도 D1의 카카오 confirmed 이벤트로 보상을 복구한다', async () => {
+  const kv = createKv();
+  const db = {
+    prepare(sql) {
+      assert.match(sql, /guardian_share_confirmed/);
+      return {
+        bind(shareId) {
+          assert.equal(shareId, SHARE_ID);
+          return { first: async () => ({ confirmed: 1 }) };
+        },
+      };
+    },
+  };
+  const response = await worker.fetch(new Request('https://example.com/api/share-bonus/status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ unlock_token: token, share_id: SHARE_ID }),
+  }), { SAJU_KV: kv, DB: db });
+
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.granted, true);
+  assert.ok(kv.writes.some(write => write[0] === `share-bonus:${token}`));
+});

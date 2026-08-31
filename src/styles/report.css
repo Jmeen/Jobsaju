@@ -14,6 +14,14 @@
   text-align: left;
 }
 
+@media (min-width: 768px) {
+  .jg-report {
+    width: min(100%, 560px);
+    padding-right: 28px;
+    padding-left: 28px;
+  }
+}
+
 /* 공통 카드 */
 .jg-report .jg-card {
   padding: 16px;

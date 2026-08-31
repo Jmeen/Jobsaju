@@ -45,6 +45,7 @@ import type { PaidSession } from '../utils/paidSession';
 import { getGuardianAsset, guardianIdFromPillar } from '../utils/guardianAssets';
 import type { GuardianConcernType } from '../utils/guardianConcern';
 import { buildShareHook, earnsBonusQuestion } from '../utils/shareIncentive';
+import { grantCopyShareBonus } from '../utils/shareBonus';
 import { buildCheckoutPresentation } from '../utils/checkoutPresentation';
 import {
   createResultSessionId,
@@ -1394,12 +1395,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         utmSource,
       };
       // 접근 토큰은 카카오에 전달하지 않는다. 서버만 share_id와 짧게 연결해 웹훅 도착 시 보너스를 준다.
+      let bonusBindingReady = true;
       if (isUnlocked) {
-        await fetch('/api/share-bonus/bind', {
+        const bindResponse = await fetch('/api/share-bonus/bind', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ unlock_token: unlockToken, share_id: ids.shareId }),
         });
+        bonusBindingReady = bindResponse.ok;
       }
       await sendGuardianKakaoShare({
         kakaoKey: import.meta.env.VITE_KAKAO_JS_KEY || '',
@@ -1424,7 +1427,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       trackGuardianShare('guardian_share_sheet_opened', ids, guardianId, 'kakao', utmSource);
       // 공유 보너스(추가 질문)는 결제한 사람에게만 있는 혜택이라, 해금된 경우에만 확인한다.
-      if (isUnlocked && !shareBonusGranted) pollShareBonusStatus(unlockToken);
+      if (isUnlocked && !shareBonusGranted && bonusBindingReady) pollShareBonusStatus(unlockToken, ids.shareId);
+      if (isUnlocked && !shareBonusGranted && !bonusBindingReady) {
+        return { ok: false, message: '공유는 열었지만 추가 질문 확인을 연결하지 못했어요. “링크 복사”를 누르면 바로 열 수 있어요.' };
+      }
       return { ok: true, message: null };
     } catch {
       // 카카오 SDK 실패·카카오톡 미설치가 결과 화면 전체를 깨뜨리면 안 된다. 링크 복사로 안내한다.
@@ -1439,7 +1445,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     templateId: import.meta.env.VITE_KAKAO_GUARDIAN_TEMPLATE_ID || '',
   });
 
-  // 유료 리포트: 별도 리포트 템플릿(136466) + 결제한 값(선택 1순위 점수·대표 시기)을 얹은 유료 전용 문구.
+  // 유료 리포트: 별도 리포트 템플릿을 쓰되 점수·추천 시기·전략은 숨기고 수호신 정보만 공유한다.
   // utm_source=report_share, share_type=paid_report로 분석·웹훅에서 무료와 갈라 집계한다.
   const handlePaidReportShare = (): Promise<GuardianShareFeedback> => {
     if (!sajuResult || !guardian) return Promise.resolve({ ok: false, message: null });
@@ -1471,12 +1477,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 복사에 성공했을 때만 집계한다 — 클립보드가 막힌 환경의 실패까지 공유로 세면 K가 부풀려진다.
     trackGuardianShare('guardian_share_link_copy', ids, guardianId, 'copy');
+    if (isUnlocked && !shareBonusGranted) {
+      if (!(await grantCopyShareBonus(unlockToken))) {
+        return { ok: false, message: '링크는 복사했지만 추가 질문을 열지 못했어요. 잠시 후 다시 눌러 주세요.' };
+      }
+      setShareBonusGranted(true);
+      return { ok: true, message: '링크를 복사했고, 추가 질문 1회가 열렸어요!' };
+    }
     return { ok: true, message: '링크를 복사했어요!' };
   };
 
   // 카카오톡 공유는 사용자가 채팅방을 골라 실제로 "보내기"를 눌러야 카카오 서버가 웹훅을 보낸다.
   // 그 전까진 보너스를 줄 수 없으므로, 도착할 때까지 백그라운드에서 짧은 간격으로 확인한다.
-  const pollShareBonusStatus = (token: string) => {
+  const pollShareBonusStatus = (token: string, shareId: string) => {
     if (shareBonusPollTimerRef.current) return; // 이미 확인 중이면 중복 시작하지 않는다
     setIsShareConfirming(true);
     let attempts = 0;
@@ -1494,7 +1507,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch('/api/share-bonus/status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ unlock_token: token }),
+          body: JSON.stringify({ unlock_token: token, share_id: shareId }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -1564,7 +1577,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           shareId: shareAnalyticsIds.shareId, guardianId, shareChannel: 'kakao',
         });
         // 카카오톡 공유는 실제 "보내기" 완료를 카카오 웹훅으로 확인한 뒤에만 보너스를 준다(클릭만으로는 신뢰하지 않는다).
-        if (!shareBonusGranted) pollShareBonusStatus(unlockToken);
+        if (!shareBonusGranted) pollShareBonusStatus(unlockToken, shareAnalyticsIds.shareId);
       } else if (result === 'link' || result === 'file') {
         void trackGuardianEvent({
           eventId: crypto.randomUUID(), eventName: 'guardian_share_sheet_opened', occurredAt: new Date().toISOString(),

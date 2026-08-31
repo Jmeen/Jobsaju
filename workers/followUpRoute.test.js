@@ -70,7 +70,7 @@ function modelOutput(overrides = {}) {
   };
 }
 
-test('브라우저가 직접 공유 보너스를 등록할 수 없고, 공유 ID 연결만 요청할 수 있다', async () => {
+test('일반 직접 등록은 막고, 유료 토큰의 링크 복사 보상과 공유 ID 연결만 허용한다', async () => {
   const kv = createKv();
   const response = await worker.fetch(new Request('https://example.com/api/share-bonus', {
     method: 'POST',
@@ -79,12 +79,33 @@ test('브라우저가 직접 공유 보너스를 등록할 수 없고, 공유 ID
   }), { SAJU_KV: kv });
 
   assert.equal(response.status, 403);
+
+  const copyResponse = await worker.fetch(new Request('https://example.com/api/share-bonus/copy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ unlock_token: token }),
+  }), { SAJU_KV: kv });
+  assert.equal(copyResponse.status, 200);
+  assert.ok(kv.writes.some(write => write[0] === `share-bonus:${token}`));
+
   const bindResponse = await worker.fetch(new Request('https://example.com/api/share-bonus/bind', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ unlock_token: token, share_id: '11111111-1111-4111-8111-111111111111' }),
   }), { SAJU_KV: kv });
   assert.equal(bindResponse.status, 200);
   assert.ok(kv.writes.some(write => write[0] === 'share-auth:11111111-1111-4111-8111-111111111111'));
+});
+
+test('결제하지 않은 토큰은 링크 복사 보상을 만들 수 없다', async () => {
+  const kv = createKv();
+  const response = await worker.fetch(new Request('https://example.com/api/share-bonus/copy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ unlock_token: 'not-paid-token-1234567890' }),
+  }), { SAJU_KV: kv });
+
+  assert.equal(response.status, 403);
+  assert.equal(kv.writes.some(write => write[0].startsWith('share-bonus:')), false);
 });
 
 test('공유 보너스가 있으면 두 번째 질문을 허용하고 세 번째는 거부한다', async () => {

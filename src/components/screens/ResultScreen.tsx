@@ -112,6 +112,7 @@ function WorkEnvironmentSections({ sajuResult, guardian, guardianDetail }: any) 
 export function ResultScreen() {
   const [followUpInput, setFollowUpInput] = useState('');
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
+  const [shareError, setShareError] = useState<string | null>(null);
   const {
     sajuResult,
     aiReport,
@@ -457,9 +458,32 @@ export function ResultScreen() {
                 ? '카카오톡에서 실제로 보내기를 누르면 자동으로 확인돼요. 잠시만 기다려 주세요.'
                 : '결과를 친구에게 공유하면 추가 질문 1회가 열립니다.'}
             </p>
-            <button className="jg-btn" onClick={() => void handlePaidReportShare()} disabled={isShareLoading || isShareConfirming}>
+            <button
+              className="jg-btn"
+              onClick={() => {
+                setShareError(null);
+                void handlePaidReportShare().then((feedback: { ok: boolean; message: string | null }) => {
+                  if (!feedback.ok && feedback.message) setShareError(feedback.message);
+                });
+              }}
+              disabled={isShareLoading || isShareConfirming}
+            >
               {isShareConfirming ? '카카오톡 전송 확인 중...' : isShareLoading ? '공유 카드 준비 중...' : '친구에게 공유하고 한 번 더 물어보기'}
             </button>
+            <button
+              className="jg-text-link"
+              type="button"
+              disabled={isShareLoading}
+              onClick={() => {
+                setShareError(null);
+                void handleGuardianLinkCopy().then((feedback: { ok: boolean; message: string | null }) => {
+                  if (!feedback.ok && feedback.message) setShareError(feedback.message);
+                });
+              }}
+            >
+              카카오톡 대신 링크 복사로 바로 열기
+            </button>
+            {shareError && <p className="jg-toast is-error" role="status">{shareError}</p>}
           </>
         ) : (
           <p className="followup-hint">추가 질문 2회를 모두 사용했습니다.</p>
