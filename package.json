@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run seo:generate && tsc -b && vite build",
     "lint": "oxlint src workers",
     "test": "node --test src/**/*.test.ts workers/*.test.js",
     "check": "npm run test && npm run lint && npm run build",
     "eval:personalization": "node --test src/evals/personalizationCases.test.ts src/evals/personalizationScorer.test.ts && node src/evals/runPersonalizationEval.ts",
     "eval:personalization:heldout": "node src/evals/runPersonalizationEval.ts held-out",
     "preview": "vite preview",
-    "assets:guardians": "node scripts/build-guardian-assets.cjs"
+    "assets:guardians": "node scripts/build-guardian-assets.cjs",
+    "seo:generate": "node scripts/generate-seo-pages.mjs"
   },
   "dependencies": {
     "@fullstackfamily/manseryeok": "latest",

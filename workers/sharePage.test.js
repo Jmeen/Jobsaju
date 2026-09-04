@@ -66,7 +66,9 @@ test('생성된 공유 페이지는 og 태그에 개인화된 이미지·제목�
   const pageResponse = await handleSharePageRequest(new Request(shareUrl), { SAJU_KV: kv });
   assert.equal(pageResponse.status, 200);
   assert.equal(pageResponse.headers.get('Content-Type'), 'text/html; charset=utf-8');
+  assert.equal(pageResponse.headers.get('X-Robots-Tag'), 'noindex, nofollow, noarchive');
   const html = await pageResponse.text();
+  assert.match(html, /<meta name="robots" content="noindex, nofollow, noarchive" \/>/);
   assert.match(html, /<meta property="og:image" content="https:\/\/job-saju\.example\/api\/share-card\/123e4567-e89b-42d3-a456-426614174000\.png" \/>/);
   assert.match(html, /<meta property="og:title" content="나는 잔류형이래" \/>/);
   assert.match(html, /<meta property="og:description" content="지금은 협상 카드를 먼저 쓸 시점입니다\." \/>/);

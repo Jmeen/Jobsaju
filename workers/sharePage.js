@@ -36,6 +36,7 @@ function renderSharePageHtml({ title, description, imageUrl, pageUrl, appUrl }) 
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow, noarchive" />
 <title>${safeTitle}</title>
 <meta name="description" content="${safeDescription}" />
 <meta property="og:type" content="website" />
@@ -114,7 +115,7 @@ export async function handleSharePageRequest(request, env) {
       pageUrl: url.href,
       appUrl,
     });
-    return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+    return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300', 'X-Robots-Tag': 'noindex, nofollow, noarchive' } });
   }
 
   return null;

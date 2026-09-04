@@ -11,7 +11,7 @@ export async function handleShareCardRequest(request, env) {
     if (!env.SHARE_CARDS) return json({ error: '공유 이미지 저장소가 설정되지 않았습니다.' }, 503);
     const object = await env.SHARE_CARDS.get(`share-cards/${match[1]}.png`);
     if (!object) return json({ error: '이미지를 찾을 수 없습니다.' }, 404);
-    return new Response(object.body, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' } });
+    return new Response(object.body, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag': 'noindex, noarchive' } });
   }
   if (url.pathname !== '/api/share-card' || request.method !== 'POST') return null;
   if (!env.SHARE_CARDS) return json({ error: '공유 이미지 저장소가 설정되지 않았습니다.' }, 503);

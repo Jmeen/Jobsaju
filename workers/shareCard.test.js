@@ -30,4 +30,5 @@ test('R2 이미지를 올바른 보안·캐시 헤더로 응답한다', async ()
   assert.equal(response.headers.get('Content-Type'), 'image/png');
   assert.equal(response.headers.get('Cache-Control'), 'public, max-age=86400');
   assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(response.headers.get('X-Robots-Tag'), 'noindex, noarchive');
 });

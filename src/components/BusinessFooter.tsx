@@ -20,6 +20,8 @@ export function BusinessFooter() {
           고객지원: <a href="tel:05067721131">050-6772-1131</a> <span aria-hidden="true">·</span> <a href="mailto:admin@jobsaju.kr">admin@jobsaju.kr</a>
         </p>
         <p className="business-footer__policies">
+          <a href="/jobbti/">잡BTI 60가지 유형</a>
+          <span aria-hidden="true">·</span>
           <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setPolicyType('terms')}>이용약관</span>
           <span aria-hidden="true">·</span>
           <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setPolicyType('privacy')}>개인정보처리방침</span>

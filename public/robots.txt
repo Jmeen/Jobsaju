@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /api/share-page/
+Allow: /api/share-card/
+Disallow: /api/
+Disallow: /admin/
+
+Sitemap: https://jobsaju.kr/sitemap.xml
