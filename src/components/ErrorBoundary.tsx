@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
+import { downloadDiagnostics, reportDiagnostic } from '../utils/diagnostics';
 
 /**
  * 렌더 중 예외가 나면 흰 화면이 되는 것을 막는다.
@@ -30,6 +31,7 @@ interface State {
   message: string;
   /** 최근에 이미 새로고침을 한 번 했는데 또 깨진 상태인지 */
   isRepeat: boolean;
+  diagnosticId?: string;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -51,7 +53,8 @@ export class ErrorBoundary extends Component<Props, State> {
       const markedAt = Number(sessionStorage.getItem(RELOAD_MARK_KEY) || 0);
       isRepeat = markedAt > 0 && Date.now() - markedAt < REPEAT_WINDOW_MS;
     } catch { /* 스토리지를 못 쓰는 환경은 조용히 무시 */ }
-    this.setState({ isRepeat });
+    const diagnosticId = reportDiagnostic('RENDER_ERROR', error);
+    this.setState({ isRepeat, diagnosticId });
   }
 
   private handleReload = () => {
@@ -85,6 +88,12 @@ export class ErrorBoundary extends Component<Props, State> {
           <p style={{ marginBottom: 20, lineHeight: 1.6 }}>{description}</p>
 
           <button className="btn-primary" onClick={this.handleReload}>다시 시도하기</button>
+          {this.state.diagnosticId && (
+            <div style={{ marginTop: 16, overflowWrap: 'anywhere' }}>
+              <p style={{ fontSize: 12 }}>오류 확인 번호: {this.state.diagnosticId}</p>
+              <button className="btn-secondary" onClick={downloadDiagnostics}>오류 기록 내려받기</button>
+            </div>
+          )}
 
           {this.state.isRepeat && this.props.storageKey && (
             <div style={{ marginTop: 20 }}>

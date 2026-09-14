@@ -1,5 +1,7 @@
 
 import React, { createContext, useCallback, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import { requestFollowUp, FollowUpRequestError } from '../utils/followUpApi';
+import { lastDiagnosticId, reportDiagnostic, setDiagnosticScreen } from '../utils/diagnostics';
 import { decodeSecurePayload } from '../utils/crypto';
 import { STORAGE_KEY, loadSavedSession } from '../utils/session';
 import { daysInMonth, CURRENT_YEAR } from '../utils/birthWheel';
@@ -279,7 +281,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         })
         .catch(err => {
-          console.warn('토큰 기반 리포트 복구 실패:', err);
+          reportDiagnostic('REPORT_RECOVERY_FAILED', err, { route: '/api/report-by-token' });
           setDeepLinkError('리포트를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
         })
         .finally(() => {
@@ -1206,12 +1208,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  useEffect(() => { setDiagnosticScreen(step); }, [step]);
+
+  const followUpPendingRef = useRef(false);
+
   // === 추가 질문 제출 (기본 1회 + 공유 보너스 1회) ===
   // 요청을 실제로 보냈으면 true — 호출한 쪽에서 입력창을 비울지 판단한다.
   // (검증 실패로 되돌아온 경우에는 사용자가 쓴 질문을 지우지 않는다)
   const handleFollowUpSubmit = async (rawQuestion: string): Promise<boolean> => {
     const questionLimit = shareBonusGranted ? 2 : 1;
-    if (!sajuResult || followUps.length >= questionLimit) return false;
+    if (!sajuResult || followUpPendingRef.current || followUps.length >= questionLimit) return false;
 
     const validationError = validateFollowUpQuestion(rawQuestion);
     if (validationError) {
@@ -1223,56 +1229,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsFollowUpLoading(true);
     const question = rawQuestion.trim();
 
-    // 대운은 이 프롬프트에서만 쓰이므로 lunar-javascript(gzip 약 113KB)를 여기서만 내려받는다.
+    followUpPendingRef.current = true;
     try {
-      const res = await fetch('/api/followup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          unlock_token: unlockToken,
-          question,
-          question_index: followUps.length + 1,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setFollowUps(current => [...current, { question, answer: data.answer, answeredAt: new Date().toISOString() }]);
-      } else if (res.status === 409) {
-        setFollowUpError('추가 질문을 이미 사용했습니다.');
-      } else if (res.status === 422) {
-        const data = await res.json().catch(() => null);
-        setFollowUpError([data?.error, data?.suggestion].filter(Boolean).join(' ')
-          || '이 질문은 커리어 상담 범위에서 답하기 어렵습니다. 다른 커리어 질문을 적어주세요.');
-      } else {
-        const data = await res.json().catch(() => null);
-        if (import.meta.env.DEV) {
-          // 개발 중 API 없이 화면을 보기 위한 로컬 폴백. 프로덕션 번들에는 들어가지 않는다.
-          const { buildLocalFollowUpAnswer } = await import('../utils/followUp');
-          setFollowUps(current => [...current, {
-            question,
-            answer: buildLocalFollowUpAnswer(question, sajuResult, careerContext),
-            answeredAt: new Date().toISOString(),
-          }]);
-        } else {
-          setFollowUpError(data?.error || '답변을 만들지 못했습니다. 질문권은 사용되지 않았으니 다시 시도해 주세요.');
-        }
-      }
-    } catch {
-      if (import.meta.env.DEV) {
-        const { buildLocalFollowUpAnswer } = await import('../utils/followUp');
-        setFollowUps(current => [...current, {
-          question,
-          answer: buildLocalFollowUpAnswer(question, sajuResult, careerContext),
-          answeredAt: new Date().toISOString(),
-        }]);
-      } else {
-        setFollowUpError('네트워크 연결을 확인해 주세요. 질문권은 사용되지 않았습니다.');
-      }
+      const answer = await requestFollowUp(unlockToken, question, followUps.length + 1);
+      setFollowUps(current => [...current, { question, answer, answeredAt: new Date().toISOString() }]);
+      return true;
+    } catch (error) {
+      const requestId = error instanceof FollowUpRequestError ? error.requestId : '';
+      const id = reportDiagnostic('FOLLOWUP_REQUEST_FAILED', error, { requestId, route: '/api/followup' });
+      const message = error instanceof Error ? error.message : '답변을 확인하지 못했습니다. 다시 시도해 주세요.';
+      setFollowUpError(message + ' (오류 확인 번호: ' + (requestId || id || lastDiagnosticId()) + ')');
+      return false;
     } finally {
+      followUpPendingRef.current = false;
       setIsFollowUpLoading(false);
     }
-    return true;
   };
 
   // iOS Safari(WebKit)는 <a download>를 지원하지 않아 클릭해도 아무 일도 일어나지 않는다.

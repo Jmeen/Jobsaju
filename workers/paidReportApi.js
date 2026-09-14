@@ -2,6 +2,9 @@ import { buildGeminiRequest } from './geminiTransport.js';
 import { validateAndRepairPaidReport } from './paidReportValidator.js';
 import { archivePaidReport } from './reportArchive.js';
 import { buildPaidReportContext } from './paidReportContext.js';
+import { sendReportNotificationEmail } from './reportNotificationEmail.js';
+import { parseGeminiError } from './geminiError.js';
+import { errorCategory } from '../src/utils/diagnosticData.ts';
 
 const SYSTEM_PROMPT = `
 # 🤖 잡사주 유료 리포트 전용 AI 시스템 프롬프트 v5.2
@@ -166,7 +169,9 @@ const JSON_SCHEMA = {
 // Simple in-memory set for idempotency check during this isolate's lifetime.
 const processingPayments = new Set();
 
-export async function handlePaidReportRequest(request, env) {
+export async function handlePaidReportRequest(request, env, ctx) {
+  const mark = stage => { if (env.DIAGNOSTIC_TRACE) env.DIAGNOSTIC_TRACE.stage = stage; };
+  mark('authorization');
   let body;
   try {
     body = await request.json();
@@ -193,6 +198,7 @@ export async function handlePaidReportRequest(request, env) {
   }
 
   // Idempotency check with Cloudflare D1 - Atomic Lock
+  mark('generation_lock');
   if (env.DB) {
     try {
       // Attempt to atomically claim the generation task
@@ -212,6 +218,7 @@ export async function handlePaidReportRequest(request, env) {
         const row = await env.DB.prepare('SELECT status, report_json, generation_attempt FROM paid_reports WHERE payment_id = ?').bind(payment_id).first();
         if (row) {
           if (row.status === 'completed') {
+            mark('cached_report');
             // D1에만 남아 있던 완료본도 재시도 시 이메일 다시보기 색인을 복구한다.
             try {
               await archivePaidReport({
@@ -226,8 +233,10 @@ export async function handlePaidReportRequest(request, env) {
             }
             return new Response(row.report_json, { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
           } else if (row.status === 'generating') {
+            mark('generating');
             return new Response(JSON.stringify({ error: 'Generating...' }), { status: 202, headers: { 'Access-Control-Allow-Origin': '*' } });
           } else if (row.status === 'failed' && row.generation_attempt >= 2) {
+            mark('retry_limit');
             return new Response(JSON.stringify({ error: 'Failed to generate report after maximum retries. Please contact support.' }), { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } });
           } else {
              // Edge case (e.g., status is 'paid' but didn't update for some reason)
@@ -308,18 +317,26 @@ export async function handlePaidReportRequest(request, env) {
       }
     };
 
+    mark('ai_generation');
     const requestGemini = async (model) => {
-      const request = await buildGeminiRequest(env, `models/${model}:generateContent`);
-      return fetch(request.url, {
-        method: 'POST',
-        headers: request.headers,
-        body: JSON.stringify(geminiParams),
-      });
+      const start = Date.now();
+      const attempt = { model };
+      env.DIAGNOSTIC_TRACE?.attempts.push(attempt);
+      try {
+        const request = await buildGeminiRequest(env, `models/${model}:generateContent`);
+        const response = await fetch(request.url, {
+          method: 'POST', headers: request.headers, body: JSON.stringify(geminiParams),
+          signal: AbortSignal.timeout(60000),
+        });
+        attempt.status = response.status;
+        return response;
+      } catch (error) { attempt.code = errorCategory(error); throw error; }
+      finally { attempt.durationMs = Date.now() - start; }
     };
     const primaryModel = typeof env.GEMINI_MODEL === 'string' && env.GEMINI_MODEL.trim()
       ? env.GEMINI_MODEL.trim()
       : 'gemini-2.5-flash';
-    const fallbackModel = primaryModel === 'gemini-2.5-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
+    const fallbackModel = env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
     let geminiRes;
     try {
       geminiRes = await requestGemini(primaryModel);
@@ -336,14 +353,16 @@ export async function handlePaidReportRequest(request, env) {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('Gemini paid-report request failed:', geminiRes.status, errText.slice(0, 500));
-      throw new Error(`Gemini API Error (${geminiRes.status}): ${errText.slice(0, 500)}`);
+      const parsed = parseGeminiError(geminiRes.status, geminiRes.statusText, errText);
+      if (env.DIAGNOSTIC_TRACE) env.DIAGNOSTIC_TRACE.code = parsed.code;
+      throw new Error(`Gemini API Error (${geminiRes.status})`);
     }
 
     const geminiData = await geminiRes.json();
     let generatedRaw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     
     // 8. Validate and Repair Output
+    mark('report_validation');
     const analysisPeriod = `${timeline[0]?.year_month || ''} ~ ${timeline.at(-1)?.year_month || ''}`;
     const finalReport = validateAndRepairPaidReport(generatedRaw, timeline, precomputed_highlights, {
       generated_at: now.toISOString(),
@@ -356,10 +375,12 @@ export async function handlePaidReportRequest(request, env) {
       report: finalReport
     });
     
+    mark('save_report');
     if (env.DB) {
       try {
         await env.DB.prepare("UPDATE paid_reports SET status = 'completed', report_json = ?, updated_at = CURRENT_TIMESTAMP WHERE payment_id = ?").bind(responsePayload, payment_id).run();
       } catch (err) {
+        env.DIAGNOSTIC_TRACE?.attempts.push({ code: 'REPORT_DB_WRITE_FAILED' });
         console.error("D1 DB Update Error:", err);
       }
     } else if (env.SAJU_KV) {
@@ -378,16 +399,44 @@ export async function handlePaidReportRequest(request, env) {
       });
     } catch (err) {
       // 색인 저장 오류가 이미 완성된 리포트 응답을 막으면 안 된다.
+      env.DIAGNOSTIC_TRACE?.attempts.push({ code: 'REPORT_ARCHIVE_FAILED' });
       console.error('Paid report email archive error:', err);
     }
 
+    // 최초 생성이 완료된 요청에서만 알림을 예약한다. 완료본을 다시 조회하는 폴링 경로에서는
+    // 이 분기에 들어오지 않으므로 같은 리포트 메일이 중복 발송되지 않는다.
+    const email = String(career_context?.email || '').toLowerCase().trim();
+    if (email && email.includes('@')) {
+      let origin;
+      try {
+        origin = new URL(request.url).origin;
+      } catch {
+        origin = undefined;
+      }
+      const notificationTask = sendReportNotificationEmail(env, {
+        email,
+        unlockToken: payment_id,
+        sajuData: analysis,
+        origin,
+      }).catch((error) => {
+        console.error('Paid report completion email error:', error instanceof Error ? error.message : error);
+      });
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(notificationTask);
+      } else {
+        // Node 단위 테스트나 ExecutionContext가 없는 호환 런타임에서는 완료를 기다린다.
+        await notificationTask;
+      }
+    }
+
+    mark('completed');
     return new Response(responsePayload, { status: 200, headers: { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" } });
   } catch (error) {
-    console.error("Paid Report Generation Error:", error);
+    if (env.DIAGNOSTIC_TRACE) env.DIAGNOSTIC_TRACE.code ||= errorCategory(error);
     if (env.DB) {
       try { await env.DB.prepare("UPDATE paid_reports SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE payment_id = ?").bind(payment_id).run(); } catch(e){}
     }
-    return new Response(JSON.stringify({ error: 'Failed to generate report: ' + error.message }), { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+    return new Response(JSON.stringify({ error: '리포트를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.', code: 'REPORT_GENERATION_FAILED' }), { status: 500, headers: { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" } });
   } finally {
     if (!env.DB) processingPayments.delete(payment_id);
   }

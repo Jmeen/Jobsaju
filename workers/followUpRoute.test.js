@@ -158,13 +158,14 @@ test('차단 질문은 Gemini를 호출하거나 질문권을 소진하지 않�
     assert.match(body.error, /안전|제공할 수/);
     assert.match(body.suggestion, /커리어|이직|직무/);
     assert.equal(fetchCount, 0);
-    assert.deepEqual(kv.writes, []);
+    assert.deepEqual(kv.writes.filter(([key]) => !key.startsWith('diagnostic:')), []);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('허용 질문은 구조화 분석 계약과 사용자 커리어 정보를 Gemini에 전달한다', async () => {
+test('허용 질문은 구조화 분석 계약과 사용자 커리어 정보를 Gemini에 전달한다', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-08-29T00:00:00Z') });
   const originalFetch = globalThis.fetch;
   let sentUrl;
   let sentHeaders;
@@ -247,8 +248,44 @@ test('잘못된 AI JSON은 질문권을 소진하지 않고 502를 반환한다'
 
     assert.equal(response.status, 502);
     assert.equal(body.code, 'FOLLOWUP_INVALID_RESPONSE');
-    assert.deepEqual(kv.writes, []);
+    assert.deepEqual(kv.writes.filter(([key]) => !key.startsWith('diagnostic:')), []);
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('답변 저장 실패는 질문권을 소진하지 않으며 다시 시도할 수 있다', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(modelOutput()) }] } }] }));
+  const kv = createKv();
+  const put = kv.put.bind(kv);
+  let fail = true;
+  kv.put = async (...args) => {
+    if (fail && args[0] === `followups:${token}`) throw new Error('storage unavailable');
+    return put(...args);
+  };
+  const env = { SAJU_KV: kv, GEMINI_API_KEY: 'test-key' };
+  const first = await worker.fetch(createRequest('언제 지원하면 좋을까요?'), env);
+  assert.equal(first.status, 500);
+  assert.equal(await kv.get(`followup:${token}`), null);
+  fail = false;
+  const second = await worker.fetch(createRequest('언제 지원하면 좋을까요?'), env);
+  assert.equal(second.status, 200);
+});
+
+test('응답 유실 또는 사용 기록 실패 후 같은 질문은 저장된 답변을 재사용한다', async (t) => {
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => { calls++; return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(modelOutput()) }] } }] }); });
+  const kv = createKv();
+  const put = kv.put.bind(kv);
+  kv.put = async (...args) => {
+    if (args[0] === `followup:${token}`) throw new Error('usage write failed');
+    return put(...args);
+  };
+  const env = { SAJU_KV: kv, GEMINI_API_KEY: 'test-key' };
+  assert.equal((await worker.fetch(createRequest('언제 지원하면 좋을까요?'), env)).status, 500);
+  const recovered = await worker.fetch(createRequest('언제 지원하면 좋을까요?'), env);
+  assert.equal(recovered.status, 200);
+  assert.equal((await recovered.json()).recovered, true);
+  assert.equal(calls, 1);
+  assert.equal((await worker.fetch(createRequest('어떤 직무가 좋을까요?'), env)).status, 409);
 });

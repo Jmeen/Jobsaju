@@ -145,3 +145,40 @@ test('API: 같은 payment_id로 동시에 들어오면 한 건만 생성하고 �
     globalThis.fetch = originalFetch;
   }
 });
+
+test('API: 유료 리포트가 처음 완성되면 Resend 완료 메일을 waitUntil에 등록한다', async () => {
+  const paymentId = 'email_notification_test_123';
+  const request = {
+    url: 'https://jobsaju.kr/api/paid-report',
+    json: async () => ({
+      payment_id: paymentId,
+      birth: { year: 1990, month: 1, day: 1, isSolar: true, gender: 'M' },
+      career_context: { email: 'USER@example.com', worry_text: 'test' },
+    }),
+  };
+  const env = { GEMINI_API_KEY: 'fake', RESEND_API_KEY: 'resend-test-key' };
+  const waitUntilTasks = [];
+  const ctx = { waitUntil(task) { waitUntilTasks.push(task); } };
+  const resendRequests = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (String(url) === 'https://api.resend.com/emails') {
+      resendRequests.push(JSON.parse(options.body));
+      return new Response(JSON.stringify({ id: 'email-123' }), { status: 200 });
+    }
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: '{}' }] } }],
+    }), { status: 200 });
+  };
+
+  try {
+    const response = await handlePaidReportRequest(request, env, ctx);
+    assert.equal(response.status, 200);
+    assert.equal(waitUntilTasks.length, 1);
+    await Promise.all(waitUntilTasks);
+    assert.equal(resendRequests.length, 1);
+    assert.deepEqual(resendRequests[0].to, ['user@example.com']);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

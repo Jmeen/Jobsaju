@@ -15,13 +15,13 @@ function InlineContent({ tokens }: { tokens: InlineToken[] }) {
   ));
 }
 
-export function FormattedAnswer({ answer }: { answer: string }) {
+export function FormattedAnswer({ answer }: { answer: unknown }) {
   // 예전 서버 버전이 KV에 answer를 문자열이 아니라 { question_analysis, answer } 객체로 저장했다.
   // 그 레코드는 아직 TTL(90일)이 남아 재열람 시 그대로 내려온다. 문자열이 아니면 답변 텍스트만
   // 뽑아내 렌더가 깨지지 않게 한다(객체에 .replace를 호출하면 TypeError로 화면이 죽는다).
-  const text = typeof answer === 'string'
-    ? answer
-    : ((answer as { answer?: string } | null)?.answer ?? '');
+  const legacyAnswer = typeof answer === 'object' && answer !== null && 'answer' in answer ? answer.answer : undefined;
+  const text = typeof answer === 'string' ? answer : typeof legacyAnswer === 'string' ? legacyAnswer : '';
+  if (!text.trim()) return <p role="status">저장된 답변 내용을 읽지 못했습니다. 리포트를 다시 열어 주세요.</p>;
   const structuredAnswer = parseStructuredFollowUpAnswer(text);
 
   if (structuredAnswer) {

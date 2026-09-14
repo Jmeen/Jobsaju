@@ -33,7 +33,7 @@ export const FOLLOW_UP_EXAMPLES = [
   '지금 받은 오퍼를 수락해도 될까요?',
 ] as const;
 
-export const PAID_REPORT_WAIT_COPY = '리포트 작성에는 보통 3~5분 정도 걸려요';
+export const PAID_REPORT_WAIT_COPY = '리포트 작성에는 보통 3~5분 정도 걸리며, 완성되면 입력한 이메일로 알려드려요';
 export const PAID_REPORT_GENERATING_COPY = '수만 가지 경우의 수를 분석하여 리포트를 작성하고 있습니다...';
 export const PAID_REPORT_POLL_INTERVAL_MS = 5_000;
 export const PAID_REPORT_MAX_POLL_ATTEMPTS = 60;

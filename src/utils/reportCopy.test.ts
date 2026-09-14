@@ -37,6 +37,7 @@ test('추가 질문은 특정 연봉 금액 대신 협상 시점을 묻는다', 
 
 test('유료 리포트는 3~5분을 안내하고 최대 5분간 결과를 확인한다', () => {
   assert.match(PAID_REPORT_WAIT_COPY, /3~5분/);
+  assert.match(PAID_REPORT_WAIT_COPY, /이메일/);
   assert.doesNotMatch(PAID_REPORT_WAIT_COPY, /30초/);
   assert.equal(PAID_REPORT_POLL_INTERVAL_MS * PAID_REPORT_MAX_POLL_ATTEMPTS, 300_000);
 });

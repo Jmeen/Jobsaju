@@ -9,4 +9,7 @@ test('Worker uses a Vertex AI available Gemini Flash model and excludes retired 
   assert.doesNotMatch(source, /["']gemini-3\.5-flash["']/);
   assert.doesNotMatch(source, /["']gemini-2\.5-flash-lite["']/);
   assert.doesNotMatch(source, /["']gemini-flash-latest["']/);
+  assert.doesNotMatch(source, /["']gemini-2\.0-flash["']/);
+  const paidSource = await readFile(new URL('./paidReportApi.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(paidSource, /["']gemini-2\.0-flash["']/);
 });

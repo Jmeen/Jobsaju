@@ -1,5 +1,9 @@
 import { parseGeminiError } from './geminiError.js';
+import { handleDiagnostics, observeRequest } from './diagnostics.js';
+import { handleDiagnosticsPage } from './diagnosticsPage.js';
+import { errorCategory } from '../src/utils/diagnosticData.ts';
 import { encodeSecurePayload } from './crypto.js';
+import { sendReportNotificationEmail } from './reportNotificationEmail.js';
 import { buildGeminiRequest, hasConfiguredGeminiProvider } from './geminiTransport.js';
 import {
   assessFollowUpQuestion,
@@ -40,8 +44,7 @@ import {
  */
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const FALLBACK_FLASH_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.0-flash"
+  "gemini-2.5-flash"
 ];
 const REPORT_VERSION = 'copy-v2';
 const reportCacheKey = (token) => `report:${REPORT_VERSION}:${token}`;
@@ -136,63 +139,6 @@ async function claimPaymentRedemption(env, paymentId, unlockToken) {
 }
 
 /**
- * 리포트 생성 완료 시 사용자에게 알림 이메일을 발송합니다.
- * RESEND_API_KEY 또는 EMAIL_WEBHOOK_URL이 설정되어 있을 때 자동 발송됩니다.
- */
-async function sendReportNotificationEmail(env, { email, unlockToken, sajuData, origin }) {
-  if (!email || !email.includes('@')) return;
-  const baseUrl = origin || env.PUBLIC_SERVICE_URL || 'https://jobsaju.kr';
-  const payloadStr = encodeSecurePayload({ token: unlockToken, email });
-  const reportUrl = `${baseUrl}/?p=${encodeURIComponent(payloadStr)}`;
-  const title = sajuData?.ilgan ? `[직장인 이직사주] ${sajuData.ilgan} 일간 맞춤 커리어 리포트가 완성되었습니다` : `[직장인 이직사주] 요청하신 AI 사주 분석 리포트가 완성되었습니다`;
-
-  // 1. Resend API 연동 (환경변수 RESEND_API_KEY 가 있을 때)
-  if (env.RESEND_API_KEY) {
-    try {
-      const fromEmail = env.RESEND_FROM_EMAIL || '직장인 이직사주 <admin@jobsaju.kr>';
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [email],
-          subject: title,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b; line-height: 1.6;">
-              <h2 style="color: #6d28d9; margin-bottom: 12px;">🔮 직장인 이직사주 리포트 완성</h2>
-              <p>기다려주셔서 감사합니다! 요청하신 정밀 커리어 사주 분석 리포트가 안전하게 생성되었습니다.</p>
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0;">
-                <p style="margin: 0 0 10px; font-weight: bold; color: #334155;">언제든 아래 링크를 통해 전체 리포트를 열람하실 수 있습니다:</p>
-                <a href="${reportUrl}" style="display: inline-block; background-color: #7c3aed; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">내 리포트 즉시 열람하기 →</a>
-              </div>
-              <p style="font-size: 12px; color: #64748b; margin-top: 24px;">본 메일은 리포트 생성 시 입력하신 이메일 주소로 발송된 안내 메일입니다.</p>
-            </div>
-          `,
-        }),
-      });
-    } catch (e) {
-      console.error('Failed to send email via Resend:', e);
-    }
-  }
-
-  // 2. 커스텀 웹훅 / Supabase Function 연동 (환경변수 EMAIL_WEBHOOK_URL 이 있을 때)
-  if (env.EMAIL_WEBHOOK_URL) {
-    try {
-      await fetch(env.EMAIL_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, unlockToken, reportUrl, sajuData }),
-      });
-    } catch (e) {
-      console.error('Failed to trigger email webhook:', e);
-    }
-  }
-}
-
-/**
  * "다시보기(이메일로 리포트 찾기)" 요청 시, 화면에 바로 리포트를 보여주는 대신
  * 해당 이메일로 열람 링크(들)을 발송한다 — 이메일 주소만 아는 제3자가 남의 리포트를
  * 그대로 열람할 수 없도록 이메일 소유권을 확인하는 절차다.
@@ -264,10 +210,15 @@ async function callGemini(env, { systemInstruction, prompt }) {
   const initialModel = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   
   // 시도할 모델 순서 (지정 모델 -> 범용 Flash 후보군 순서)
-  const modelsToTry = Array.from(new Set([initialModel, ...FALLBACK_FLASH_MODELS]));
+  // 기본값은 검증된 모델로 한 번 재시도한다. 별도 대체 모델은 환경 변수로 지정한다.
+  const modelsToTry = [initialModel, env.GEMINI_FALLBACK_MODEL || DEFAULT_GEMINI_MODEL];
   let lastError = null;
 
   for (const model of modelsToTry) {
+    const attempt = { model, startedAt: Date.now() };
+    env.DIAGNOSTIC_TRACE?.attempts.push(attempt);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45000);
     try {
       // 추가 질문은 짧은 구조화 답변만 필요하다. Vertex의 Thinking 경로는 이 요청에서
       // 간헐적으로 502를 반환하므로, 유료 리포트와 같이 일반 JSON 생성으로 고정한다.
@@ -275,6 +226,7 @@ async function callGemini(env, { systemInstruction, prompt }) {
 
       const providerRequest = await buildGeminiRequest(env, `models/${model}:generateContent`);
       const res = await fetch(providerRequest.url, {
+        signal: controller.signal,
         method: "POST",
         headers: providerRequest.headers,
         body: JSON.stringify({
@@ -286,9 +238,12 @@ async function callGemini(env, { systemInstruction, prompt }) {
         }),
       });
 
+      attempt.status = res.status;
+
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
         const { code, message } = parseGeminiError(res.status, res.statusText, detail);
+        attempt.code = code;
 
         // 모델 미지원뿐 아니라 Vertex의 일시적 과부하/게이트웨이 오류도 다음 Flash 모델로
         // 한 번 복구한다. 유료 리포트와 동일한 규칙이어야 추가 질문만 502로 깨지지 않는다.
@@ -312,7 +267,8 @@ async function callGemini(env, { systemInstruction, prompt }) {
       }
 
       if (!text) {
-        throw new Error(`Gemini 응답에 본문이 없습니다: ${JSON.stringify(data).slice(0, 300)}`);
+        attempt.code = 'EMPTY_MODEL_RESPONSE';
+        throw new Error('Gemini 응답에 본문이 없습니다.');
       }
 
       // 마크다운 코드 블록(```json ... ```)이 포함된 경우 순수 JSON 텍스트만 추출
@@ -322,18 +278,27 @@ async function callGemini(env, { systemInstruction, prompt }) {
 
       return text;
     } catch (err) {
+      if (controller.signal.aborted) {
+        attempt.code = 'UPSTREAM_TIMEOUT';
+        lastError = new Error('AI 응답 시간이 초과되었습니다.');
+        continue;
+      }
       if (err.message.includes("404") || err.message.includes("NOT_FOUND") || err.message.includes("미지원")) {
         lastError = err;
         continue;
       }
       throw err;
+    } finally {
+      clearTimeout(timer);
+      attempt.durationMs = Date.now() - attempt.startedAt;
+      delete attempt.startedAt;
     }
   }
 
   throw lastError || new Error("사용 가능한 Gemini Flash 모델을 찾지 못했습니다.");
 }
 
-export default {
+const worker = {
   async fetch(request, env, ctx) {
     // 1. CORS Preflight 처리
     if (request.method === "OPTIONS") {
@@ -341,10 +306,15 @@ export default {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Request-Id",
         },
       });
     }
+
+    const diagnosticsPage = handleDiagnosticsPage(request);
+    if (diagnosticsPage) return diagnosticsPage;
+    const diagnosticsResponse = await handleDiagnostics(request, env);
+    if (diagnosticsResponse) return diagnosticsResponse;
 
     const shareCardResponse = await handleShareCardRequest(request, env);
     if (shareCardResponse) return shareCardResponse;
@@ -364,6 +334,10 @@ export default {
         has_api_key: Boolean(env.GEMINI_API_KEY),
         has_kv: Boolean(env.SAJU_KV),
         configured_model: model,
+        generation_checked: false,
+        diagnostic_probe: 'model_metadata',
+        diagnostic_storage_configured: Boolean(env.SAJU_KV),
+        diagnostic_admin_configured: Boolean(env.DIAGNOSTICS_ADMIN_KEY || env.COUPON_ADMIN_KEY),
       };
 
       try {
@@ -578,7 +552,7 @@ export default {
       // --- [경로: 유료 리포트 생성 API (V5.1)] ---
       if (request.method === "POST" && url.pathname === "/api/paid-report") {
         const { handlePaidReportRequest } = await import('./paidReportApi.js');
-        return handlePaidReportRequest(request, env);
+        return handlePaidReportRequest(request, env, ctx);
       }
 
       // --- [경로 0] 토큰 기반 해금 리포트 조회 API (딥링크/이메일 링크 복구용) ---
@@ -885,6 +859,8 @@ export default {
 
       // --- [경로 2-2] 추가 질문 API (기본 1회 + 공유 보너스 1회) ---
       if (url.pathname === "/api/followup") {
+        const mark = stage => { if (env.DIAGNOSTIC_TRACE) env.DIAGNOSTIC_TRACE.stage = stage; };
+        mark('authorization');
         const { unlock_token, question, question_index } = await request.json();
 
         // 해금 토큰 검증
@@ -907,6 +883,26 @@ export default {
           ? `followup:${unlock_token}:bonus`
           : `followup:${unlock_token}`;
 
+        const q = typeof question === 'string' ? question.trim() : '';
+        mark('usage_check');
+        let followups = [];
+        const followupsKey = `followups:${unlock_token}`;
+        if (env.SAJU_KV) {
+          const existingText = await env.SAJU_KV.get(followupsKey);
+          if (existingText) {
+            try { const saved = JSON.parse(existingText); if (Array.isArray(saved)) followups = saved; } catch { /* Legacy malformed history is ignored. */ }
+          }
+          const saved = followups.find((entry, index) => (entry.questionIndex ?? index + 1) === questionIndex);
+          if (saved) {
+            const answer = typeof saved.answer === 'string' ? saved.answer : saved.answer?.answer;
+            if (saved.question === q && typeof answer === 'string' && answer.trim()) {
+              mark('recovered_answer');
+              return Response.json({ answer, recovered: true }, { headers: { 'Access-Control-Allow-Origin': '*' } });
+            }
+            return Response.json({ error: '해당 추가 질문을 이미 사용했습니다.' }, { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } });
+          }
+        }
+
         // 기본 1회와 공유 보너스 1회를 각각 강제한다.
         if (env.SAJU_KV) {
           if (questionIndex === 2) {
@@ -928,7 +924,7 @@ export default {
         }
 
         // 질문 검증 (비용·어뷰징 가드)
-        const q = (question || "").trim();
+        mark('question_validation');
         if (q.length < 5 || q.length > 300) {
           return new Response(JSON.stringify({ error: "질문은 5~300자로 적어주세요." }), {
             status: 400,
@@ -964,6 +960,7 @@ export default {
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
           });
         }
+        mark('load_report_context');
         const storedContext = await loadStoredFollowUpContext(env.SAJU_KV, unlock_token, generatedAt);
         if (!storedContext) {
           return new Response(JSON.stringify({ error: "저장된 원본 리포트를 찾지 못했습니다. 구매 내역에서 리포트를 다시 열어 주세요." }), {
@@ -1047,13 +1044,16 @@ ${JSON.stringify(questionAssessment, null, 2)}
 ${q}
 `;
 
+        mark('ai_generation');
         const rawAnswer = await callGemini(env, {
           systemInstruction: followupSystem,
           prompt: followupPrompt,
         });
 
+        mark('answer_validation');
         const parsedAnswer = parseFollowUpModelResponse(rawAnswer);
         if (!parsedAnswer) {
+          if (env.DIAGNOSTIC_TRACE) env.DIAGNOSTIC_TRACE.code = 'FOLLOWUP_INVALID_RESPONSE';
           return new Response(JSON.stringify({
             code: "FOLLOWUP_INVALID_RESPONSE",
             error: "답변 형식을 확인하지 못했습니다. 질문권은 사용되지 않았으니 다시 시도해 주세요.",
@@ -1065,26 +1065,23 @@ ${q}
 
         // 성공한 뒤에만 사용 처리 (실패 시 기회를 태우지 않는다)
         if (env.SAJU_KV) {
-          await env.SAJU_KV.put(usageKey, new Date().toISOString());
-
-          // 추가 질문 저장
-          const followupsKey = `followups:${unlock_token}`;
-          let followups = [];
-          const existingText = await env.SAJU_KV.get(followupsKey);
-          if (existingText) {
-            try { followups = JSON.parse(existingText); } catch (e) {}
-          }
+          mark('save_answer');
           // 저장에는 답변 텍스트만 남긴다. 재열람 시 클라이언트가 record.answer를 문자열로
           // 렌더(FormattedAnswer)하므로, question_analysis까지 통째로 저장하면 재열람 화면이
           // "text.replace is not a function"으로 깨진다. 즉시 응답은 전체 객체를 그대로 돌려준다.
           followups.push({
+            questionIndex,
             question: q,
             answer: parsedAnswer.answer,
             answeredAt: generatedAt,
           });
           const ttl = 60 * 60 * 24 * 90; // 90일
           await env.SAJU_KV.put(followupsKey, JSON.stringify(followups), { expirationTtl: ttl });
+          mark('mark_usage');
+          await env.SAJU_KV.put(usageKey, new Date().toISOString(), { expirationTtl: ttl });
         }
+
+        mark('completed');
 
         return new Response(JSON.stringify(parsedAnswer), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -1366,10 +1363,17 @@ ${q}
       });
 
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), {
+      if (env.DIAGNOSTIC_TRACE) env.DIAGNOSTIC_TRACE.code = errorCategory(err);
+      return new Response(JSON.stringify({ error: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.', code: 'REQUEST_FAILED' }), {
         status: 500,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
   }
+};
+
+export default {
+  fetch(request, env, ctx) {
+    return observeRequest(request, env, ctx, (req, scopedEnv, context) => worker.fetch(req, scopedEnv, context));
+  },
 };
