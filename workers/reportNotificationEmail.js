@@ -67,7 +67,7 @@ export async function sendReportNotificationEmail(env, { email, unlockToken, saj
       <p>기다려주셔서 감사합니다. 요청하신 커리어 리포트가 완성되었습니다.</p>
       <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0;">
         <p style="margin: 0 0 10px; font-weight: bold; color: #334155;">아래 링크에서 전체 리포트를 확인할 수 있습니다.</p>
-        <a href="${reportUrl}" style="display: inline-block; background-color: #e4b53b; color: #2f2a1f; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">내 리포트 확인하기 →</a>
+        <a href="${reportUrl}" style="display: inline-block; background-color: #FEE500; color: #191600; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">내 리포트 확인하기 →</a>
       </div>
       <p style="font-size: 12px; color: #64748b; margin-top: 24px;">본 메일은 리포트 생성 시 입력하신 이메일 주소로 발송된 안내 메일입니다.</p>
     </div>

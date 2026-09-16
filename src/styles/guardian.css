@@ -11,9 +11,9 @@
   --jg-page: #faf8f2;
   --jg-ink: #2f3732;
   --jg-line: #ddd8cd;
-  --jg-brand: #e4b53b;
-  --jg-brand-strong: #8a6500;
-  --jg-brand-soft: #fff3c9;
+  --jg-brand: #FEE500;
+  --jg-brand-strong: #665800;
+  --jg-brand-soft: #FFF9BF;
 }
 
 body {
@@ -30,11 +30,11 @@ body {
   color: var(--jg-ink, #2f3732);
 }
 .input-text::placeholder { color: var(--jg-muted, #858b83); }
-.input-text:focus { border-color: var(--jg-brand); background: #fffaf0; }
+.input-text:focus { border-color: var(--jg-brand); background: #FFFCEB; }
 .btn-primary {
   background: var(--jg-brand);
   background-image: none;
-  color: #2f2a1f;
+  color: #191600;
   box-shadow: none;
 }
 .btn-secondary {
@@ -62,10 +62,10 @@ body {
   --jg-page: #faf8f2;
   --jg-phone: #faf8f2;
   --jg-card: #f3f0e7;
-  /* 기존 --jg-green 이름은 레거시 선택자 호환용이며 실제 브랜드 색은 허니 옐로다. */
-  --jg-brand: #e4b53b;
-  --jg-brand-strong: #8a6500;
-  --jg-brand-soft: #fff3c9;
+  /* 기존 --jg-green 이름은 레거시 선택자 호환용이며 실제 브랜드 색은 선명한 옐로다. */
+  --jg-brand: #FEE500;
+  --jg-brand-strong: #665800;
+  --jg-brand-soft: #FFF9BF;
   --jg-green: var(--jg-brand-strong);
   --jg-green-soft: var(--jg-brand-soft);
   --jg-trust: #66866e;
@@ -134,7 +134,7 @@ body {
 
 .jg-btn {
   width: 100%; min-height: 48px; margin-top: 16px; padding: 14px 16px; border: 0; border-radius: 15px;
-  background: var(--jg-brand); color: #2f2a1f; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  background: var(--jg-brand); color: #191600; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .jg-btn[disabled] { opacity: .45; cursor: not-allowed; }
 .jg-btn-secondary { background: var(--jg-trust-soft); color: var(--jg-trust); }
@@ -405,7 +405,7 @@ body {
 /* 공유 CTA — 카카오톡이 Primary, 링크 복사가 Secondary.
    카카오 브랜드 컬러를 쓰는 이유는 눈에 띄어서가 아니라, 누르면 카카오톡이 열린다는 걸
    글을 읽기 전에 알려주기 위해서다. */
-.jg-btn-kakao { background: #fee500; color: #191600; font-weight: 600; }
+.jg-btn-kakao { background: #FEE500; color: #191600; font-weight: 600; }
 .jg-btn-kakao[disabled] { opacity: .55; }
 
 .jg-toast {
