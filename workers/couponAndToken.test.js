@@ -77,6 +77,9 @@ test('KV에 등록된 쿠폰 코드는 0원으로 유효한 해금 토큰을 발
   const saved = JSON.parse(await kv.get(`token:${data.unlockToken}`));
   assert.equal(saved.status, 'unlocked');
   assert.equal(saved.coupon, 'TESTER1');
+  assert.match(saved.expiresAt, /^\d{4}-\d{2}-\d{2}T/);
+  const tokenWrite = kv.writes.find(([key]) => key === `token:${data.unlockToken}`);
+  assert.equal(tokenWrite[2].expiration, Math.ceil(Date.parse(saved.expiresAt) / 1000));
 
   const coupon = JSON.parse(await kv.get('coupon:TESTER1'));
   assert.equal(coupon.usedCount, 1, '사용할 때마다 usedCount가 늘어나야 한다');

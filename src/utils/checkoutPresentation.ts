@@ -2,8 +2,10 @@ export const CHECKOUT_COPY = {
   title: '커리어 선택 리포트 보기',
   savedResultSuffix: ' (커리어 선택 리포트 포함)',
   freeButton: '🎉 0원으로 커리어 선택 리포트 보기',
-  paymentButton: (priceLabel: string) => `⚡ 리포트 결제하기 (${priceLabel})`,
-  lookupDescription: '결제 시 입력하셨던 이메일 주소를 입력하시면, 보관된 커리어 선택 리포트를 바로 불러옵니다.',
+  paymentButton: (priceLabel: string) => `리포트 결제하기 · ${priceLabel}`,
+  servicePeriodTitle: '서비스 제공 기간',
+  serviceStart: '결제 완료 후 개인화 입력을 마치면 즉시 리포트 생성을 시작해요.',
+  lookupDescription: '구매한 커리어 선택 리포트를 다시 확인할 수 있어요.',
   lookupButton: '커리어 선택 리포트 불러오기',
 } as const;
 

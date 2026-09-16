@@ -14,6 +14,7 @@ import { loadStoredFollowUpContext } from './followUpContext.js';
 import { handleShareCardRequest } from './shareCard.js';
 import { handleSharePageRequest } from './sharePage.js';
 import { handleAdminPageRequest } from './adminPage.js';
+import { buildReportRetention, resolveReportRetention } from './reportRetention.js';
 import {
   evaluateCoupon,
   listCoupons,
@@ -69,7 +70,10 @@ function parseEmailHistory(rawText) {
   if (!rawText) return [];
   try {
     const parsed = JSON.parse(rawText);
-    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed)) {
+      const now = Date.now();
+      return parsed.filter(entry => !entry?.expiresAt || Date.parse(entry.expiresAt) > now);
+    }
   } catch {
     // 레거시: JSON이 아닌 순수 토큰 문자열
     return [{ token: rawText, createdAt: null, label: null }];
@@ -713,14 +717,16 @@ const worker = {
           }
         }
 
-        // KV 저장소나 D1 데이터베이스에 토큰 영구 바인딩 (환경에 KV가 매핑되어 있을 때 활용)
+        // 결제일 기준 달력 6개월이 지난 다음 날 리포트와 접근 토큰이 함께 자동 삭제된다.
         if (env.SAJU_KV) {
+          const retention = buildReportRetention(new Date());
           await env.SAJU_KV.put(`token:${unlockToken}`, JSON.stringify({
             paymentId,
             coupon: appliedCoupon,
-            createdAt: new Date().toISOString(),
+            createdAt: retention.purchasedAt,
+            expiresAt: retention.expiresAt,
             status: "unlocked"
-          }));
+          }), { expiration: retention.expiration });
         }
 
         return new Response(JSON.stringify({
@@ -1075,10 +1081,10 @@ ${q}
             answer: parsedAnswer.answer,
             answeredAt: generatedAt,
           });
-          const ttl = 60 * 60 * 24 * 90; // 90일
-          await env.SAJU_KV.put(followupsKey, JSON.stringify(followups), { expirationTtl: ttl });
+          const retention = await resolveReportRetention(env.SAJU_KV, unlock_token, generatedAt);
+          await env.SAJU_KV.put(followupsKey, JSON.stringify(followups), { expiration: retention.expiration });
           mark('mark_usage');
-          await env.SAJU_KV.put(usageKey, new Date().toISOString(), { expirationTtl: ttl });
+          await env.SAJU_KV.put(usageKey, new Date().toISOString(), { expiration: retention.expiration });
         }
 
         mark('completed');
@@ -1148,6 +1154,9 @@ ${q}
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
           });
         }
+        const reportRetention = env.SAJU_KV
+          ? await resolveReportRetention(env.SAJU_KV, unlock_token)
+          : null;
 
         // 1. 이미 생성된 리포트가 KV에 저장되어 있다면 Gemini 호출 없이 바로 반환 (비용 0원)
         if (env.SAJU_KV) {
@@ -1316,11 +1325,11 @@ ${q}
 
         const validatedReportText = JSON.stringify(validatedReport.report);
 
-        // 생성 결과를 KV 저장소에 90일간 보관하여 중복 호출 시 Gemini 비용 0원 처리
+        // 생성 결과와 복구 정보는 결제일 기준 6개월이 지난 다음 날 KV에서 자동 삭제한다.
         const rawEmail = String(user_context?.email || '').toLowerCase().trim();
         if (env.SAJU_KV) {
-          const ttl = 60 * 60 * 24 * 90; // 90일
-          await env.SAJU_KV.put(reportCacheKey(unlock_token), validatedReportText, { expirationTtl: ttl });
+          const expirationOptions = { expiration: reportRetention.expiration };
+          await env.SAJU_KV.put(reportCacheKey(unlock_token), validatedReportText, expirationOptions);
 
           // 사용자 이메일이 전달되었다면 이메일 -> 리포트 구매 이력 목록(최신순)에 추가
           if (rawEmail && rawEmail.includes('@')) {
@@ -1329,11 +1338,22 @@ ${q}
             const withoutCurrent = history.filter((entry) => entry.token !== unlock_token);
             withoutCurrent.unshift({
               token: unlock_token,
-              createdAt: new Date().toISOString(),
+              createdAt: reportRetention.purchasedAt,
+              expiresAt: reportRetention.expiresAt,
               label: buildReportLabel(user_context),
             });
-            await env.SAJU_KV.put(emailKey, JSON.stringify(withoutCurrent.slice(0, EMAIL_HISTORY_LIMIT)), { expirationTtl: ttl });
-            await env.SAJU_KV.put(`meta:${unlock_token}`, JSON.stringify({ user_context, saju_data }), { expirationTtl: ttl });
+            const nextHistory = withoutCurrent.slice(0, EMAIL_HISTORY_LIMIT);
+            const latestExpiration = nextHistory.reduce((latest, entry) => {
+              const seconds = Math.ceil(Date.parse(entry?.expiresAt || '') / 1000);
+              return Number.isFinite(seconds) ? Math.max(latest, seconds) : latest;
+            }, reportRetention.expiration);
+            await env.SAJU_KV.put(emailKey, JSON.stringify(nextHistory), { expiration: latestExpiration });
+            await env.SAJU_KV.put(`meta:${unlock_token}`, JSON.stringify({
+              user_context,
+              saju_data,
+              purchased_at: reportRetention.purchasedAt,
+              expires_at: reportRetention.expiresAt,
+            }), expirationOptions);
           }
         }
 

@@ -16,7 +16,7 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
   if (type === 'terms') {
     title = '잡사주 이용약관';
     content = (
-      <div style={{ lineHeight: '1.6', fontSize: '13px', color: '#ccc', wordBreak: 'keep-all' }}>
+      <div style={{ lineHeight: '1.6', fontSize: '13px', color: 'var(--jg-ink, #2f3732)', wordBreak: 'keep-all' }}>
         <p><strong>제1조 (목적)</strong><br/>
         본 약관은 두리하나랩(이하 "회사")이 제공하는 잡사주 서비스(이하 "서비스")의 이용과 관련하여 회사와 사용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.</p>
         <br/>
@@ -31,7 +31,8 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
         <br/>
         <p><strong>제4조 (유료 서비스 및 결제)</strong><br/>
         사용자는 회사가 정한 결제수단을 이용하여 유료 콘텐츠를 구매할 수 있습니다.<br/>
-        결제가 완료되면 사용자가 입력한 정보를 기반으로 맞춤형 디지털 콘텐츠 생성이 진행될 수 있습니다.<br/>
+        결제가 완료된 뒤 사용자가 개인화 입력을 마치면 맞춤형 디지털 콘텐츠 생성이 즉시 시작되며, 통상 3~5분이 소요됩니다.<br/>
+        생성된 리포트는 결제일로부터 6개월간 열람할 수 있고, 결제일 기준 6개월이 지난 다음 날 리포트와 복구용 정보가 자동 삭제됩니다.<br/>
         결제금액, 제공되는 콘텐츠의 내용 및 기타 거래조건은 결제 전 서비스 화면을 통해 안내합니다.</p>
         <br/>
         <p><strong>제5조 (청약철회 및 환불)</strong><br/>
@@ -57,13 +58,13 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
         본 약관과 서비스 이용에 관한 사항은 대한민국 법령을 적용합니다.<br/>
         회사와 사용자 사이에 분쟁이 발생한 경우 상호 협의를 통해 해결하도록 노력하며, 해결되지 않는 경우 관계 법령에서 정한 절차에 따릅니다.</p>
         <br/>
-        <p style={{ color: '#888', fontSize: '12px' }}>시행일: 2026년 8월 15일</p>
+        <p style={{ color: 'var(--jg-muted, #686f68)', fontSize: '12px' }}>시행일: 2026년 9월 16일</p>
       </div>
     );
   } else if (type === 'privacy') {
     title = '개인정보처리방침';
     content = (
-      <div style={{ lineHeight: '1.6', fontSize: '13px', color: '#ccc', wordBreak: 'keep-all' }}>
+      <div style={{ lineHeight: '1.6', fontSize: '13px', color: 'var(--jg-ink, #2f3732)', wordBreak: 'keep-all' }}>
         <p>두리하나랩은 잡사주 서비스를 제공함에 있어 사용자의 개인정보를 중요하게 생각하며 관련 법령을 준수합니다.</p>
         <br/>
         <p><strong>1. 수집 및 처리하는 개인정보</strong><br/>
@@ -83,6 +84,7 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
         <br/>
         <p><strong>3. 개인정보의 보유 및 이용기간</strong><br/>
         개인정보는 원칙적으로 서비스 제공 목적이 달성되고 보유할 필요가 없어진 경우 지체 없이 파기합니다.<br/>
+        맞춤형 리포트 본문, 생년월일 및 이메일 기반 복구 정보는 결제일로부터 6개월간 보관하며, 그 기간이 지난 다음 날 자동 삭제합니다.<br/>
         다만 관계 법령에 따라 거래 관련 정보를 보존해야 하는 경우에는 해당 기간 동안 별도로 보관할 수 있습니다.<br/>
         - 계약 또는 청약철회 등에 관한 기록: 5년<br/>
         - 대금결제 및 서비스 공급에 관한 기록: 5년<br/>
@@ -116,13 +118,13 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
         - 이메일: admin@jobsaju.kr<br/>
         본 개인정보처리방침은 서비스 또는 관계 법령의 변경에 따라 수정될 수 있으며, 변경되는 경우 서비스 내에서 안내합니다.</p>
         <br/>
-        <p style={{ color: '#888', fontSize: '12px' }}>시행일: 2026년 8월 15일</p>
+        <p style={{ color: 'var(--jg-muted, #686f68)', fontSize: '12px' }}>시행일: 2026년 9월 16일</p>
       </div>
     );
   } else if (type === 'refund') {
     title = '환불 및 청약철회 정책';
     content = (
-      <div style={{ lineHeight: '1.6', fontSize: '13px', color: '#ccc', wordBreak: 'keep-all' }}>
+      <div style={{ lineHeight: '1.6', fontSize: '13px', color: 'var(--jg-ink, #2f3732)', wordBreak: 'keep-all' }}>
         <p>잡사주는 사용자가 입력한 정보를 바탕으로 개별적으로 생성되는 맞춤형 디지털 콘텐츠를 제공합니다.</p>
         <br/>
         <p><strong>1. 리포트 생성 전</strong><br/>
@@ -156,7 +158,7 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
         <p><strong>7. 관계 법령의 우선 적용</strong><br/>
         본 정책에서 정하지 않은 사항 또는 본 정책의 내용과 관계 법령이 충돌하는 경우에는 「전자상거래 등에서의 소비자보호에 관한 법률」 등 관계 법령을 우선하여 적용합니다.</p>
         <br/>
-        <p style={{ color: '#888', fontSize: '12px' }}>시행일: 2026년 8월 15일</p>
+        <p style={{ color: 'var(--jg-muted, #686f68)', fontSize: '12px' }}>시행일: 2026년 9월 16일</p>
       </div>
     );
   }
@@ -170,7 +172,7 @@ export function PolicyModal({ type, onClose }: PolicyModalProps) {
       <div className="glass-card" style={{
         width: '100%', maxWidth: 480, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
         background: 'var(--jg-page, #faf8f2)', border: '1px solid var(--jg-line, #ddd8cd)',
-        boxShadow: '0 0 30px rgba(168,85,247,0.3)', padding: 24, borderRadius: 16
+        boxShadow: '0 18px 50px rgba(47,42,31,0.16)', padding: 24, borderRadius: 16
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ fontSize: 20, color: 'var(--jg-ink, #2f3732)', margin: 0 }}>

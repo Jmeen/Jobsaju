@@ -1,4 +1,5 @@
-const REPORT_TTL_SECONDS = 60 * 60 * 24 * 90;
+import { isReportExpired, resolveReportRetention } from './reportRetention.js';
+
 const EMAIL_HISTORY_LIMIT = 20;
 
 export function buildReportLabel(careerContext) {
@@ -9,13 +10,25 @@ export function buildReportLabel(careerContext) {
   return parts.length ? parts.join(' → ') : 'AI 커리어 리포트';
 }
 
-/** D1의 영구 보관과 별개로 이메일 다시보기와 딥링크용 KV 색인을 남긴다. */
-export async function archivePaidReport({ kv, paymentId, responsePayload, careerContext, birth, sajuData = null }) {
+/** 리포트 원본과 복구 색인을 KV에 같은 절대 만료일로 보관한다. */
+export async function archivePaidReport({
+  kv,
+  paymentId,
+  responsePayload,
+  careerContext,
+  birth,
+  sajuData = null,
+  purchasedAt = new Date(),
+  retention: suppliedRetention = null,
+}) {
   if (!kv) return;
   const token = String(paymentId || '').trim();
   if (!token) return;
 
-  const createdAt = new Date().toISOString();
+  const retention = suppliedRetention || await resolveReportRetention(kv, token, purchasedAt);
+  if (isReportExpired(retention)) throw new Error('Report retention has expired');
+  const createdAt = retention.purchasedAt;
+  const expirationOptions = { expiration: retention.expiration };
   const userContext = {
     ...careerContext,
     current_job: careerContext?.current_job || careerContext?.job_title || '',
@@ -31,8 +44,13 @@ export async function archivePaidReport({ kv, paymentId, responsePayload, career
       storedSajuData = null;
     }
   }
-  await kv.put(`report:copy-v2:${token}`, responsePayload, { expirationTtl: REPORT_TTL_SECONDS });
-  await kv.put(`meta:${token}`, JSON.stringify({ user_context: userContext, saju_data: storedSajuData }), { expirationTtl: REPORT_TTL_SECONDS });
+  await kv.put(`report:copy-v2:${token}`, responsePayload, expirationOptions);
+  await kv.put(`meta:${token}`, JSON.stringify({
+    user_context: userContext,
+    saju_data: storedSajuData,
+    purchased_at: retention.purchasedAt,
+    expires_at: retention.expiresAt,
+  }), expirationOptions);
 
   const email = String(careerContext?.email || '').toLowerCase().trim();
   if (!email || !email.includes('@')) return;
@@ -45,7 +63,22 @@ export async function archivePaidReport({ kv, paymentId, responsePayload, career
   } catch {
     history = rawHistory ? [{ token: rawHistory, createdAt: null, label: null }] : [];
   }
-  const withoutCurrent = history.filter((entry) => entry?.token !== token);
-  withoutCurrent.unshift({ token, createdAt, label: buildReportLabel(careerContext) });
-  await kv.put(emailKey, JSON.stringify(withoutCurrent.slice(0, EMAIL_HISTORY_LIMIT)), { expirationTtl: REPORT_TTL_SECONDS });
+  const now = Date.now();
+  const withoutCurrent = history.filter((entry) => (
+    entry?.token !== token
+    && (!entry?.expiresAt || Date.parse(entry.expiresAt) > now)
+  ));
+  withoutCurrent.unshift({
+    token,
+    createdAt,
+    expiresAt: retention.expiresAt,
+    label: buildReportLabel(careerContext),
+  });
+  const nextHistory = withoutCurrent.slice(0, EMAIL_HISTORY_LIMIT);
+  const latestExpiration = nextHistory.reduce((latest, entry) => {
+    const seconds = Math.ceil(Date.parse(entry?.expiresAt || '') / 1000);
+    return Number.isFinite(seconds) ? Math.max(latest, seconds) : latest;
+  }, retention.expiration);
+  await kv.put(emailKey, JSON.stringify(nextHistory), { expiration: latestExpiration });
+  return retention;
 }

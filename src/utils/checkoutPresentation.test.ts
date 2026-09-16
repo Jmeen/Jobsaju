@@ -9,7 +9,13 @@ import {
 test('사용자용 결제 문구는 커리어 선택 리포트 표현을 사용한다', () => {
   assert.equal(CHECKOUT_COPY.title, '커리어 선택 리포트 보기');
   assert.equal(CHECKOUT_COPY.savedResultSuffix, ' (커리어 선택 리포트 포함)');
-  assert.equal(CHECKOUT_COPY.lookupDescription, '결제 시 입력하셨던 이메일 주소를 입력하시면, 보관된 커리어 선택 리포트를 바로 불러옵니다.');
+  assert.equal(CHECKOUT_COPY.servicePeriodTitle, '서비스 제공 기간');
+  assert.match(CHECKOUT_COPY.serviceStart, /결제 완료 후.*즉시/);
+  assert.equal(CHECKOUT_COPY.lookupDescription, '구매한 커리어 선택 리포트를 다시 확인할 수 있어요.');
+  assert.doesNotMatch(
+    Object.values(CHECKOUT_COPY).filter(value => typeof value === 'string').join(' '),
+    /6개월|자동 삭제/,
+  );
   assert.equal(CHECKOUT_COPY.lookupButton, '커리어 선택 리포트 불러오기');
   assert.doesNotMatch(Object.values(CHECKOUT_COPY).filter(value => typeof value === 'string').join(' '), /풀이/);
   assert.doesNotMatch(
@@ -22,7 +28,7 @@ test('쿠폰이 없으면 유료 가격과 포트원 결제 액션을 제공한�
   assert.deepEqual(buildCheckoutPresentation(12900, null), {
     originalLabel: null,
     finalLabel: '12,900원',
-    buttonLabel: '⚡ 리포트 결제하기 (12,900원)',
+    buttonLabel: '리포트 결제하기 · 12,900원',
     action: 'unlock',
   });
 });
@@ -40,7 +46,7 @@ test('4,000원 할인 쿠폰은 할인액과 8,900원 결제 금액을 보여준
   assert.deepEqual(buildCheckoutPresentation(12900, 4000), {
     originalLabel: '12,900원',
     finalLabel: '8,900원',
-    buttonLabel: '⚡ 리포트 결제하기 (8,900원)',
+    buttonLabel: '리포트 결제하기 · 8,900원',
     action: 'unlock',
   });
 });

@@ -26,6 +26,7 @@ test('완성 메일은 Resend에 HTML과 텍스트 본문 및 리포트 링크�
     assert.match(body.subject, /갑목.*완성/);
     assert.match(body.html, /https:\/\/jobsaju\.kr\/\?p=/);
     assert.match(body.text, /https:\/\/jobsaju\.kr\/\?p=/);
+    assert.doesNotMatch(`${body.html}\n${body.text}`, /6개월|자동 삭제/);
   } finally {
     globalThis.fetch = originalFetch;
   }

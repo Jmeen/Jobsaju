@@ -7,7 +7,7 @@ export const SHARE_CARD_SIZE = 800;
 const BG = '#faf8f2';
 const INK = '#2f3732';
 const MUTED = '#858b83';
-const GREEN = '#66866e';
+const BRAND_STRONG = '#8a6500';
 
 // 디자인 시스템 토큰(--font-display / --font-body)과 같은 스택을 캔버스에서도 쓴다.
 // CSS 변수는 캔버스에서 못 읽으므로 문자열로 옮겨 적는다 — 토큰을 바꾸면 여기도 같이 고친다.
@@ -103,7 +103,7 @@ export function drawGuardianShareCard(
   ctx.font = `400 60px ${DISPLAY_FONT}`;
   ctx.fillText(guardian.nickname, size / 2, 540);
 
-  ctx.fillStyle = GREEN;
+  ctx.fillStyle = BRAND_STRONG;
   ctx.font = `28px ${BODY_FONT}`;
   ctx.fillText(`${guardian.ganzhiKo} · ${guardian.elementLabel} 기운의 수호신`, size / 2, 586);
 

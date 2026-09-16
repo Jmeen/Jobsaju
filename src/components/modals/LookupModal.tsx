@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useAppReport, useAppActions } from '../../contexts/AppContext';
-import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
+import { CHECKOUT_COPY } from '../../utils/checkoutPresentation';
 
 
 export function LookupModal() {
@@ -49,7 +49,7 @@ export function LookupModal() {
             ) : (
               <>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
-                  {CHECKOUT_COPY.lookupDescription} 입력하신 이메일로 리포트 열람 링크를 보내드려요 — 그 메일함을 열 수 있는 분만 다시 볼 수 있어요.
+                  {CHECKOUT_COPY.lookupDescription} 결제 시 입력한 이메일로 열람 링크를 보내드려요 — 그 메일함을 열 수 있는 분만 다시 볼 수 있어요.
                 </p>
 
                 <div className="form-group">

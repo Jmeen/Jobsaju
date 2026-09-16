@@ -182,3 +182,64 @@ test('API: 유료 리포트가 처음 완성되면 Resend 완료 메일을 waitU
     globalThis.fetch = originalFetch;
   }
 });
+
+test('API: 완성 리포트 본문은 자동 만료 KV에만 저장하고 D1에는 남기지 않는다', async () => {
+  const paymentId = 'retention_storage_test_123';
+  const writes = [];
+  const values = new Map([[
+    `token:${paymentId}`,
+    JSON.stringify({
+      status: 'unlocked',
+      createdAt: '2026-09-16T03:20:00.000Z',
+      expiresAt: '2027-03-17T03:20:00.000Z',
+    }),
+  ]]);
+  const kv = {
+    async get(key) { return values.get(key) ?? null; },
+    async put(key, value, options) { writes.push([key, value, options]); values.set(key, value); },
+  };
+  const dbWrites = [];
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          return {
+            async run() {
+              if (sql.includes('INSERT INTO paid_reports')) return { meta: { changes: 1 } };
+              dbWrites.push({ sql, params });
+              return { meta: { changes: 1 } };
+            },
+            async first() { return null; },
+          };
+        },
+      };
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    candidates: [{ content: { parts: [{ text: '{}' }] } }],
+  }), { status: 200 });
+
+  try {
+    const response = await handlePaidReportRequest({
+      url: 'https://jobsaju.kr/api/paid-report',
+      json: async () => ({
+        payment_id: paymentId,
+        birth: { year: 1990, month: 1, day: 1, isSolar: true, gender: 'M' },
+        career_context: { email: 'user@example.com', worry_text: 'test' },
+      }),
+    }, { SAJU_KV: kv, DB: db, GEMINI_API_KEY: 'fake' });
+
+    assert.equal(response.status, 200);
+    const reportWrite = writes.find(([key]) => key === `report:copy-v2:${paymentId}`);
+    assert.equal(reportWrite[2].expiration, Math.ceil(Date.parse('2027-03-17T03:20:00.000Z') / 1000));
+    assert.ok(dbWrites.some(({ sql, params }) => (
+      sql.includes("status = 'completed'")
+      && sql.includes('report_json = NULL')
+      && params.length === 1
+      && params[0] === paymentId
+    )));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -1,6 +1,7 @@
 import { buildGeminiRequest } from './geminiTransport.js';
 import { validateAndRepairPaidReport } from './paidReportValidator.js';
 import { archivePaidReport } from './reportArchive.js';
+import { buildReportRetention, isReportExpired, resolveReportRetention } from './reportRetention.js';
 import { buildPaidReportContext } from './paidReportContext.js';
 import { sendReportNotificationEmail } from './reportNotificationEmail.js';
 import { parseGeminiError } from './geminiError.js';
@@ -187,6 +188,7 @@ export async function handlePaidReportRequest(request, env, ctx) {
 
   // payment_id에는 클라이언트가 임의로 만든 주문번호가 아니라 /api/payment/validate가 발급한
   // 해금 토큰만 들어온다. 운영 환경의 KV 바인딩에서 이를 먼저 확인해야 AI 생성 비용을 보호한다.
+  let reportRetention = null;
   if (env.SAJU_KV) {
     const unlockRecord = await env.SAJU_KV.get(`token:${payment_id}`);
     if (!unlockRecord) {
@@ -195,6 +197,7 @@ export async function handlePaidReportRequest(request, env, ctx) {
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
     }
+    reportRetention = await resolveReportRetention(env.SAJU_KV, payment_id);
   }
 
   // Idempotency check with Cloudflare D1 - Atomic Lock
@@ -215,23 +218,40 @@ export async function handlePaidReportRequest(request, env, ctx) {
       // meta.changes will be 1 if we successfully inserted or updated. 0 if conflict was ignored.
       if (result.meta.changes === 0) {
         // We failed to acquire ownership, which means it's either 'generating', 'completed', or max retries exceeded
-        const row = await env.DB.prepare('SELECT status, report_json, generation_attempt FROM paid_reports WHERE payment_id = ?').bind(payment_id).first();
+        const row = await env.DB.prepare('SELECT status, report_json, generation_attempt, created_at FROM paid_reports WHERE payment_id = ?').bind(payment_id).first();
         if (row) {
           if (row.status === 'completed') {
             mark('cached_report');
-            // D1에만 남아 있던 완료본도 재시도 시 이메일 다시보기 색인을 복구한다.
-            try {
-              await archivePaidReport({
-                kv: env.SAJU_KV,
-                paymentId: payment_id,
-                responsePayload: row.report_json,
-                careerContext: career_context,
-                birth,
-              });
-            } catch (err) {
-              console.error('Completed paid report email archive error:', err);
+            const cachedReport = env.SAJU_KV
+              ? await env.SAJU_KV.get(`report:copy-v2:${payment_id}`)
+              : null;
+            if (cachedReport) {
+              return new Response(cachedReport, { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
             }
-            return new Response(row.report_json, { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+
+            // 이전 배포에서 D1에 남긴 리포트는 최초 접근 시 KV 자동 만료 저장소로 옮긴 뒤
+            // D1 본문을 즉시 비운다. 이미 보관 기한이 끝났으면 복원하지 않는다.
+            if (row.report_json) {
+              const legacyRetention = reportRetention || buildReportRetention(row.created_at || new Date());
+              if (!isReportExpired(legacyRetention)) {
+                await archivePaidReport({
+                  kv: env.SAJU_KV,
+                  paymentId: payment_id,
+                  responsePayload: row.report_json,
+                  careerContext: career_context,
+                  birth,
+                  retention: legacyRetention,
+                });
+                await env.DB.prepare('UPDATE paid_reports SET report_json = NULL WHERE payment_id = ?').bind(payment_id).run();
+                return new Response(row.report_json, { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+              }
+              await env.DB.prepare('UPDATE paid_reports SET report_json = NULL WHERE payment_id = ?').bind(payment_id).run();
+            }
+
+            return new Response(JSON.stringify({ error: '리포트 보관 기간이 종료되어 삭제되었습니다.' }), {
+              status: 410,
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            });
           } else if (row.status === 'generating') {
             mark('generating');
             return new Response(JSON.stringify({ error: 'Generating...' }), { status: 202, headers: { 'Access-Control-Allow-Origin': '*' } });
@@ -273,11 +293,14 @@ export async function handlePaidReportRequest(request, env, ctx) {
     if (env.SAJU_KV) {
       const existingToken = await env.SAJU_KV.get(`token:${payment_id}`);
       if (!existingToken) {
+        const retention = reportRetention || buildReportRetention(new Date());
         await env.SAJU_KV.put(`token:${payment_id}`, JSON.stringify({
           paymentId: payment_id,
-          createdAt: new Date().toISOString(),
+          createdAt: retention.purchasedAt,
+          expiresAt: retention.expiresAt,
           status: 'unlocked',
-        }));
+        }), { expiration: retention.expiration });
+        reportRetention = retention;
       }
     }
 
@@ -376,19 +399,7 @@ export async function handlePaidReportRequest(request, env, ctx) {
     });
     
     mark('save_report');
-    if (env.DB) {
-      try {
-        await env.DB.prepare("UPDATE paid_reports SET status = 'completed', report_json = ?, updated_at = CURRENT_TIMESTAMP WHERE payment_id = ?").bind(responsePayload, payment_id).run();
-      } catch (err) {
-        env.DIAGNOSTIC_TRACE?.attempts.push({ code: 'REPORT_DB_WRITE_FAILED' });
-        console.error("D1 DB Update Error:", err);
-      }
-    } else if (env.SAJU_KV) {
-      await env.SAJU_KV.put(`paidreport:${payment_id}`, responsePayload, { expirationTtl: 86400 * 30 }); // 30 days
-    }
-
-    // D1의 영구 보관과 함께 이메일 다시보기 및 토큰 딥링크 복구용 색인을 보관한다.
-    try {
+    if (env.SAJU_KV) {
       await archivePaidReport({
         kv: env.SAJU_KV,
         paymentId: payment_id,
@@ -396,11 +407,21 @@ export async function handlePaidReportRequest(request, env, ctx) {
         careerContext: career_context,
         birth,
         sajuData: analysis,
+        retention: reportRetention,
       });
-    } catch (err) {
-      // 색인 저장 오류가 이미 완성된 리포트 응답을 막으면 안 된다.
-      env.DIAGNOSTIC_TRACE?.attempts.push({ code: 'REPORT_ARCHIVE_FAILED' });
-      console.error('Paid report email archive error:', err);
+    } else if (env.DB) {
+      throw new Error('REPORT_STORAGE_UNAVAILABLE');
+    }
+
+    // D1은 중복 생성 잠금과 상태만 담당한다. 리포트 본문은 자동 만료되는 KV에만 둔다.
+    if (env.DB) {
+      try {
+        await env.DB.prepare("UPDATE paid_reports SET status = 'completed', report_json = NULL, updated_at = CURRENT_TIMESTAMP WHERE payment_id = ?").bind(payment_id).run();
+      } catch (err) {
+        env.DIAGNOSTIC_TRACE?.attempts.push({ code: 'REPORT_DB_WRITE_FAILED' });
+        console.error('D1 DB Update Error:', err);
+        throw err;
+      }
     }
 
     // 최초 생성이 완료된 요청에서만 알림을 예약한다. 완료본을 다시 조회하는 폴링 경로에서는

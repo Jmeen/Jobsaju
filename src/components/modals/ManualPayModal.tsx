@@ -163,6 +163,11 @@ export function ManualPayModal() {
                   </div>
                 )}
 
+                <section className="checkout-service-period" aria-labelledby="checkout-service-period-title">
+                  <strong id="checkout-service-period-title">{CHECKOUT_COPY.servicePeriodTitle}</strong>
+                  <span>{CHECKOUT_COPY.serviceStart}</span>
+                </section>
+
                 {/* 결제 / 해금 버튼 */}
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: 14, borderRadius: 12, border: '1px solid rgba(255,255,255,0.04)', marginBottom: 10, textAlign: 'left' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -182,7 +187,7 @@ export function ManualPayModal() {
                       className="btn-primary"
                       style={appliedCoupon
                         ? { padding: 13, fontSize: 14, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', boxShadow: '0 0 15px rgba(16,185,129,0.4)' }
-                        : { padding: 12, fontSize: 13, boxShadow: 'none' }}
+                        : { padding: 12, fontSize: 13, boxShadow: 'none', whiteSpace: 'nowrap' }}
                       onClick={() => runCheckoutAction(checkout.action, () => { void handleUnlock(emailInput); })}
                     >
                       {checkout.buttonLabel}
