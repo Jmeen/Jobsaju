@@ -26,7 +26,7 @@ export function LookupModal() {
   };
 
   return (
-    <div style={{
+    <div className="ph-mask" style={{
           position: 'fixed', inset: 0, background: 'rgba(47,55,50,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16
         }}>

@@ -1,6 +1,7 @@
 
 import React, { createContext, useCallback, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { requestFollowUp, FollowUpRequestError } from '../utils/followUpApi';
+import { trackClick, trackFunnel, trackScreen, paymentAnalyticsContext } from '../utils/posthogAnalytics';
 import { lastDiagnosticId, reportDiagnostic, setDiagnosticScreen } from '../utils/diagnostics';
 import { decodeSecurePayload } from '../utils/crypto';
 import { STORAGE_KEY, loadSavedSession } from '../utils/session';
@@ -112,6 +113,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [step, setStep] = useState<
     'landing' | 'birth' | 'summon' | 'result' | 'paywall' | 'personalize'
   >('landing');
+  useEffect(() => {
+    // Result and checkout views are tracked only when their lazy DOM mounts.
+    if (step !== 'result' && step !== 'landing') trackScreen(step);
+  }, [step]);
 
   // === Form Inputs State ===
   const [birthData, setBirthData] = useState({
@@ -457,7 +462,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setUnlockLoadingText('결제를 확인하는 중...');
     setIsAILoading(true);
-    void validatePayment(paymentId, pending.couponCode)
+    void validatePayment(paymentId, pending.couponCode, fetch, paymentAnalyticsContext(analyticsIds.resultSessionId))
       .then((unlockToken) => {
         clearPendingPayment();
         finishPaymentUnlock(unlockToken, pending.email, true);
@@ -561,12 +566,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               hasTime: birthData.hasTime
             }
           );
-          if (restoringSavedSessionRef.current) {
+          if (!controller.signal.aborted && restoringSavedSessionRef.current) {
             restoringSavedSessionRef.current = false;
-          } else {
+          } else if (!controller.signal.aborted) {
+            const reportId = createResultSessionId();
+            trackFunnel('report_generated', {
+              report_type: 'free_guardian', report_id: reportId,
+              generation_source: fromServer ? 'server' : 'client_fallback',
+            }, reportId);
             setAnalyticsIds(current => ({
               visitorSessionId: current.visitorSessionId,
-              resultSessionId: createResultSessionId(),
+              resultSessionId: reportId,
               shareId: null,
             }));
           }
@@ -1024,6 +1034,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setUnlockError('모바일 결제 정보를 저장하지 못했습니다. 브라우저의 사이트 데이터 저장을 허용한 뒤 다시 시도해 주세요.');
             return;
           }
+          trackFunnel('checkout_view', {
+            report_type: 'paid_career', report_id: analyticsIds.resultSessionId, checkout_stage: 'pg',
+            price: Math.max(0, price.amount - (appliedCoupon?.discountAmount || 0)),
+            ...(appliedCoupon ? { promo_code: appliedCoupon.code } : {}),
+          }, analyticsIds.resultSessionId);
           const paymentRes = await requestPortOnePayment({
             paymentId: requestedPaymentId,
             orderName: '잡사주 유료 리포트',
@@ -1059,7 +1074,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let unlockToken: string;
     try {
       // PG 결제 완료 응답만 신뢰하지 않고 Worker가 포트원 V2 API에서 상태와 금액을 재검증한다.
-      unlockToken = await validatePayment(paymentId, appliedCoupon?.code);
+      unlockToken = await validatePayment(paymentId, appliedCoupon?.code, fetch, paymentAnalyticsContext(analyticsIds.resultSessionId));
       clearPendingPayment();
     } catch (err: any) {
       clearPendingPayment();
@@ -1084,6 +1099,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUnlockError(null);
 
     const finalPaymentId = paid.paymentId;
+    trackFunnel('career_input_complete', {
+      report_type: 'paid_career', report_id: analyticsIds.resultSessionId,
+      input_mode: Object.values(patch).some(value => value.trim()) ? 'provided' : 'skipped',
+    }, finalPaymentId);
     try {
       // Create request payload
       const payload = {
@@ -1232,6 +1251,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     followUpPendingRef.current = true;
     try {
       const answer = await requestFollowUp(unlockToken, question, followUps.length + 1);
+      if (shareBonusGranted && followUps.length === 1) {
+        trackFunnel('second_report_generated', {
+          report_type: 'followup_bonus', report_id: analyticsIds.resultSessionId, generation_source: 'share_bonus',
+        }, unlockToken);
+      }
       setFollowUps(current => [...current, { question, answer, answeredAt: new Date().toISOString() }]);
       return true;
     } catch (error) {
@@ -1317,6 +1341,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 무료(guardian_share)와 유료(report_share) 공유를 분석에서 가르는 유일한 축이다.
     utmSource?: GuardianShareUtmSource,
   ) => {
+    if (eventName === 'guardian_share_click') trackClick('share_click', {
+      report_type: isUnlocked ? 'paid_career' : 'free_guardian', report_id: ids.resultSessionId, share_channel: shareChannel,
+    });
     void trackGuardianEvent({
       eventId: crypto.randomUUID(),
       eventName,
@@ -1505,6 +1532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const shareAnalyticsIds = { ...analyticsIds, shareId };
     if (shareId !== analyticsIds.shareId) setAnalyticsIds(shareAnalyticsIds);
     const guardianId = guardianIdFor(sajuResult);
+    trackClick('share_click', { report_type: 'paid_career', report_id: analyticsIds.resultSessionId });
     void trackGuardianEvent({
       eventId: crypto.randomUUID(),
       eventName: 'guardian_share_click',
@@ -1618,6 +1646,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   /** 진단 결과와 그 이후 */
   const reportState = useMemo(() => ({
+    resultSessionId: analyticsIds.resultSessionId,
     sajuResult,
     guardian,
     guardianConcern,
@@ -1635,7 +1664,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lookupError,
     lookupSentMessage,
     reportHistory,
-  }), [sajuResult, guardian, guardianConcern, shareInbound, isUnlocked, aiReport, unlockToken, followUps, followUpError, isFollowUpLoading, shareBonusGranted, isShareLoading, isShareConfirming, isLookupLoading, lookupError, lookupSentMessage, reportHistory]);
+  }), [analyticsIds.resultSessionId, sajuResult, guardian, guardianConcern, shareInbound, isUnlocked, aiReport, unlockToken, followUps, followUpError, isFollowUpLoading, shareBonusGranted, isShareLoading, isShareConfirming, isLookupLoading, lookupError, lookupSentMessage, reportHistory]);
 
   /** 결제·쿠폰 */
   const checkoutState = useMemo(() => ({

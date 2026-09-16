@@ -2,7 +2,8 @@
 // 그 전 단계(무료 수호신·유료 전환)는 GuardianResultScreen / PaywallScreen이 담당한다.
 // 디자인은 수호신 흐름과 같은 라이트 테마(.jg-*, report.css)로 통일한다.
 // 커리어 의사결정 리포트의 척추: 결론 → 이유 → 흐름 → 행동 → 맞는 환경.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { trackScreen } from '../../utils/posthogAnalytics';
 import { useAppReport, useAppActions } from '../../contexts/AppContext';
 import { STORAGE_KEY } from '../../utils/session';
 import { getGuardianAsset } from '../../utils/guardianAssets';
@@ -126,7 +127,11 @@ export function ResultScreen() {
     isShareLoading,
     isShareConfirming,
     unlockToken,
+    resultSessionId,
   } = useAppReport();
+  useEffect(() => {
+    if (aiReport && document.visibilityState === 'visible') trackScreen('result_paid', { report_type: 'paid_career', report_id: resultSessionId });
+  }, [aiReport, resultSessionId]);
   const {
     setStep,
     setCareerContext,
@@ -185,7 +190,7 @@ export function ResultScreen() {
   const snapshotDate = report?.snapshot?.generated_at ? new Date(report.snapshot.generated_at) : null;
 
   return (
-    <section className="jg-report">
+    <section className="jg-report ph-mask">
 
       {/* 이메일로 찾은 과거 리포트 선택 */}
       {reportHistory.length > 1 && (

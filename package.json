@@ -20,6 +20,8 @@
     "@google/genai": "^2.17.1",
     "@portone/browser-sdk": "latest",
     "lunar-javascript": "latest",
+    "posthog-js": "^1.433.5",
+    "posthog-node": "^5.52.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

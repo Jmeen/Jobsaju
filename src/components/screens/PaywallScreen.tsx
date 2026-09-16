@@ -43,7 +43,7 @@ export function PaywallScreen() {
   const months = buildMonthlyFlow(sajuResult.dayGan.char, natalZhis, 6);
 
   return (
-    <section className="jg-screen">
+    <section className="jg-screen ph-mask">
       <div className="jg-kicker">{guardian.nickname}가 지금 흐름을 뜯어봤어요</div>
       <h1 className="jg-title">왜 지금 {topSubject}<br />더 유리할까요?</h1>
       <p className="jg-sub">

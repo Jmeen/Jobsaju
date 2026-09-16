@@ -37,7 +37,7 @@ function AppRouter() {
       {step !== 'landing' && <div className="jg-brand">내 수호신</div>}
 
       {deepLinkError && (
-        <section className="jg-screen" style={{ textAlign: 'center', paddingTop: 48 }}>
+        <section className="jg-screen ph-mask" style={{ textAlign: 'center', paddingTop: 48 }}>
           <p className="jg-sub">{deepLinkError}</p>
           <button className="jg-btn" type="button" onClick={() => { setDeepLinkError(null); setStep('landing'); }}>
             처음으로 돌아가기

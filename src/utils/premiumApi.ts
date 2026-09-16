@@ -47,11 +47,12 @@ export async function validatePayment(
   paymentId: string,
   couponCode?: string,
   fetcher: typeof fetch = fetch,
+  analytics?: Record<string, unknown>,
 ): Promise<string> {
   const validationResponse = await fetcher('/api/payment/validate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ paymentId, couponCode }),
+    body: JSON.stringify({ paymentId, couponCode, ...(analytics ? { analytics } : {}) }),
   });
   const validationData = await readJson(validationResponse);
   if (!validationResponse.ok) throw responseError(validationResponse, validationData);

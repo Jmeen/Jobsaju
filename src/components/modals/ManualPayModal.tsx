@@ -1,10 +1,13 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { trackFunnel, trackScreen } from '../../utils/posthogAnalytics';
+import { useAppReport } from '../../contexts/AppContext';
 import { useAppCheckout, useAppActions } from '../../contexts/AppContext';
 import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
 
 
 export function ManualPayModal() {
+  const { resultSessionId } = useAppReport();
   const {
     isAILoading,
     unlockLoadingText,
@@ -26,6 +29,17 @@ export function ManualPayModal() {
     handleUnlock,
     handleApplyCoupon,
   } = useAppActions();
+  useEffect(() => {
+    const properties = {
+      report_type: 'paid_career', report_id: resultSessionId, checkout_stage: 'modal',
+      price: Math.max(0, price.amount - (appliedCoupon?.discountAmount || 0)),
+      ...(appliedCoupon ? { promo_code: appliedCoupon.code } : {}),
+    };
+    trackScreen('checkout', properties);
+    trackFunnel('checkout_view', properties, resultSessionId);
+    // Opening the modal is the view; applying coupons doesn't create another view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 결제 모달을 닫았다 다시 열어도 입력값이 남도록 초안 ref에서 시작한다.
   // (컨텍스트 state로 두면 한 글자마다 결과 화면 전체가 다시 그려진다)
@@ -41,7 +55,7 @@ export function ManualPayModal() {
   };
 
   return (
-    <div style={{
+    <div className="ph-mask" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(47,55,50,0.45)', display: 'flex', justifyContent: 'center', alignItems: 'center',
           zIndex: 100, padding: 20

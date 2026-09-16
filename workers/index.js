@@ -23,6 +23,7 @@ import {
   upsertCoupon,
 } from './coupons.js';
 import { REPORT_PRICE_AMOUNT } from '../src/utils/pricing.ts';
+import { schedulePurchaseCapture } from './posthogAnalytics.js';
 import {
   buildRepairInstruction,
   formatSeoulDate,
@@ -628,6 +629,7 @@ const worker = {
         const { paymentId = '', couponCode = '' } = requestBody;
 
         let isPaymentValid = false;
+        let verifiedPrice = null;
         let appliedCoupon = null;
         let failureReason = null;
 
@@ -668,6 +670,7 @@ const worker = {
               const expectedAmounts = [Math.max(0, REPORT_PRICE_AMOUNT - couponDiscountAmount)];
               if (paymentData.status === "PAID" && expectedAmounts.includes(paymentData.amount?.total)) {
                 isPaymentValid = true;
+                verifiedPrice = paymentData.amount.total;
               }
             } else {
               failureReason = "포트원에서 결제 완료 내역을 확인하지 못했습니다.";
@@ -700,6 +703,7 @@ const worker = {
             });
           }
           appliedCoupon = result.code;
+          if (!paymentId) verifiedPrice = 0;
         }
 
         // 해금용 유일 토큰 발급 (UUIDv4)
@@ -729,6 +733,10 @@ const worker = {
           }), { expiration: retention.expiration });
         }
 
+        schedulePurchaseCapture(env, ctx, {
+          analytics: requestBody.analytics, verifiedPrice, coupon: appliedCoupon,
+          purchaseId: paymentId || unlockToken,
+        });
         return new Response(JSON.stringify({
           status: "success",
           unlockToken,

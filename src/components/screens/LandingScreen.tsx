@@ -10,11 +10,17 @@ import { useAppActions, useAppFlow, useAppReport } from '../../contexts/AppConte
 import { getGuardianAsset } from '../../utils/guardianAssets';
 import { GuardianCarousel } from '../guardian/GuardianCarousel';
 import { GuardianImage } from '../guardian/GuardianImage';
+import { useEffect } from 'react';
+import { trackFunnel, trackScreen, trackClick } from '../../utils/posthogAnalytics';
 
 export function LandingScreen() {
   const { savedSession } = useAppFlow();
   const { shareInbound } = useAppReport();
   const { setStep, restoreSavedSession, setShowLookupModal } = useAppActions();
+  useEffect(() => {
+    trackScreen('landing');
+    trackFunnel('landing_view', { report_type: 'free_guardian' }, 'session');
+  }, []);
 
   return (
     <section className="jg-screen jg-landing">
@@ -38,7 +44,7 @@ export function LandingScreen() {
       <GuardianCarousel />
 
       <div className="jg-landing-cta">
-        <button className="jg-btn" type="button" onClick={() => setStep('birth')}>
+        <button className="jg-btn" type="button" onClick={() => { trackClick('start_click', { report_type: 'free_guardian' }); setStep('birth'); }}>
           내 수호신 뽑아보기
         </button>
         <p className="jg-landing-note">생년월일 입력 후 바로 확인 · 무료</p>

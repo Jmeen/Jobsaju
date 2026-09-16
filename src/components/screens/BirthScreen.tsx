@@ -13,6 +13,7 @@ import {
   withCurrentValue,
 } from '../../utils/birthWheel';
 import type { Meridiem } from '../../utils/birthWheel';
+import { trackClick } from '../../utils/posthogAnalytics';
 
 export function BirthScreen() {
   const { birthData, birthError } = useAppFlow();
@@ -56,7 +57,7 @@ export function BirthScreen() {
         입력한 정보는 내 수호신과 지금의 커리어 흐름을 확인하는 데 사용해요.
       </p>
 
-      <div className="jg-birth-card">
+      <div className="jg-birth-card ph-no-capture">
         <span className="jg-birth-label">성별 (필수)</span>
         <div className="jg-toggle-row">
           <button
@@ -152,7 +153,7 @@ export function BirthScreen() {
         className="jg-btn"
         type="button"
         disabled={Boolean(digitsError || birthError || !parsed)}
-        onClick={() => setStep('summon')}
+        onClick={() => { trackClick('profile_complete', { report_type: 'free_guardian' }); setStep('summon'); }}
       >
         수호신 깨우기
       </button>

@@ -9,17 +9,20 @@ import { buildCareerSignal } from '../../utils/careerSignal';
 import { getGuardianCharacter } from '../../utils/guardianCharacters';
 import { ChemistryBlock } from '../guardian/ChemistryBlock';
 import { GuardianImage } from '../guardian/GuardianImage';
+import { useFreeReportAnalytics } from '../FreeReportAnalytics';
+import { trackClick } from '../../utils/posthogAnalytics';
 
 export function GuardianResultScreen() {
-  const { guardian, sajuResult, isShareLoading } = useAppReport();
+  const { guardian, sajuResult, isShareLoading, resultSessionId } = useAppReport();
   const { setStep, handleGuardianKakaoShare, handleGuardianLinkCopy, trackMatchSectionView } = useAppActions();
+  const analyticsRef = useFreeReportAnalytics(resultSessionId, Boolean(guardian && sajuResult));
 
   if (!guardian || !sajuResult) return null;
   const reason = buildGuardianReason(getGuardianCharacter(guardian.id), guardian.nickname);
   const signal = buildCareerSignal(sajuResult.scores);
 
   return (
-    <section className="jg-screen">
+    <section className="jg-screen ph-mask" ref={analyticsRef}>
       <div className="jg-kicker" style={{ textAlign: 'center' }}>당신의 수호신이 도착했어요</div>
       <p className="jg-arrival">오늘부터 당신과 함께 출근할 친구예요</p>
 
@@ -28,7 +31,7 @@ export function GuardianResultScreen() {
       <h1 className="jg-result-name">
         {guardian.nickname}
         <span className="jg-ganzhi">
-          {guardian.ganzhiKo} {guardian.id} · {guardian.elementLabel} 기운의 수호신
+          <span className="ph-no-capture">{guardian.ganzhiKo} {guardian.id} · {guardian.elementLabel} 기운의 수호신</span>
         </span>
       </h1>
 
@@ -75,7 +78,7 @@ export function GuardianResultScreen() {
           <p>{signal.bridge}</p>
         </div>
 
-        <button className="jg-btn" type="button" onClick={() => setStep('paywall')}>
+        <button className="jg-btn" type="button" onClick={() => { trackClick('detail_report_click', { report_type: 'paid_career', report_id: resultSessionId }); setStep('paywall'); }}>
           {signal.ctaLabel}
         </button>
         <p className="jg-result-options">왜 유리한지 · 언제 움직일지 · 어떻게 행동할지</p>
