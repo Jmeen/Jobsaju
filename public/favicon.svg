@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <!-- 수호신 브랜드 마크. 세이지 그린 배경 위에 소환 모티프인 새싹.
+  <!-- 수호신 브랜드 마크. 밝은 노랑 배경 위에 소환 모티프인 새싹.
        16px에서도 새싹이 뭉개지지 않도록 형태를 최대한 단순하게 둔다. -->
-  <rect width="48" height="48" rx="13" fill="#66866e"/>
-  <g fill="none" stroke="#faf8f2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <rect width="48" height="48" rx="13" fill="#FEE500"/>
+  <g fill="none" stroke="#3D3100" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
     <!-- 줄기 -->
     <path d="M24 37 V22"/>
     <!-- 왼쪽 잎 -->
-    <path d="M24 26 C18 26 14 22 14 16 C20 16 24 20 24 26 Z" fill="#faf8f2" stroke="none"/>
+    <path d="M24 26 C18 26 14 22 14 16 C20 16 24 20 24 26 Z" fill="#3D3100" stroke="none"/>
     <!-- 오른쪽 잎 -->
-    <path d="M24 23 C30 23 34 19 34 13 C28 13 24 17 24 23 Z" fill="#eef6f1" stroke="none"/>
+    <path d="M24 23 C30 23 34 19 34 13 C28 13 24 17 24 23 Z" fill="#665800" stroke="none"/>
   </g>
 </svg>

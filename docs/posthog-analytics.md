@@ -26,7 +26,7 @@ PostHog 프로젝트 설정에서 Session Replay를 켜고 필요한 샘플링/�
 | 이벤트 | 실제 지점 | 중복 방지 |
 |---|---|---|
 | `landing_view` | LandingScreen 최초 마운트 | 탭 세션 1회 |
-| `start_click` | 랜딩의 내 수호신 뽑아보기 버튼 | 800ms 연타 방지 |
+| `start_click` | 랜딩의 내 수호신 찾기 버튼 | 800ms 연타 방지 |
 | `profile_complete` | BirthScreen 유효한 입력 후 수호신 깨우기 | 800ms 연타 방지, 입력 원문 없음 |
 | `career_input_complete` | submitPersonalization에서 결제 토큰을 확인한 뒤 요청 시작 | 해금 건별 1회, `input_mode=provided/skipped` |
 | `report_generated` | 소환 단계 무료 서버 결과 또는 클라이언트 fallback 계산이 실제 성공 | 새 report UUID별 1회, 저장 결과 복원은 제외 |

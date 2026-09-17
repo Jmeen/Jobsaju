@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react';
 import { AppProvider, useAppFlow, useAppReport, useAppActions, STORAGE_KEY } from './contexts/AppContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BusinessFooter } from './components/BusinessFooter';
+import { BrandHeader } from './components/BrandHeader';
 import { LandingScreen } from './components/screens/LandingScreen';
 import { BirthScreen } from './components/screens/BirthScreen';
 
@@ -34,7 +35,7 @@ function AppRouter() {
 
   return (
     <div className="jg-app" data-element={element}>
-      {step !== 'landing' && <div className="jg-brand">내 수호신</div>}
+      <BrandHeader />
 
       {deepLinkError && (
         <section className="jg-screen ph-mask" style={{ textAlign: 'center', paddingTop: 48 }}>

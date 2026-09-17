@@ -1,4 +1,4 @@
-// 목업 1번 화면 — "60마리 중 내 수호신은 누구?"
+// 출퇴근 수호신을 발견하는 메인 화면.
 //
 // 이 화면은 사주 설명 페이지가 아니라 캐릭터 발견 페이지다. 만들어야 하는 감정은
 // "캐릭터가 계속 바뀌네 → 이름이 웃기네 → 나는 뭐가 나올까 → 해봐야지"까지다.
@@ -38,14 +38,21 @@ export function LandingScreen() {
         );
       })()}
 
-      <h1>60마리 중<br />내 수호신은 누구?</h1>
-      <p className="jg-landing-sub">직장인마다 하나씩 있는, 내 일머리 수호신 찾기</p>
+      <h1>내 출퇴근 수호신은<br />누구일까?</h1>
+      <p className="jg-landing-sub">
+        60마리 수호신으로 알아보는<br />
+        <strong>나의 일하는 성향과 직장생활 케미</strong>
+      </p>
+      <p className="jg-landing-description">
+        나와 닮은 수호신을 찾고<br />
+        회사에서 나는 어떤 유형인지 확인해보세요.
+      </p>
 
       <GuardianCarousel />
 
       <div className="jg-landing-cta">
         <button className="jg-btn" type="button" onClick={() => { trackClick('start_click', { report_type: 'free_guardian' }); setStep('birth'); }}>
-          내 수호신 뽑아보기
+          내 수호신 찾기
         </button>
         <p className="jg-landing-note">생년월일 입력 후 바로 확인 · 무료</p>
       </div>
