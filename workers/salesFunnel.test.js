@@ -95,6 +95,12 @@ test('시간 창 밖의 이벤트와 과도한 반복 호출은 거절한다', a
   assert.equal(last.status, 429);
 });
 
+test('저장소 오류는 503으로 돌려주고 예외를 던지지 않는다', async () => {
+  const DB = { prepare() { throw new Error('no such table: sales_funnel_events'); } };
+  const response = await handleSalesFunnelRequest(post(browserEvent()), { DB }, { now: NOW, buckets: new Map() });
+  assert.equal(response.status, 503);
+});
+
 test('결제 확인은 결제번호당 한 행만 남고 금액·종류를 서버 값으로 기록한다', async () => {
   const DB = fakeDb();
   const input = {

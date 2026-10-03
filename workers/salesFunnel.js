@@ -107,12 +107,18 @@ export async function handleSalesFunnelRequest(request, env, { now = Date.now(),
   if (!BROWSER_SALES_EVENT_NAMES.has(event.eventName)) return json({ error: 'Invalid eventName' }, 400);
   if (!isValidOccurredAt(event.occurredAt, now)) return json({ error: 'Invalid occurredAt' }, 400);
 
-  await insertSalesEvent(env, {
-    eventId: event.eventId,
-    eventName: event.eventName,
-    occurredAt: event.occurredAt,
-    ...sanitizeSalesAttribution(event),
-  });
+  try {
+    await insertSalesEvent(env, {
+      eventId: event.eventId,
+      eventName: event.eventName,
+      occurredAt: event.occurredAt,
+      ...sanitizeSalesAttribution(event),
+    });
+  } catch (error) {
+    // 테이블 마이그레이션 전이거나 D1 장애여도 처리되지 않은 예외로 번지지 않게 한다.
+    console.warn('Sales funnel insert failed:', error instanceof Error ? error.message : 'unknown');
+    return json({ error: 'Funnel unavailable' }, 503);
+  }
   return json({ accepted: true }, 202);
 }
 
