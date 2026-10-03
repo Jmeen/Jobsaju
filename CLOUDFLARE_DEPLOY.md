@@ -38,7 +38,7 @@ Pages의 **Variables and Secrets**에 다음 값을 Preview와 Production 환경
 - Pages 빌드 변수: `VITE_PORTONE_STORE_ID`, `VITE_PORTONE_CHANNEL_KEY`를 등록합니다. 둘은 브라우저에 공개되는 식별자입니다.
 - Pages secret: `PORTONE_API_SECRET`을 등록합니다. 이 값은 포트원 V2 API Secret이며 KCP 인증서나 개인키가 아닙니다.
 - KCP 테스트 채널은 포트원 콘솔에서 `T0000` 및 KCP 테스트 인증서/개인키로 먼저 완성해야 합니다. 앱에는 `T0000`을 넣지 않습니다.
-- 결제 완료 뒤 Worker가 `GET https://api.portone.io/payments/{paymentId}`로 `PAID`와 결제금액(6,900원 또는 8,900원)을 확인한 뒤에만 해금 토큰을 발급합니다.
+- 결제 완료 뒤 Worker가 `GET https://api.portone.io/payments/{paymentId}`로 `PAID`와 결제금액(`src/utils/pricing.ts`의 정가 12,900원에서 쿠폰 할인액을 뺀 금액)을 확인한 뒤에만 해금 토큰을 발급합니다.
 
 추가 질문 1회 제한과 해금 토큰 보존을 테스트하려면 Pages 프로젝트의 **Settings → Bindings**에서 KV namespace를 `SAJU_KV`라는 이름으로 연결합니다. Preview와 Production의 바인딩은 각각 확인합니다.
 

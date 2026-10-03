@@ -147,7 +147,7 @@ export function BirthScreen() {
         </label>
       </div>
 
-      {(digitsError || birthError) && <p className="jg-error">{digitsError || birthError}</p>}
+      {(digitsError || (digits.length === 6 && birthError)) && <p className="jg-error">{digitsError || birthError}</p>}
 
       <button
         className="jg-btn"

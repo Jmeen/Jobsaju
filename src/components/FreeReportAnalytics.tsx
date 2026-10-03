@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { reportScrollThresholds } from '../utils/reportScrollAnalytics';
 import { trackFunnel, trackScreen } from '../utils/posthogAnalytics';
+import { trackSales } from '../utils/salesFunnel';
 
 /** Mounted inside the lazy result screen, never before the result DOM is visible. */
 export function useFreeReportAnalytics(reportId: string, ready: boolean) {
@@ -15,6 +16,7 @@ export function useFreeReportAnalytics(reportId: string, ready: boolean) {
       if (document.visibilityState !== 'visible') return;
       trackScreen('result_free', properties);
       trackFunnel('report_view', properties, scope);
+      trackSales('free_result_view', reportId);
     };
     const measure = () => {
       frame = 0;

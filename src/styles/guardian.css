@@ -486,6 +486,8 @@ body {
 .jg-followup { margin-top: 12px; padding: 16px; border-radius: 18px; background: var(--jg-guardian-soft); }
 .jg-followup-lead { display: block; margin: -4px 0 10px; color: var(--jg-ink); font-size: 13px; font-weight: 500; }
 .jg-followup p { margin: 7px 0 0; color: var(--jg-muted); font-size: 10px; line-height: 1.55; }
+.jg-price-line { margin: 10px 0 0; color: var(--jg-muted); font-size: 13px; }
+.jg-price-line strong { color: var(--jg-ink); }
 .jg-product-summary { margin: 15px 0 -3px; color: var(--jg-muted); text-align: center; font-size: 10px; }
 .jg-decision-preview .jg-preview-title + p { margin-top: 12px; }
 .jg-decision-preview .jg-preview-title:not(:first-child) {

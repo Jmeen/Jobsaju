@@ -35,6 +35,11 @@ import {
   handleGuardianAnalyticsRequest,
   recordGuardianAnalyticsEvent,
 } from './guardianAnalytics.js';
+import {
+  handleSalesFunnelAdminRequest,
+  handleSalesFunnelRequest,
+  recordPurchaseConfirmed,
+} from './salesFunnel.js';
 
 /**
  * 직장인 이직사주 - Cloudflare Workers 기반 AI API 프록시 & 해금 게이트웨이
@@ -462,6 +467,10 @@ const worker = {
     const guardianAnalyticsResponse = await handleGuardianAnalyticsRequest(request, env);
     if (guardianAnalyticsResponse) return guardianAnalyticsResponse;
 
+    const salesFunnelResponse = await handleSalesFunnelRequest(request, env)
+      || await handleSalesFunnelAdminRequest(request, env);
+    if (salesFunnelResponse) return salesFunnelResponse;
+
     // --- 프론트엔드가 카카오 웹훅 도착 여부를 짧은 간격으로 확인하는 폴링 API ---
     if (request.method === "POST" && new URL(request.url).pathname === "/api/share-bonus/status") {
       const { unlock_token: unlockToken, share_id: shareId } = await request.json().catch(() => ({}));
@@ -733,6 +742,14 @@ const worker = {
           }), { expiration: retention.expiration });
         }
 
+        // 채널별 판매 집계의 기준 행. PG 검증·결제번호 소비·토큰 저장이 끝난 여기서만 쓴다.
+        await recordPurchaseConfirmed(env, {
+          purchaseId: paymentId || unlockToken,
+          amount: verifiedPrice,
+          paymentKind: paymentId ? 'pg' : (appliedCoupon ? 'coupon_free' : 'sandbox'),
+          couponCode: appliedCoupon,
+          sales: requestBody.sales,
+        });
         schedulePurchaseCapture(env, ctx, {
           analytics: requestBody.analytics, verifiedPrice, coupon: appliedCoupon,
           purchaseId: paymentId || unlockToken,

@@ -4,6 +4,7 @@ import { trackFunnel, trackScreen } from '../../utils/posthogAnalytics';
 import { useAppReport } from '../../contexts/AppContext';
 import { useAppCheckout, useAppActions } from '../../contexts/AppContext';
 import { CHECKOUT_COPY, runCheckoutAction } from '../../utils/checkoutPresentation';
+import { trackSales } from '../../utils/salesFunnel';
 
 
 export function ManualPayModal() {
@@ -37,6 +38,7 @@ export function ManualPayModal() {
     };
     trackScreen('checkout', properties);
     trackFunnel('checkout_view', properties, resultSessionId);
+    trackSales('checkout_open', resultSessionId);
     // Opening the modal is the view; applying coupons doesn't create another view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -180,6 +182,8 @@ export function ManualPayModal() {
                 <section className="checkout-service-period" aria-labelledby="checkout-service-period-title">
                   <strong id="checkout-service-period-title">{CHECKOUT_COPY.servicePeriodTitle}</strong>
                   <span>{CHECKOUT_COPY.serviceStart}</span>
+                  <span>{CHECKOUT_COPY.includes}</span>
+                  <span>{CHECKOUT_COPY.delivery}</span>
                 </section>
 
                 {/* 결제 / 해금 버튼 */}
@@ -220,9 +224,7 @@ export function ManualPayModal() {
                           ? '전액 할인 쿠폰이 적용된 상태입니다.'
                           : `${appliedCoupon.discountAmount.toLocaleString()}원 할인 적용 · ${checkout.finalLabel} 결제`
                       ) : (
-                        <span>
-                          안전하고 간편한 결제가 지원됩니다.
-                        </span>
+                        <span>{CHECKOUT_COPY.paymentNote}</span>
                       )}
                     </div>
                   </div>

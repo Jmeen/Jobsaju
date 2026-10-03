@@ -1,3 +1,5 @@
+import { salesAttribution, type SalesAttribution } from './salesFunnel.ts';
+
 export type PremiumReportPayload = {
   user_context: Record<string, unknown>;
   saju_data: Record<string, unknown>;
@@ -48,11 +50,12 @@ export async function validatePayment(
   couponCode?: string,
   fetcher: typeof fetch = fetch,
   analytics?: Record<string, unknown>,
+  sales: SalesAttribution | undefined = salesAttribution(),
 ): Promise<string> {
   const validationResponse = await fetcher('/api/payment/validate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ paymentId, couponCode, ...(analytics ? { analytics } : {}) }),
+    body: JSON.stringify({ paymentId, couponCode, ...(analytics ? { analytics } : {}), ...(sales ? { sales } : {}) }),
   });
   const validationData = await readJson(validationResponse);
   if (!validationResponse.ok) throw responseError(validationResponse, validationData);

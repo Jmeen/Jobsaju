@@ -2,6 +2,7 @@
 import React, { createContext, useCallback, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { requestFollowUp, FollowUpRequestError } from '../utils/followUpApi';
 import { trackClick, trackFunnel, trackScreen, paymentAnalyticsContext } from '../utils/posthogAnalytics';
+import { salesAttribution, trackSales } from '../utils/salesFunnel';
 import { lastDiagnosticId, reportDiagnostic, setDiagnosticScreen } from '../utils/diagnostics';
 import { decodeSecurePayload } from '../utils/crypto';
 import { STORAGE_KEY, loadSavedSession } from '../utils/session';
@@ -462,7 +463,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setUnlockLoadingText('결제를 확인하는 중...');
     setIsAILoading(true);
-    void validatePayment(paymentId, pending.couponCode, fetch, paymentAnalyticsContext(analyticsIds.resultSessionId))
+    void validatePayment(paymentId, pending.couponCode, fetch, paymentAnalyticsContext(analyticsIds.resultSessionId), salesAttribution(analyticsIds.resultSessionId))
       .then((unlockToken) => {
         clearPendingPayment();
         finishPaymentUnlock(unlockToken, pending.email, true);
@@ -1039,6 +1040,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             price: Math.max(0, price.amount - (appliedCoupon?.discountAmount || 0)),
             ...(appliedCoupon ? { promo_code: appliedCoupon.code } : {}),
           }, analyticsIds.resultSessionId);
+          // 결제창 진입 시도. 결제 완료가 아니다 — 완료는 서버의 purchase_confirmed만 센다.
+          trackSales('checkout_start', analyticsIds.resultSessionId, requestedPaymentId);
           const paymentRes = await requestPortOnePayment({
             paymentId: requestedPaymentId,
             orderName: '잡사주 유료 리포트',
@@ -1074,7 +1077,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let unlockToken: string;
     try {
       // PG 결제 완료 응답만 신뢰하지 않고 Worker가 포트원 V2 API에서 상태와 금액을 재검증한다.
-      unlockToken = await validatePayment(paymentId, appliedCoupon?.code, fetch, paymentAnalyticsContext(analyticsIds.resultSessionId));
+      unlockToken = await validatePayment(paymentId, appliedCoupon?.code, fetch, paymentAnalyticsContext(analyticsIds.resultSessionId), salesAttribution(analyticsIds.resultSessionId));
       clearPendingPayment();
     } catch (err: any) {
       clearPendingPayment();

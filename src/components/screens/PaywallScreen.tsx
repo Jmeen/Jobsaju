@@ -2,7 +2,9 @@
 // "더 자세히 보기(정보량을 더 사는 느낌)"가 아니라 "왜·언제·어떻게"를 판다.
 // 무료에서 방향(◎○△)을 이미 보여줬으니, 여기서는 그 방향이 왜 유리한지·언제 움직일지·어떻게
 // 행동할지에 답한다. 점수 자체는 흐릿하게만 둔다.
+import { useEffect } from 'react';
 import { useAppActions, useAppCheckout, useAppReport } from '../../contexts/AppContext';
+import { trackSales } from '../../utils/salesFunnel';
 import { buildCareerSignal } from '../../utils/careerSignal';
 import type { CareerAxis } from '../../utils/careerSignal';
 import { buildMonthlyFlow } from '../../utils/monthlyFlow';
@@ -24,9 +26,14 @@ const AXIS_SUBJECT: Record<CareerAxis, string> = {
 };
 
 export function PaywallScreen() {
-  const { guardian, sajuResult } = useAppReport();
+  const { guardian, sajuResult, resultSessionId } = useAppReport();
   const { price } = useAppCheckout();
   const { setStep, setShowManualPayModal } = useAppActions();
+
+  const ready = Boolean(guardian && sajuResult);
+  useEffect(() => {
+    if (ready) trackSales('paywall_view', resultSessionId);
+  }, [ready, resultSessionId]);
 
   if (!guardian || !sajuResult) return null;
 
@@ -48,6 +55,11 @@ export function PaywallScreen() {
       <h1 className="jg-title">왜 지금 {topSubject}<br />더 유리할까요?</h1>
       <p className="jg-sub">
         방향은 무료에서 봤으니, 이제 이유·타이밍·행동을 봐요.
+      </p>
+
+      {/* 가격은 맨 아래 버튼에만 있었다. 스크롤 전에 무엇을 얼마에 사는지 보이게 한다. */}
+      <p className="jg-price-line">
+        <strong>커리어 선택 리포트 {price.label}</strong> · 1회 결제
       </p>
 
       <div className="jg-personalization-note">

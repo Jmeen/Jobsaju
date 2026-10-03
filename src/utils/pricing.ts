@@ -6,7 +6,7 @@ export type PriceVariant = 'standard';
 export interface PriceView {
   variant: PriceVariant;
   amount: number;
-  /** 화면 표기용 (예: "8,900원") */
+  /** 화면 표기용 (예: "12,900원") */
   label: string;
 }
 
