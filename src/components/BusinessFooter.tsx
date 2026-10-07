@@ -8,7 +8,7 @@ export function BusinessFooter() {
     <>
       <footer className="business-footer" aria-label="사업자 정보">
         <p className="business-footer__brand">
-          잡사주 <span aria-hidden="true">|</span> 운영: 두리하나랩
+          잡사주 <span aria-hidden="true">|</span> 운영: <a href="https://durihanalab.com/" target="_blank" rel="noopener">두리하나랩</a>
         </p>
         <p>
           대표: 임재민 <span aria-hidden="true">·</span> 사업자등록번호 306-16-54574
